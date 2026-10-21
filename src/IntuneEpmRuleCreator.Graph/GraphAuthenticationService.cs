@@ -265,7 +265,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         var settingPath = Uri.EscapeDataString(settingId);
         var policyPath = Uri.EscapeDataString(policy.Id);
         using var request = new HttpRequestMessage(HttpMethod.Patch,
-            $"https://graph.microsoft.com/beta/deviceManagement/configurationPolicies('{policyPath}')/settings/{settingPath}");
+            $"https://graph.microsoft.com/beta/deviceManagement/configurationPolicies/{policyPath}/settings/{settingPath}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (setting["@odata.etag"]?.GetValue<string>() is { Length: > 0 } etag)
