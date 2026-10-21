@@ -428,7 +428,10 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         SetOptionalSimple(children, "filehash", rule.FileHash);
         SetOptionalSimple(children, "filepath", rule.FilePath);
         SetOptionalSimple(children, "productname", rule.ProductName);
-        SetOptionalSimple(children, "filedescription", rule.FileDescription);
+        // Intune's EPM schema caps File description at 50 characters. File metadata is
+        // read-only in the UI, so retain the prefix that fits and report this in validation.
+        SetOptionalSimple(children, "filedescription",
+            rule.FileDescription is { Length: > 50 } fileDescription ? fileDescription[..50] : rule.FileDescription);
         SetOptionalSimple(children, "internalname", rule.InternalName);
         SetOptionalSimple(children, "fileversion", RuleValidationService.NormalizeMinimumFileVersionToFourParts(rule.MinimumFileVersion));
 

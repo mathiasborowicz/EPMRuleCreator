@@ -107,6 +107,23 @@ public sealed class RuleValidationServiceTests
     }
 
     [Fact]
+    public void LongFileDescription_IsNonBlockingAndWarnsThatUploadWillShortenIt()
+    {
+        var rule = new ElevationRule
+        {
+            Name = "Signed app",
+            IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes,
+            PublisherCertificate = new CertificateAttributes("CN=Publisher", "CN=Issuer", "thumbprint",
+                DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1), true),
+            FileDescription = new string('x', 60)
+        };
+
+        var result = _service.Validate(rule, 0, true);
+        Assert.True(result.CanSubmit);
+        Assert.Contains(result.Issues, issue => issue.Code == "file.description.truncated" && !issue.IsBlocking);
+    }
+
+    [Fact]
     public void FileVersion_IsOptionalButMustMatchFourPartNumericFormatAndThirtyCharacterLimit()
     {
         var rule = new ElevationRule

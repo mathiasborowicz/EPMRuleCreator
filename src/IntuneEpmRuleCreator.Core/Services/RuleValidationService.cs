@@ -36,6 +36,9 @@ public sealed class RuleValidationService
         else if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) && !FileVersionPattern.IsMatch(rule.MinimumFileVersion))
             issues.Add(new("file.version.invalid_format", "The file version must contain exactly four numeric parts separated by dots, for example 1.1.0.0 or 12.3.5.5.", true));
 
+        if (rule.FileDescription?.Length > 50)
+            issues.Add(new("file.description.truncated", "Intune allows at most 50 characters for File description; the uploaded value will be shortened to 50 characters.", false));
+
         if (hashIdentification && string.IsNullOrWhiteSpace(rule.FileHash))
             issues.Add(new("file.sha256.required", "A SHA256 hash is required when no certificate is selected.", true));
         else if (!string.IsNullOrWhiteSpace(rule.FileHash) &&
