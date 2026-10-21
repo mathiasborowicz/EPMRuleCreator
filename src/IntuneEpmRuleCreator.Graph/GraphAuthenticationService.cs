@@ -6,15 +6,28 @@ using Microsoft.Identity.Client.Extensions.Msal;
 namespace IntuneEpmRuleCreator.Graph;
 
 public sealed record GraphUserProfile(string DisplayName, string UserPrincipalName, string TenantId);
+public sealed record ElevationRulePolicy(
+    string Id,
+    string Name,
+    string? Description,
+    string? Platforms,
+    string? Technologies,
+    DateTimeOffset? LastModifiedDateTime,
+    int SettingCount,
+    bool IsAssigned);
+public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount);
 
 /// <summary>Interactive delegated authentication for the Microsoft Graph global cloud.</summary>
 public sealed class GraphAuthenticationService : IAsyncDisposable
 {
-    private static readonly string[] Scopes = ["User.Read"];
+    private static readonly string[] Scopes = ["User.Read", "DeviceManagementConfiguration.ReadWrite.All"];
+    private const string ElevationRulesSettingDefinitionId = "device_vendor_msft_policy_privilegemanagement_elevationrules_{elevationrulename}";
+    private const int DefaultMaximumRuleCount = 100;
     private readonly HttpClient _httpClient = new();
     private IPublicClientApplication? _client;
     private MsalCacheHelper? _cacheHelper;
     private IAccount? _account;
+    private IntPtr _parentWindow;
 
     public async Task<GraphUserProfile> SignInAsync(string clientId, string tenantId, IntPtr parentWindow, CancellationToken cancellationToken = default)
     {
@@ -43,8 +56,149 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             .WithParentActivityOrWindow(parentWindow)
             .ExecuteAsync(cancellationToken);
         _account = authResult.Account;
+        _parentWindow = parentWindow;
         return await GetUserProfileAsync(authResult.AccessToken, authResult.TenantId, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<ElevationRulePolicy>> GetElevationRulePoliciesAsync(CancellationToken cancellationToken = default)
+    {
+        if (_client is null || _account is null)
+            throw new InvalidOperationException("Sign in to Microsoft Graph before loading EPM policies.");
+
+        var accessToken = await GetAccessTokenAsync(cancellationToken);
+        var filter = Uri.EscapeDataString("templateReference/templateFamily eq 'endpointSecurityEndpointPrivilegeManagement'");
+        var select = "id,name,description,platforms,lastModifiedDateTime,technologies,settingCount,isAssigned";
+        var nextLink = $"https://graph.microsoft.com/beta/deviceManagement/configurationPolicies?$top=25&$filter={filter}&$select={Uri.EscapeDataString(select)}";
+        var policies = new List<ElevationRulePolicy>();
+
+        while (!string.IsNullOrEmpty(nextLink))
+        {
+            var requestUri = new Uri(nextLink);
+            if (requestUri.Scheme != Uri.UriSchemeHttps || requestUri.Host != "graph.microsoft.com")
+                throw new InvalidOperationException("Graph returned an unexpected paging URL; the request was stopped.");
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var root = json.RootElement;
+            if (root.TryGetProperty("value", out var values) && values.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in values.EnumerateArray())
+                {
+                    policies.Add(new ElevationRulePolicy(
+                        GetString(item, "id") ?? string.Empty,
+                        GetString(item, "name") ?? "(Unnamed policy)",
+                        GetString(item, "description"),
+                        GetString(item, "platforms"),
+                        GetString(item, "technologies"),
+                        GetDateTimeOffset(item, "lastModifiedDateTime"),
+                        item.TryGetProperty("settingCount", out var settingCount) && settingCount.TryGetInt32(out var count) ? count : 0,
+                        item.TryGetProperty("isAssigned", out var isAssigned) && isAssigned.ValueKind == JsonValueKind.True));
+                }
+            }
+
+            nextLink = root.TryGetProperty("@odata.nextLink", out var next) ? next.GetString() : null;
+        }
+
+        return policies;
+    }
+
+    public async Task<ElevationRuleCollectionInfo> GetElevationRuleCollectionInfoAsync(
+        ElevationRulePolicy policy,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        if (_client is null || _account is null)
+            throw new InvalidOperationException("Sign in to Microsoft Graph before loading policy settings.");
+
+        var accessToken = await GetAccessTokenAsync(cancellationToken);
+        var escapedPolicyId = Uri.EscapeDataString(policy.Id);
+        var nextLink = $"https://graph.microsoft.com/beta/deviceManagement/configurationPolicies('{escapedPolicyId}')/settings?$expand=settingDefinitions&$top=1000";
+        var foundElevationSetting = false;
+        var ruleCount = 0;
+        var maximumRuleCount = DefaultMaximumRuleCount;
+
+        while (!string.IsNullOrEmpty(nextLink))
+        {
+            var requestUri = new Uri(nextLink);
+            if (requestUri.Scheme != Uri.UriSchemeHttps || requestUri.Host != "graph.microsoft.com")
+                throw new InvalidOperationException("Graph returned an unexpected paging URL; the request was stopped.");
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var root = json.RootElement;
+
+            if (root.TryGetProperty("value", out var values) && values.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var setting in values.EnumerateArray())
+                {
+                    if (!setting.TryGetProperty("settingInstance", out var instance) ||
+                        !string.Equals(GetString(instance, "settingDefinitionId"), ElevationRulesSettingDefinitionId, StringComparison.Ordinal))
+                        continue;
+
+                    if (!instance.TryGetProperty("groupSettingCollectionValue", out var rules) || rules.ValueKind != JsonValueKind.Array)
+                        throw new InvalidOperationException("The Elevation Rules setting was returned in an unexpected format; rule count is unavailable.");
+
+                    foundElevationSetting = true;
+                    ruleCount += rules.GetArrayLength();
+
+                    if (setting.TryGetProperty("settingDefinitions", out var definitions) && definitions.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var definition in definitions.EnumerateArray())
+                        {
+                            if (string.Equals(GetString(definition, "id"), ElevationRulesSettingDefinitionId, StringComparison.Ordinal) &&
+                                definition.TryGetProperty("maximumCount", out var maximum) && maximum.TryGetInt32(out var parsedMaximum))
+                            {
+                                maximumRuleCount = parsedMaximum;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            nextLink = root.TryGetProperty("@odata.nextLink", out var next) ? next.GetString() : null;
+        }
+
+        if (!foundElevationSetting && policy.SettingCount > 0)
+            throw new InvalidOperationException("The policy has settings, but the Elevation Rules collection was not found. Its rule count cannot be safely determined.");
+
+        return new ElevationRuleCollectionInfo(ruleCount, maximumRuleCount);
+    }
+
+    private async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _client!.AcquireTokenSilent(Scopes, _account).ExecuteAsync(cancellationToken);
+            return result.AccessToken;
+        }
+        catch (MsalUiRequiredException)
+        {
+            var result = await _client!.AcquireTokenInteractive(Scopes)
+                .WithPrompt(Prompt.SelectAccount)
+                .WithUseEmbeddedWebView(false)
+                .WithParentActivityOrWindow(_parentWindow)
+                .ExecuteAsync(cancellationToken);
+            _account = result.Account;
+            return result.AccessToken;
+        }
+    }
+
+    private static string? GetString(JsonElement element, string propertyName) =>
+        element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
+
+    private static DateTimeOffset? GetDateTimeOffset(JsonElement element, string propertyName) =>
+        DateTimeOffset.TryParse(GetString(element, propertyName), out var value) ? value : null;
 
     public async Task RemoveAccountAsync()
     {

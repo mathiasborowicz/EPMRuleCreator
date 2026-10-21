@@ -45,6 +45,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _graphConnectionStatus = "Optional: sign in only if you want to connect to Microsoft Graph. Local file analysis works without sign-in.";
     private string _graphAccount = string.Empty;
     private bool _graphConnected;
+    private ElevationRulePolicy? _selectedElevationPolicy;
+    private string _policyLoadStatus = "Sign in to load EPM policies from this tenant.";
+    private int? _selectedPolicyRuleCount;
+    private int? _selectedPolicyRuleLimit;
 
     public MainViewModel()
     {
@@ -55,6 +59,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ValidateCommand = new RelayCommand(Validate);
         ConnectGraphCommand = new AsyncCommand(ConnectGraphAsync, () => !Busy && !GraphConnected);
         DisconnectGraphCommand = new AsyncCommand(DisconnectGraphAsync, () => !Busy && GraphConnected);
+        LoadPoliciesCommand = new AsyncCommand(LoadPoliciesAsync, () => !Busy && GraphConnected);
+        LoadSelectedPolicyCountCommand = new AsyncCommand(LoadSelectedPolicyCountAsync, () => !Busy && GraphConnected && SelectedElevationPolicy is not null);
         LoadSettings();
     }
 
@@ -66,7 +72,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand ValidateCommand { get; }
     public ICommand ConnectGraphCommand { get; }
     public ICommand DisconnectGraphCommand { get; }
+    public ICommand LoadPoliciesCommand { get; }
+    public ICommand LoadSelectedPolicyCountCommand { get; }
     public ObservableCollection<string> ValidationMessages { get; } = [];
+    public ObservableCollection<ElevationRulePolicy> ElevationPolicies { get; } = [];
 
     public string FilePath { get => _filePath; set { Set(ref _filePath, value); Raise(nameof(AnalyzeCommand)); } }
     public string Sha256 { get => _sha256; set => Set(ref _sha256, value); }
@@ -96,6 +105,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string GraphConnectionStatus { get => _graphConnectionStatus; private set => Set(ref _graphConnectionStatus, value); }
     public string GraphAccount { get => _graphAccount; private set => Set(ref _graphAccount, value); }
     public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); } }
+    public ElevationRulePolicy? SelectedElevationPolicy
+    {
+        get => _selectedElevationPolicy;
+        set
+        {
+            if (EqualityComparer<ElevationRulePolicy?>.Default.Equals(_selectedElevationPolicy, value)) return;
+            Set(ref _selectedElevationPolicy, value);
+            _selectedPolicyRuleCount = null;
+            _selectedPolicyRuleLimit = null;
+            Raise(nameof(SelectedPolicySummary));
+            Raise(nameof(LoadSelectedPolicyCountCommand));
+        }
+    }
+    public string PolicyLoadStatus { get => _policyLoadStatus; private set => Set(ref _policyLoadStatus, value); }
+    public string SelectedPolicySummary => SelectedElevationPolicy is null
+        ? "No policy selected."
+        : _selectedPolicyRuleCount is null
+            ? $"{SelectedElevationPolicy.Name}\nLast modified: {SelectedElevationPolicy.LastModifiedDateTime?.ToLocalTime().ToString("g") ?? "unknown"} | Assigned: {(SelectedElevationPolicy.IsAssigned ? "Yes" : "No")}\nGraph settingCount: {SelectedElevationPolicy.SettingCount} (settings, not rules). Load the rule count before validation."
+            : $"{SelectedElevationPolicy.Name}\nLast modified: {SelectedElevationPolicy.LastModifiedDateTime?.ToLocalTime().ToString("g") ?? "unknown"} | Assigned: {(SelectedElevationPolicy.IsAssigned ? "Yes" : "No")}\nElevation rules: {_selectedPolicyRuleCount}/{_selectedPolicyRuleLimit ?? 100}.";
 
     private async Task AnalyzeAsync()
     {
@@ -158,8 +186,57 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         await _graphAuthentication.RemoveAccountAsync();
         GraphConnected = false;
+        ElevationPolicies.Clear();
+        SelectedElevationPolicy = null;
+        _selectedPolicyRuleCount = null;
+        _selectedPolicyRuleLimit = null;
         GraphAccount = string.Empty;
         GraphConnectionStatus = "Disconnected. Local file analysis remains available offline.";
+    }
+
+    private async Task LoadPoliciesAsync()
+    {
+        Busy = true;
+        PolicyLoadStatus = "Loading EPM policies…";
+        try
+        {
+            var policies = await _graphAuthentication.GetElevationRulePoliciesAsync();
+            ElevationPolicies.Clear();
+            foreach (var policy in policies.OrderBy(policy => policy.Name, StringComparer.CurrentCultureIgnoreCase))
+                ElevationPolicies.Add(policy);
+            SelectedElevationPolicy = null;
+            PolicyLoadStatus = policies.Count == 0
+                ? "No Elevation Rules policies were found in this tenant."
+                : $"Loaded {policies.Count} Elevation Rules policy/policies.";
+        }
+        catch (Exception exception)
+        {
+            PolicyLoadStatus = $"Could not load policies: {exception.Message}";
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task LoadSelectedPolicyCountAsync()
+    {
+        if (SelectedElevationPolicy is null) return;
+        Busy = true;
+        PolicyLoadStatus = $"Reading rules in '{SelectedElevationPolicy.Name}'…";
+        try
+        {
+            var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(SelectedElevationPolicy);
+            _selectedPolicyRuleCount = collection.RuleCount;
+            _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+            Raise(nameof(SelectedPolicySummary));
+            PolicyLoadStatus = $"Read {collection.RuleCount} existing elevation rule(s); maximum is {collection.MaximumRuleCount}.";
+        }
+        catch (Exception exception)
+        {
+            _selectedPolicyRuleCount = null;
+            _selectedPolicyRuleLimit = null;
+            Raise(nameof(SelectedPolicySummary));
+            PolicyLoadStatus = $"Could not read rule count: {exception.Message}";
+        }
+        finally { Busy = false; }
     }
 
     private void LoadSettings()
@@ -197,7 +274,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             InternalName = RuleInternalName, IdentificationStrategy = IdentificationStrategy,
             ElevationType = ElevationType, ChildProcessBehavior = ChildProcessBehavior,
         };
-        var result = _validator.Validate(rule, existingRuleCount: 0, hasPolicy: false);
+        var result = _validator.Validate(rule, existingRuleCount: _selectedPolicyRuleCount ?? -1, hasPolicy: SelectedElevationPolicy is not null);
         ValidationMessages.Clear();
         foreach (var issue in result.Issues)
             ValidationMessages.Add($"{(issue.IsBlocking ? "Error" : "Warning")}: {issue.Message}");

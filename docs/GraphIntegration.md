@@ -1,30 +1,25 @@
 # Microsoft Graph and EPM rule model
 
-## Verification status
+## Current implementation
 
-Graph policy creation and rule writes are intentionally not implemented in this build. The project request requires verifying the EPM setting definitions, nested setting instance types, collection update semantics, and permission requirements from current Microsoft documentation before sending writes. The Microsoft Learn pages supplied with the request returned HTTP 403 from the onboarding runner on 2026-10-21, including:
+The optional Graph connection lists Endpoint Privilege Management Elevation Rules policies and can read the number of rules in the selected policy. It does not create or modify policy settings yet.
 
-- [Create a device management configuration policy](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationpolicy-create?view=graph-rest-beta)
-- [Create a device management configuration setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-create?view=graph-rest-beta)
-- [Create elevation rules for Endpoint Privilege Management](https://learn.microsoft.com/en-us/intune/epm/create-elevation-rules)
+The app lists policies with `GET /beta/deviceManagement/configurationPolicies`, filtered by `templateReference/templateFamily eq 'endpointSecurityEndpointPrivilegeManagement'`, selecting the metadata shown in the UI. It follows `@odata.nextLink`. For the selected policy it reads `GET /beta/deviceManagement/configurationPolicies('{id}')/settings?$expand=settingDefinitions&$top=1000`, also following `@odata.nextLink`.
 
-The resulting schema details could not be verified. No setting definition ID, template ID, payload shape, or write permission has been guessed. This is a release blocker for the Intune publishing workflow, not a claim that the feature is unsupported by Microsoft Graph.
+The test-tenant response supplied for this implementation confirms the root setting instance type `deviceManagementConfigurationGroupSettingCollectionInstance` and definition ID `device_vendor_msft_policy_privilegemanagement_elevationrules_{elevationrulename}`. Rules are counted from the root instance's `groupSettingCollectionValue`; the supplied response contained two entries. Its expanded definition reported `maximumCount: 100` and `minimumCount: 1`. Policy-level `settingCount` is not the number of elevation rules.
 
-## Known API surface from the supplied references
+The app requests the setting definition's `maximumCount` when available and otherwise uses the observed EPM limit of 100. A policy with existing settings but no identifiable EPM root collection is treated as an error rather than guessed to be empty.
 
-The requested policy resource is `deviceManagement/configurationPolicies`, with settings beneath a policy. The links supplied point to Graph beta references. This establishes the resources to investigate, but does not by itself establish the EPM rule collection representation or a safe update strategy.
+## Permissions
 
-Before implementing writes, verify from current first-party documentation and a supported schema source:
+The app requests delegated `User.Read` (signed-in identity) and `DeviceManagementConfiguration.ReadWrite.All` (policy/settings reads and planned writes). Admin consent is required. The setting create/update beta API documentation identifies this permission; `DeviceManagementEndpointSecurity.ReadWrite.All` is not needed for these configuration-policy settings endpoints.
 
-1. How an EPM Elevation Rules policy is identified and filtered from other configuration policies.
-2. The exact template, platform, technology, setting definition, and setting instance identifiers and types.
-3. How individual rules are represented, including certificate data and child-process behavior.
-4. Whether rules are one collection setting and how the complete collection must be read and updated.
-5. ETag or other concurrency behavior, the rule limit, and post-write readback.
-6. Delegated Graph scopes and Intune RBAC roles for read and write operations.
+- [Create a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-create?view=graph-rest-beta)
+- [Update a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-update?view=graph-rest-beta)
+- [Permission reference](https://learn.microsoft.com/en-us/graph/permissions-reference#devicemanagementconfigurationreadwriteall)
 
-Optional MSAL authentication has since been added for the distinct purpose of displaying the signed-in identity through `GET /me` (`User.Read`). Until the EPM API points above are verified, the application performs no Intune policy listing, creation, or rule writes.
+Graph consent does not replace Intune licensing or the signed-in user's Intune RBAC role and scope-tag access.
 
-## Permission candidates to verify
+## Remaining before writes
 
-The project brief names `DeviceManagementConfiguration.Read.All`, `DeviceManagementConfiguration.ReadWrite.All`, and `DeviceManagementEndpointSecurity.ReadWrite.All` as candidates. None is declared by this build: the exact least-privilege permission must be established from the documentation for the specific configuration policy operations. Intune RBAC authorization is also separate from delegated Graph scopes and must be documented and tested independently.
+Before sending writes, verify the complete nested payload and whether the API safely supports appending a rule or requires replacing the whole collection. Concurrency/ETag handling and post-write readback also need validation in the test tenant. The current build sends no policy-write request.

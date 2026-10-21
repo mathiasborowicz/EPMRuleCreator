@@ -36,19 +36,19 @@ See [Installation](docs/Installation.md) for obtaining the `work` branch in `C:\
 
 ## Graph, authentication, and security
 
-Graph authentication is optional and uses MSAL as a native public client. The current development build accepts a client ID and tenant in the optional connection panel. It requests delegated `User.Read` only to display the signed-in identity. No client secret is used. This scope does not grant Intune policy access, and no policy operations are implemented.
+Graph authentication is optional and uses MSAL as a native public client. The current development build accepts a client ID and tenant in the optional connection panel. It requests delegated `User.Read` to display the signed-in identity and `DeviceManagementConfiguration.ReadWrite.All` to list EPM policies/read their settings and enable the planned rule writes. Admin consent is required. No client secret is used. The current build does not write Intune policies yet.
 
 The app saves the entered client ID and tenant ID in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` so they are prefilled next time. This is a normal, unencrypted per-user settings file; these IDs are identifiers, not credentials. They are not written to the executable or Git repository. MSAL stores sign-in tokens separately in its cache under the same per-user app-data directory, protected with Windows DPAPI. Signing out removes the account's MSAL cache entries; it does not remove the saved IDs.
 
-### Permission needed for future EPM rule writes
+### Permissions for EPM policy browsing and future writes
 
-Microsoft Graph documents the delegated permission **`DeviceManagementConfiguration.ReadWrite.All`** for creating and updating configuration-policy settings, the Graph settings that hold policy values. It also permits the policy and settings read operations needed by the app, so a separate `DeviceManagementConfiguration.Read.All` scope is not required. The permission reference marks admin consent as required. For these settings endpoints, `DeviceManagementEndpointSecurity.ReadWrite.All` is not needed.
+The app requests **delegated `DeviceManagementConfiguration.ReadWrite.All`**. Microsoft Graph documents it for creating/updating configuration-policy settings, and it also authorizes the policy and settings reads used by the app. Admin consent is required. For these settings endpoints, `DeviceManagementEndpointSecurity.ReadWrite.All` is not needed.
 
 - [Create a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-create?view=graph-rest-beta)
 - [Update a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-update?view=graph-rest-beta)
 - [Permission reference: `DeviceManagementConfiguration.ReadWrite.All`](https://learn.microsoft.com/en-us/graph/permissions-reference#devicemanagementconfigurationreadwriteall)
 
-To enable future writes, add this as a **delegated Microsoft Graph permission** to the Entra app registration and grant admin consent. The app must also request it during sign-in; currently it requests only `User.Read`, so it cannot write Intune settings yet. Graph permission does not replace the Intune license or the signed-in user's Intune RBAC role and scope-tag access. The policy-setting API is currently Graph **beta**. See [optional Graph authentication](docs/GraphAuthentication.md) and [Graph integration research](docs/GraphIntegration.md).
+Add `DeviceManagementConfiguration.ReadWrite.All` as a **delegated Microsoft Graph permission** to the Entra app registration and grant admin consent. Graph permission does not replace the Intune license or the signed-in user's Intune RBAC role and scope-tag access. The policy-setting API is currently Graph **beta**. See [optional Graph authentication](docs/GraphAuthentication.md) and [Graph integration research](docs/GraphIntegration.md).
 
 No policy changes occur in this build. The UI does not provide a create/publish control. Never interpret local rule validation as proof that a rule is accepted by Intune.
 

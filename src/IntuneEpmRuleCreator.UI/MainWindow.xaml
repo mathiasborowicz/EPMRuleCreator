@@ -59,7 +59,7 @@
                     <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18">
                         <StackPanel>
                             <TextBlock Text="Optional Microsoft Graph connection" FontSize="18" FontWeight="SemiBold"/>
-                            <TextBlock Text="Local file analysis works without sign-in, network access, or a tenant. Connect only when you want to use Graph." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,10"/>
+                            <TextBlock Text="Local file analysis works without sign-in, network access, or a tenant. Connect only when you want to load EPM policies." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,10"/>
                             <TextBlock Text="Application (client) ID" Foreground="{StaticResource MutedBrush}"/>
                             <TextBox Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Tenant ID or 'organizations'" Foreground="{StaticResource MutedBrush}"/>
@@ -70,6 +70,14 @@
                             </StackPanel>
                             <TextBlock Text="{Binding GraphConnectionStatus}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                             <TextBlock Text="{Binding GraphAccount}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
+                            <Separator Margin="0,12,0,10"/>
+                            <TextBlock Text="Elevation Rules policy" FontSize="16" FontWeight="SemiBold"/>
+                            <Button Content="Load policies" Command="{Binding LoadPoliciesCommand}" HorizontalAlignment="Left" Margin="0,8,0,6"/>
+                            <ComboBox ItemsSource="{Binding ElevationPolicies}" SelectedItem="{Binding SelectedElevationPolicy}" DisplayMemberPath="Name"/>
+                            <Button Content="Read rule count" Command="{Binding LoadSelectedPolicyCountCommand}" HorizontalAlignment="Left" Margin="0,6,0,0"/>
+                            <TextBlock Text="{Binding PolicyLoadStatus}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
+                            <TextBlock Text="{Binding SelectedPolicySummary}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            <TextBlock Text="The app counts the groupSettingCollectionValue entries in the Elevation Rules setting. The policy settingCount is a different number. This build does not write rules yet." TextWrapping="Wrap" Foreground="#754C00" Margin="0,8,0,0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
