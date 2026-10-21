@@ -46,14 +46,14 @@ Run from the repository root:
 
 ```powershell
 dotnet test .\IntuneEpmRuleCreator.sln
-dotnet publish .\src\IntuneEpmRuleCreator.UI\IntuneEpmRuleCreator.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o .\publish\win-x64
+dotnet publish .\src\IntuneEpmRuleCreator.UI\IntuneEpmRuleCreator.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o .\publish\win-x64
 ```
 
 The executable is `publish\win-x64\IntuneEpmRuleCreator.exe`. Run it directly to select a file in the app. No administrator rights, tenant connection, or network are needed for local file analysis.
 
 ## Download the current standalone build
 
-Every push to `work` or `main` runs tests and creates a self-contained Windows x64 build automatically. To download it, open the repository's **Actions** tab, select the latest successful **Windows standalone build**, and download the `IntuneEpmRuleCreator-win-x64` artifact. Extract the ZIP; it contains `IntuneEpmRuleCreator.exe` and any companion publish files. GitHub retains each artifact for 30 days. The build does not embed an Entra client ID; enter one in the optional Graph connection panel if you want to test Graph sign-in.
+Every push to `work` or `main` runs tests and creates a self-contained, compressed Windows x64 build automatically. Compression reduces the main executable from about 127 MB to about 59 MB in the current build; the publish folder also contains a few WPF native runtime DLLs. To download it, open the repository's **Actions** tab, select the latest successful **Windows standalone build**, and download the `IntuneEpmRuleCreator-win-x64` artifact. Extract the ZIP; it contains `IntuneEpmRuleCreator.exe` and companion publish files. GitHub retains each artifact for 30 days. The build does not embed an Entra client ID; enter one in the optional Graph connection panel if you want to test Graph sign-in. Compression may add a small startup cost while bundled assemblies are decompressed.
 
 ## Register the Explorer menu
 
