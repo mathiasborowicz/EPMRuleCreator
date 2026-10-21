@@ -1,6 +1,6 @@
 # Intune EPM Rule Creator
 
-A Windows desktop foundation for preparing Microsoft Intune Endpoint Privilege Management elevation rules from local files. The current build implements file analysis and local rule validation. It does not yet connect to a tenant or modify Intune policies.
+A Windows desktop tool for inspecting local files and preparing Microsoft Intune Endpoint Privilege Management elevation rules. Local file analysis works offline and does not require signing in to a tenant. The current build does not connect to Graph or modify Intune policies.
 
 > **Graph publishing is disabled.** The official Microsoft Learn pages needed to verify EPM setting identifiers and safe rule collection updates returned HTTP 403 from the build environment. The project does not guess Graph payloads or send policy changes. See [the verification record](docs/GraphIntegration.md).
 
@@ -14,7 +14,11 @@ A Windows desktop foundation for preparing Microsoft Intune Endpoint Privilege M
 - Local validation for rule name, file type, SHA256 format, selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
 - Per-user Explorer context menu registration and removal scripts.
 
-Missing EPM Tools do not trigger agent installation or configuration changes. In that case the app still shows independently calculated SHA256 and Windows file metadata, with a visible warning that EPM attributes were not obtained.
+### Offline file analysis
+
+No Intune tenant, Graph connection, or network access is needed to inspect a file. The app calculates SHA256 locally, reads available Windows version metadata, and attempts to extract the embedded publisher certificate. Certificate extraction does not verify Authenticode trust.
+
+Microsoft EPM Tools (`EpmCmdlets.dll`) are optional for the basic offline view. When they are installed, the app also calls `Get-FileAttributes` locally through Windows PowerShell 5.1. If they are absent, the app shows the locally available information and warns that EPM-specific attributes were not collected. It never installs the EPM agent or changes device configuration.
 
 ## Project structure
 
@@ -28,7 +32,7 @@ docs/                             Graph verification and installation notes
 
 ## Build, test, and install
 
-See [Installation](docs/Installation.md) for Windows prerequisites, `dotnet test`, self-contained x64 publish, and Explorer integration steps.
+See [Installation](docs/Installation.md) for obtaining the `work` branch in `C:\Git\EPMRuleCreator`, installing the .NET SDK, building the self-contained app, and registering the Explorer menu.
 
 ## Graph, authentication, and security
 
