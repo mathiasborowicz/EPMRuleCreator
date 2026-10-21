@@ -13,6 +13,7 @@ public sealed record ElevationRule
     public string? FileHash { get; init; }
     public string HashAlgorithm { get; init; } = "SHA256";
     public string? ProductName { get; init; }
+    public string? FileDescription { get; init; }
     public string? InternalName { get; init; }
     public string? MinimumFileVersion { get; init; }
     public IdentificationStrategy IdentificationStrategy { get; init; } = IdentificationStrategy.Sha256;

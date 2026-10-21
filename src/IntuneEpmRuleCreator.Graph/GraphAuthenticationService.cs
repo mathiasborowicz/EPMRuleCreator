@@ -375,10 +375,14 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
     private static JsonObject FindRuleTemplate(JsonArray rules, ElevationRule rule)
     {
+        var expectedRuleType = GetRuleTypeOption(rule.ElevationType);
         foreach (var candidate in rules.OfType<JsonObject>())
         {
             var children = candidate["children"] as JsonArray;
             if (children is null) continue;
+            if (!string.Equals(GetChoiceOption(children, "ruletype"), expectedRuleType, StringComparison.Ordinal))
+                continue;
+
             var hasSignatureSource = FindChild(children, "signaturesource") is not null;
             var hasReusableReference = FindDescendant(children, "certificatepayloadwithreusablesetting") is not null;
             var matches = rule.IdentificationStrategy switch
@@ -392,8 +396,8 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         }
 
         throw new InvalidOperationException(rule.IdentificationStrategy == IdentificationStrategy.Sha256
-            ? "This policy has no hash-based rule to use as a schema template. Add a hash rule in Intune first."
-            : "This policy has no rule with the selected certificate source to use as a schema template. Add a matching certificate rule in Intune first.");
+            ? $"This policy has no hash-based rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first."
+            : $"This policy has no rule matching the selected certificate source and elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first.");
     }
 
     private static void PopulateRule(JsonObject newRule, ElevationRule rule)
@@ -401,33 +405,17 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         var children = newRule["children"] as JsonArray
             ?? throw new InvalidOperationException("The selected rule template has no child settings.");
         SetSimple(children, "name", rule.Name);
-        SetSimple(children, "description", rule.Description);
+        SetOptionalSimple(children, "description", rule.Description);
         SetSimple(children, "filename", rule.FileName);
-        SetSimple(children, "filehash", rule.FileHash ?? string.Empty);
-        SetSimple(children, "filepath", rule.FilePath ?? string.Empty);
-        SetSimple(children, "productname", rule.ProductName ?? string.Empty);
-        SetSimple(children, "internalname", rule.InternalName ?? string.Empty);
-        SetSimple(children, "fileversion", rule.MinimumFileVersion ?? string.Empty);
+        SetOptionalSimple(children, "filehash", rule.FileHash);
+        SetOptionalSimple(children, "filepath", rule.FilePath);
+        SetOptionalSimple(children, "productname", rule.ProductName);
+        SetOptionalSimple(children, "filedescription", rule.FileDescription);
+        SetOptionalSimple(children, "internalname", rule.InternalName);
+        SetOptionalSimple(children, "fileversion", rule.MinimumFileVersion);
 
-        var ruleType = rule.ElevationType switch
-        {
-            ElevationType.CurrentUser => "self",
-            ElevationType.UserConfirmed => "userconfirmeduser",
-            ElevationType.Automatic => "automatic",
-            ElevationType.SupportApproved => "supportarbitrated",
-            ElevationType.Deny => "deny",
-            _ => throw new InvalidOperationException("Unsupported elevation type.")
-        };
-        SetChoice(children, "ruletype", ruleType);
-
-        var childProcess = rule.ChildProcessBehavior switch
-        {
-            ChildProcessBehavior.RequireRuleToElevate => "allowrunelevatedrulerequired",
-            ChildProcessBehavior.AllowAllElevated => "allowrunelevated",
-            ChildProcessBehavior.DenyAll => throw new InvalidOperationException("Deny all child processes is not yet supported by the verified Graph payloads."),
-            _ => throw new InvalidOperationException("Unsupported child-process behavior.")
-        };
-        SetChoice(children, "childprocessbehavior", childProcess);
+        SetChoice(children, "ruletype", GetRuleTypeOption(rule.ElevationType));
+        SetChoice(children, "childprocessbehavior", GetChildProcessOption(rule.ChildProcessBehavior));
 
         if (rule.PublisherCertificate is { } certificate)
         {
@@ -453,6 +441,45 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             ?? throw new InvalidOperationException($"The template's '{suffix}' field has an unexpected type.");
         simpleValue["value"] = value;
     }
+
+    private static void SetOptionalSimple(JsonArray children, string suffix, string? value)
+    {
+        var child = FindChild(children, suffix);
+        if (child is null) return;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            children.Remove(child);
+            return;
+        }
+
+        SetSimple(children, suffix, value);
+    }
+
+    private static string? GetChoiceOption(JsonArray children, string suffix)
+    {
+        var value = FindChild(children, suffix)?["choiceSettingValue"]?["value"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var separator = value.LastIndexOf('_');
+        return separator >= 0 ? value[(separator + 1)..] : value;
+    }
+
+    private static string GetRuleTypeOption(ElevationType elevationType) => elevationType switch
+    {
+        ElevationType.CurrentUser => "self",
+        ElevationType.UserConfirmed => "userconfirmeduser",
+        ElevationType.Automatic => "automatic",
+        ElevationType.SupportApproved => "supportarbitrated",
+        ElevationType.Deny => "deny",
+        _ => throw new InvalidOperationException("Unsupported elevation type.")
+    };
+
+    private static string GetChildProcessOption(ChildProcessBehavior behavior) => behavior switch
+    {
+        ChildProcessBehavior.RequireRuleToElevate => "allowrunelevatedrulerequired",
+        ChildProcessBehavior.AllowAllElevated => "allowrunelevated",
+        ChildProcessBehavior.DenyAll => throw new InvalidOperationException("Deny all child processes is not yet supported by the verified Graph payloads."),
+        _ => throw new InvalidOperationException("Unsupported child-process behavior.")
+    };
 
     private static void SetSimpleRequired(JsonArray children, string suffix, string value)
     {

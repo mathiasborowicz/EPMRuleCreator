@@ -364,6 +364,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         FilePath = RuleFilePath,
         FileHash = RuleFileHash,
         ProductName = RuleProductName,
+        FileDescription = this.FileDescription,
         InternalName = RuleInternalName,
         IdentificationStrategy = IdentificationStrategy,
         PublisherCertificate = IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes && UsePublisherCertificate ? PublisherCertificate : null,

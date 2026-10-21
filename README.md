@@ -13,7 +13,7 @@ A Windows desktop tool for inspecting local files and preparing Microsoft Intune
 - Embedded publisher certificate extraction with subject, issuer, thumbprint, and validity dates. Certificate extraction is not an Authenticode trust check.
 - Certificate-based rule selection between the analyzed file's extracted publisher certificate and a loaded reusable EPM certificate setting.
 - Explicit Graph upload that appends to an existing EPM rule collection, preserves its other entries, rechecks the 100-rule limit, requests confirmation, and verifies the updated count.
-- Local validation for rule name, file type, required four-part numeric file version (1–30 characters), SHA256 format, selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
+- Local validation for rule name, file type, optional four-part numeric minimum file version (1–30 characters when set), SHA256 format, selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
 - Optional Graph browsing of EPM Elevation Rules policies and EPM reusable certificate settings (unrelated reusable settings are filtered out by setting definition ID).
 - Per-user Explorer context menu registration and removal scripts.
 
@@ -21,7 +21,7 @@ A Windows desktop tool for inspecting local files and preparing Microsoft Intune
 
 No Intune tenant, Graph connection, or network access is needed to inspect a file. The app calculates SHA256 locally, reads available Windows version metadata, and attempts to extract the embedded publisher certificate. Certificate extraction does not verify Authenticode trust.
 
-The elevation rule's **File version** field is prefilled from the analyzed file's version metadata when available and can be edited. Intune validates it against the format `number.number.number.number` and limits it to 30 characters; if the file has no matching version resource, enter a valid four-part numeric version before validating or uploading.
+The elevation rule's **Minimum file version** field is prefilled from the analyzed file's version metadata when available and can be edited. It is optional. When supplied, Intune validates it against the format `number.number.number.number` and limits it to 30 characters; clear it if no matching version value is available.
 
 Microsoft EPM Tools (`EpmCmdlets.dll`) are optional for the basic offline view. When they are installed, the app also calls `Get-FileAttributes` locally through Windows PowerShell 5.1. If they are absent, the app shows the locally available information and warns that EPM-specific attributes were not collected. It never installs the EPM agent or changes device configuration.
 
@@ -56,7 +56,7 @@ The app requests **delegated `DeviceManagementConfiguration.ReadWrite.All`**. Mi
 
 Add `DeviceManagementConfiguration.ReadWrite.All` as a **delegated Microsoft Graph permission** to the Entra app registration and grant admin consent. Graph permission does not replace the Intune license or the signed-in user's Intune RBAC role and scope-tag access. The policy-setting API is currently Graph **beta**. See [optional Graph authentication](docs/GraphAuthentication.md) and [Graph integration research](docs/GraphIntegration.md).
 
-The upload control only appends after explicit confirmation. It currently requires an existing Elevation Rules collection and an existing rule matching the selected identification/certificate source as a schema template; it does not create a policy or the first root setting. Deny-all child-process behavior is not yet supported by the verified payload mapping. The policy-level PUT still needs live validation in the test tenant; Graph beta and tenant-specific RBAC can reject a locally valid rule.
+The upload control only appends after explicit confirmation. It currently requires an existing Elevation Rules collection and an existing rule matching the selected identification/certificate source and elevation type as a schema template; it does not create a policy or the first root setting. Empty optional text fields are omitted from the rule payload. Deny-all child-process behavior is not yet supported by the verified payload mapping. The policy-level PUT still needs live validation in the test tenant; Graph beta and tenant-specific RBAC can reject a locally valid rule.
 
 See [Graph integration research](docs/GraphIntegration.md) for the endpoints supplied by the brief, research links, and unresolved verification items.
 

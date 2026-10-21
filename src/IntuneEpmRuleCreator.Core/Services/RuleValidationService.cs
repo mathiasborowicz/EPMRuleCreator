@@ -29,11 +29,9 @@ public sealed class RuleValidationService
         else if (!SupportedExtensions.Contains(Path.GetExtension(rule.FileName)))
             issues.Add(new("file.type.unsupported", "Only .exe, .msi and .ps1 files are supported by this application.", true));
 
-        if (string.IsNullOrWhiteSpace(rule.MinimumFileVersion))
-            issues.Add(new("file.version.required", "A file version is required by Intune; enter four numeric parts separated by dots (1–30 characters).", true));
-        else if (rule.MinimumFileVersion.Length > 30)
+        if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) && rule.MinimumFileVersion.Length > 30)
             issues.Add(new("file.version.too_long", "The file version must not exceed 30 characters.", true));
-        else if (!FileVersionPattern.IsMatch(rule.MinimumFileVersion))
+        else if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) && !FileVersionPattern.IsMatch(rule.MinimumFileVersion))
             issues.Add(new("file.version.invalid_format", "The file version must contain four numeric parts separated by dots, for example 12.3.5.5.", true));
 
         if (rule.IdentificationStrategy == IdentificationStrategy.Sha256 &&

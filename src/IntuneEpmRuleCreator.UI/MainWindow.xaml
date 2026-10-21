@@ -82,7 +82,7 @@
                             <TextBlock Text="Only reusable settings whose definition is the EPM certificate setting are shown; other Intune reusable settings are excluded." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
                             <Button Content="Load reusable certificate settings" Command="{Binding LoadReusableCertificateSettingsCommand}" HorizontalAlignment="Left" Margin="0,8,0,6"/>
                             <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" DisplayMemberPath="DisplayName"/>
-                            <TextBlock Text="The app counts groupSettingCollectionValue entries; policy settingCount is different. Upload appends a rule only after confirmation and requires an existing rule of the same identification/certificate source as a payload template." TextWrapping="Wrap" Foreground="#754C00" Margin="0,8,0,0"/>
+                            <TextBlock Text="The app counts groupSettingCollectionValue entries; policy settingCount is different. Upload appends a rule only after confirmation and requires a template with matching identification/certificate source and elevation type." TextWrapping="Wrap" Foreground="#754C00" Margin="0,8,0,0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -94,7 +94,7 @@
                             <TextBlock Text="Rule name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Description" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="68" TextWrapping="Wrap"/>
                             <TextBlock Text="File name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileName, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="File version (four numeric parts, e.g. 12.3.5.5)" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}" MaxLength="30"/>
+                            <TextBlock Text="Minimum file version (optional; four numeric parts, e.g. 12.3.5.5)" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}" MaxLength="30"/>
                             <TextBlock Text="File hash (SHA256)" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileHash, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
                             <TextBlock Text="File path" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFilePath, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Product name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleProductName, UpdateSourceTrigger=PropertyChanged}"/>
