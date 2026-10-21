@@ -211,7 +211,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SignatureStatus = result.SignatureStatus ?? "Not available";
             AnalysisWarnings = string.Join(Environment.NewLine, result.Warnings);
             RuleFileName = result.FileName;
-            RuleFileVersion = result.Version ?? string.Empty;
+            RuleFileVersion = RuleValidationService.IsValidMinimumFileVersion(result.Version) ? result.Version ?? string.Empty : string.Empty;
             RuleFileHash = result.Sha256;
             RuleFilePath = result.FilePath;
             RuleProductName = result.ProductName ?? string.Empty;
@@ -242,6 +242,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             GraphAccount = $"{profile.DisplayName} ({profile.UserPrincipalName})\nTenant ID: {profile.TenantId}";
             GraphConnectionStatus = "Connected to Microsoft Graph. Intune is changed only when you explicitly upload a rule.";
             TenantId = profile.TenantId;
+            await LoadPoliciesAsync();
         }
         catch (Exception exception)
         {

@@ -254,7 +254,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
         var template = FindRuleTemplate(rules, rule);
         var newRule = (JsonObject)template.DeepClone();
-        PopulateRule(newRule, rule);
+        PopulateRule(newRule, rule, rules);
         rules.Add(newRule);
 
         var settingId = setting["id"]?.GetValue<string>();
@@ -383,13 +383,11 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             if (!string.Equals(GetChoiceOption(children, "ruletype"), expectedRuleType, StringComparison.Ordinal))
                 continue;
 
-            var hasSignatureSource = FindChild(children, "signaturesource") is not null;
-            var hasReusableReference = FindDescendant(children, "certificatepayloadwithreusablesetting") is not null;
             var matches = rule.IdentificationStrategy switch
             {
-                IdentificationStrategy.Sha256 => !hasSignatureSource,
-                IdentificationStrategy.CertificateAndAttributes when rule.ReusableCertificateSettingId is not null => hasReusableReference,
-                IdentificationStrategy.CertificateAndAttributes when rule.PublisherCertificate is not null => hasSignatureSource && !hasReusableReference,
+                IdentificationStrategy.Sha256 => FindChild(children, "signaturesource") is null,
+                IdentificationStrategy.CertificateAndAttributes when rule.ReusableCertificateSettingId is not null => true,
+                IdentificationStrategy.CertificateAndAttributes when rule.PublisherCertificate is not null => true,
                 _ => false
             };
             if (matches) return candidate;
@@ -397,10 +395,10 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
         throw new InvalidOperationException(rule.IdentificationStrategy == IdentificationStrategy.Sha256
             ? $"This policy has no hash-based rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first."
-            : $"This policy has no rule matching the selected certificate source and elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first.");
+            : $"This policy has no rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first.");
     }
 
-    private static void PopulateRule(JsonObject newRule, ElevationRule rule)
+    private static void PopulateRule(JsonObject newRule, ElevationRule rule, JsonArray allRules)
     {
         var children = newRule["children"] as JsonArray
             ?? throw new InvalidOperationException("The selected rule template has no child settings.");
@@ -422,15 +420,57 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             if (string.IsNullOrWhiteSpace(certificate.CertificateBase64))
                 throw new InvalidOperationException("The extracted publisher certificate data is unavailable. Analyze the file again.");
             var pem = "-----BEGIN CERTIFICATE-----\r\n" + Convert.ToBase64String(Convert.FromBase64String(certificate.CertificateBase64), Base64FormattingOptions.InsertLineBreaks) + "\r\n-----END CERTIFICATE-----\r\n";
+            CopyCertificateSourceConfiguration(children, FindCertificateSourceTemplate(allRules, reusable: false));
             SetChoice(children, "signaturesource", "1");
             SetNestedChoice(children, "signaturesource", "certificatetype", "publisher");
             SetSimpleRequired(children, "certificatefileupload", pem);
         }
         if (rule.ReusableCertificateSettingId is { } reusableId)
         {
+            CopyCertificateSourceConfiguration(children, FindCertificateSourceTemplate(allRules, reusable: true));
             SetChoice(children, "signaturesource", "0");
             SetSimpleRequired(children, "certificatepayloadwithreusablesetting", reusableId);
         }
+    }
+
+    private static JsonObject FindCertificateSourceTemplate(JsonArray rules, bool reusable)
+    {
+        foreach (var candidate in rules.OfType<JsonObject>())
+        {
+            if (candidate["children"] is not JsonArray children || FindChild(children, "signaturesource") is not { } source)
+                continue;
+
+            var option = GetChoiceOption(children, "signaturesource");
+            if (reusable && option == "0" && FindDescendant(children, "certificatepayloadwithreusablesetting") is not null)
+                return source;
+            if (!reusable && option == "1" && GetNestedChoiceOption(source, "certificatetype") == "publisher" &&
+                FindDescendant(children, "certificatefileupload") is not null)
+                return source;
+        }
+
+        throw new InvalidOperationException(reusable
+            ? "This policy has no reusable-certificate rule to use as a certificate schema template. Add a reusable-certificate rule in Intune first."
+            : "This policy has no publisher-certificate rule to use as a certificate schema template. Add a publisher-certificate rule in Intune first.");
+    }
+
+    private static void CopyCertificateSourceConfiguration(JsonArray targetChildren, JsonObject sourceTemplate)
+    {
+        var copy = (JsonObject)sourceTemplate.DeepClone();
+        var existing = FindChild(targetChildren, "signaturesource");
+        if (existing is null)
+        {
+            targetChildren.Add(copy);
+            return;
+        }
+
+        var index = targetChildren.IndexOf(existing);
+        targetChildren[index] = copy;
+    }
+
+    private static string? GetNestedChoiceOption(JsonObject parent, string suffix)
+    {
+        var children = parent["choiceSettingValue"]?["children"] as JsonArray;
+        return children is null ? null : GetChoiceOption(children, suffix);
     }
 
     private static void SetSimple(JsonArray children, string suffix, string value)

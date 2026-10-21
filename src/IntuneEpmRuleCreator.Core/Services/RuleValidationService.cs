@@ -61,6 +61,10 @@ public sealed class RuleValidationService
         return new(issues);
     }
 
+    public static bool IsValidMinimumFileVersion(string? version) =>
+        string.IsNullOrWhiteSpace(version) ||
+        (version.Length <= 30 && FileVersionPattern.IsMatch(version));
+
     private static bool IsWritableLocation(string path)
     {
         var normalized = path.Replace('/', '\\');
