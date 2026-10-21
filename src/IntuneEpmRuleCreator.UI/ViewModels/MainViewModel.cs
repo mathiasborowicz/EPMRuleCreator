@@ -11,6 +11,8 @@ using System.Text.Json;
 
 namespace IntuneEpmRuleCreator.UI.ViewModels;
 
+public sealed record CertificateTypeOption(CertificateType Value, string DisplayName);
+
 public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly FileAttributeService _fileService = new(new Sha256FileHasher());
@@ -77,6 +79,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public Array IdentificationStrategies { get; }
     public Array ElevationTypes { get; }
     public Array ChildProcessBehaviors { get; }
+    public IReadOnlyList<CertificateTypeOption> CertificateTypeOptions { get; } =
+    [
+        new(global::IntuneEpmRuleCreator.Core.Models.CertificateType.Publisher, "Publisher"),
+        new(global::IntuneEpmRuleCreator.Core.Models.CertificateType.CertificateAuthority, "Certificate authority")
+    ];
     public ICommand AnalyzeCommand { get; }
     public ICommand ValidateCommand { get; }
     public ICommand UploadRuleCommand { get; }
@@ -131,6 +138,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
     public bool ShowCertificateSelection => IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes;
+    private CertificateType _certificateType = global::IntuneEpmRuleCreator.Core.Models.CertificateType.Publisher;
+    public CertificateType CertificateType { get => _certificateType; set => Set(ref _certificateType, value); }
     public string FileNameLabel => IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.Sha256
         ? "File name *"
         : "File name";
@@ -148,6 +157,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             if (!Set(ref _usePublisherCertificate, value) || !value) return;
             UseReusableCertificate = false;
+            CertificateType = global::IntuneEpmRuleCreator.Core.Models.CertificateType.Publisher;
         }
     }
     public bool UseReusableCertificate
@@ -157,6 +167,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             if (!Set(ref _useReusableCertificate, value) || !value) return;
             UsePublisherCertificate = false;
+            CertificateType = global::IntuneEpmRuleCreator.Core.Models.CertificateType.CertificateAuthority;
         }
     }
     public EpmReusableCertificateSetting? SelectedReusableCertificateSetting
@@ -384,6 +395,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IdentificationStrategy = IdentificationStrategy,
         PublisherCertificate = IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes && UsePublisherCertificate ? PublisherCertificate : null,
         ReusableCertificateSettingId = IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes && UseReusableCertificate ? SelectedReusableCertificateSetting?.Id : null,
+        CertificateType = CertificateType,
         ElevationType = ElevationType,
         RequireBusinessJustification = RequireBusinessJustification,
         RequireWindowsAuthentication = IsCurrentUser || RequireWindowsAuthentication,

@@ -106,6 +106,8 @@
                                 <RadioButton Content="Use an EPM reusable certificate setting" IsChecked="{Binding UseReusableCertificate}" GroupName="CertificateSource" Margin="0,4"/>
                                 <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" SelectedItem="{Binding SelectedReusableCertificateSetting}" DisplayMemberPath="DisplayName" IsEnabled="{Binding UseReusableCertificate}"/>
                                 <TextBlock Text="{Binding ReusableCertificateSelectionHint}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Visibility="{Binding UseReusableCertificate, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                <TextBlock Text="Certificate type" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
+                                <ComboBox ItemsSource="{Binding CertificateTypeOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding CertificateType}"/>
                             </StackPanel>
                             <TextBlock Text="Elevation type" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding ElevationTypes}" SelectedItem="{Binding ElevationType}"/>
                             <StackPanel Margin="0,4,0,8" Visibility="{Binding IsUserConfirmed, Converter={StaticResource BooleanToVisibilityConverter}}">

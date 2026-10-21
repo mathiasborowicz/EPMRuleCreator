@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using IntuneEpmRuleCreator.Core.Models;
+using IntuneEpmRuleCreator.Core.Services;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensions.Msal;
 
@@ -429,7 +430,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         SetOptionalSimple(children, "productname", rule.ProductName);
         SetOptionalSimple(children, "filedescription", rule.FileDescription);
         SetOptionalSimple(children, "internalname", rule.InternalName);
-        SetOptionalSimple(children, "fileversion", rule.MinimumFileVersion);
+        SetOptionalSimple(children, "fileversion", RuleValidationService.NormalizeMinimumFileVersionForGraph(rule.MinimumFileVersion));
 
         SetChoice(children, "ruletype", GetRuleTypeOption(rule.ElevationType));
         if (rule.ElevationType == ElevationType.UserConfirmed)
@@ -456,13 +457,14 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             var pem = "-----BEGIN CERTIFICATE-----\r\n" + Convert.ToBase64String(Convert.FromBase64String(certificate.CertificateBase64), Base64FormattingOptions.InsertLineBreaks) + "\r\n-----END CERTIFICATE-----\r\n";
             CopyCertificateSourceConfiguration(children, FindCertificateSourceTemplate(allRules, reusable: false));
             SetChoice(children, "signaturesource", "1");
-            SetNestedChoice(children, "signaturesource", "certificatetype", "publisher");
+            SetNestedChoice(children, "signaturesource", "certificatetype", GetCertificateTypeOption(rule.CertificateType));
             SetSimpleRequired(children, "certificatefileupload", pem);
         }
         if (rule.ReusableCertificateSettingId is { } reusableId)
         {
             CopyCertificateSourceConfiguration(children, FindCertificateSourceTemplate(allRules, reusable: true));
             SetChoice(children, "signaturesource", "0");
+            SetNestedChoice(children, "signaturesource", "certificatetype", GetCertificateTypeOption(rule.CertificateType));
             SetSimpleRequired(children, "certificatepayloadwithreusablesetting", reusableId);
         }
     }
@@ -508,8 +510,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             var option = GetChoiceOption(children, "signaturesource");
             if (reusable && option == "0" && FindDescendant(children, "certificatepayloadwithreusablesetting") is not null)
                 return source;
-            if (!reusable && option == "1" && GetNestedChoiceOption(source, "certificatetype") == "publisher" &&
-                FindDescendant(children, "certificatefileupload") is not null)
+            if (!reusable && option == "1" && FindDescendant(children, "certificatefileupload") is not null)
                 return source;
         }
 
@@ -530,12 +531,6 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
         var index = targetChildren.IndexOf(existing);
         targetChildren[index] = copy;
-    }
-
-    private static string? GetNestedChoiceOption(JsonObject parent, string suffix)
-    {
-        var children = parent["choiceSettingValue"]?["children"] as JsonArray;
-        return children is null ? null : GetChoiceOption(children, suffix);
     }
 
     private static void SetSimple(JsonArray children, string suffix, string value)
@@ -585,6 +580,13 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         ChildProcessBehavior.AllowAllElevated => "allowrunelevated",
         ChildProcessBehavior.DenyAll => "deny",
         _ => throw new InvalidOperationException("Unsupported child-process behavior.")
+    };
+
+    private static string GetCertificateTypeOption(CertificateType certificateType) => certificateType switch
+    {
+        CertificateType.Publisher => "publisher",
+        CertificateType.CertificateAuthority => "issuingauthority",
+        _ => throw new InvalidOperationException("Unsupported certificate type.")
     };
 
     private static void RemoveChild(JsonArray children, string suffix)

@@ -30,7 +30,8 @@ public sealed class RuleValidationService
         else if (!string.IsNullOrWhiteSpace(rule.FileName) && !SupportedExtensions.Contains(Path.GetExtension(rule.FileName)))
             issues.Add(new("file.type.unsupported", "Only .exe, .msi and .ps1 files are supported by this application.", true));
 
-        if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) && rule.MinimumFileVersion.Length > 30)
+        if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) &&
+            (NormalizeMinimumFileVersionForGraph(rule.MinimumFileVersion)?.Length ?? 0) > 30)
             issues.Add(new("file.version.too_long", "The file version must not exceed 30 characters.", true));
         else if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) && !FileVersionPattern.IsMatch(rule.MinimumFileVersion))
             issues.Add(new("file.version.invalid_format", "The file version must contain three or four numeric parts separated by dots, for example 1.1.0 or 12.3.5.5.", true));
@@ -60,7 +61,13 @@ public sealed class RuleValidationService
 
     public static bool IsValidMinimumFileVersion(string? version) =>
         string.IsNullOrWhiteSpace(version) ||
-        (version.Length <= 30 && FileVersionPattern.IsMatch(version));
+        ((NormalizeMinimumFileVersionForGraph(version)?.Length ?? 0) <= 30 && FileVersionPattern.IsMatch(version));
+
+    public static string? NormalizeMinimumFileVersionForGraph(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version)) return version;
+        return version.Count(character => character == '.') == 2 ? version + ".0" : version;
+    }
 
     private static bool IsWritableLocation(string path)
     {

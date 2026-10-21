@@ -3,6 +3,7 @@ namespace IntuneEpmRuleCreator.Core.Models;
 public enum IdentificationStrategy { Sha256, CertificateAndAttributes, Custom }
 public enum ElevationType { UserConfirmed, Automatic, SupportApproved, Deny, CurrentUser }
 public enum ChildProcessBehavior { NotConfigured, RequireRuleToElevate, DenyAll, AllowAllElevated }
+public enum CertificateType { Publisher, CertificateAuthority }
 
 public sealed record ElevationRule
 {
@@ -19,6 +20,7 @@ public sealed record ElevationRule
     public IdentificationStrategy IdentificationStrategy { get; init; } = IdentificationStrategy.Sha256;
     public CertificateAttributes? PublisherCertificate { get; init; }
     public string? ReusableCertificateSettingId { get; init; }
+    public CertificateType CertificateType { get; init; } = CertificateType.Publisher;
     public ElevationType ElevationType { get; init; } = ElevationType.UserConfirmed;
     public bool RequireBusinessJustification { get; init; }
     public bool RequireWindowsAuthentication { get; init; }

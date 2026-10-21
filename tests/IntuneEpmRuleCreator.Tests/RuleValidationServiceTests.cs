@@ -126,6 +126,10 @@ public sealed class RuleValidationServiceTests
         Assert.True(RuleValidationService.IsValidMinimumFileVersion(null));
         Assert.True(RuleValidationService.IsValidMinimumFileVersion("1.1.0"));
         Assert.True(RuleValidationService.IsValidMinimumFileVersion("1.1.0.0"));
+        Assert.Equal("1.1.0.0", RuleValidationService.NormalizeMinimumFileVersionForGraph("1.1.0"));
+        Assert.Equal("12.3.5.5", RuleValidationService.NormalizeMinimumFileVersionForGraph("12.3.5.5"));
+        Assert.Equal(string.Empty, RuleValidationService.NormalizeMinimumFileVersionForGraph(string.Empty));
+        Assert.False(RuleValidationService.IsValidMinimumFileVersion("12345678.12345678.12345678"));
     }
 
     [Fact]
