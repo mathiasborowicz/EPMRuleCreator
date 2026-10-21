@@ -16,12 +16,14 @@ public sealed record ElevationRulePolicy(
     int SettingCount,
     bool IsAssigned);
 public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount);
+public sealed record EpmReusableCertificateSetting(string Id, string DisplayName, string? Description, DateTimeOffset? LastModifiedDateTime);
 
 /// <summary>Interactive delegated authentication for the Microsoft Graph global cloud.</summary>
 public sealed class GraphAuthenticationService : IAsyncDisposable
 {
     private static readonly string[] Scopes = ["User.Read", "DeviceManagementConfiguration.ReadWrite.All"];
     private const string ElevationRulesSettingDefinitionId = "device_vendor_msft_policy_privilegemanagement_elevationrules_{elevationrulename}";
+    private const string ReusableCertificateSettingDefinitionId = "device_vendor_msft_policy_privilegemanagement_reusablesettings_certificatefile";
     private const int DefaultMaximumRuleCount = 100;
     private readonly HttpClient _httpClient = new();
     private IPublicClientApplication? _client;
@@ -104,6 +106,50 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         }
 
         return policies;
+    }
+
+    public async Task<IReadOnlyList<EpmReusableCertificateSetting>> GetEpmReusableCertificateSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_client is null || _account is null)
+            throw new InvalidOperationException("Sign in to Microsoft Graph before loading reusable settings.");
+
+        var accessToken = await GetAccessTokenAsync(cancellationToken);
+        var select = Uri.EscapeDataString("id,displayName,description,lastModifiedDateTime,settingDefinitionId");
+        var nextLink = $"https://graph.microsoft.com/beta/deviceManagement/reusablePolicySettings?$select={select}&$top=100";
+        var reusableSettings = new List<EpmReusableCertificateSetting>();
+
+        while (!string.IsNullOrEmpty(nextLink))
+        {
+            var requestUri = new Uri(nextLink);
+            if (requestUri.Scheme != Uri.UriSchemeHttps || requestUri.Host != "graph.microsoft.com")
+                throw new InvalidOperationException("Graph returned an unexpected paging URL; the request was stopped.");
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var root = json.RootElement;
+            if (root.TryGetProperty("value", out var values) && values.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in values.EnumerateArray())
+                {
+                    if (!string.Equals(GetString(item, "settingDefinitionId"), ReusableCertificateSettingDefinitionId, StringComparison.Ordinal))
+                        continue;
+
+                    reusableSettings.Add(new EpmReusableCertificateSetting(
+                        GetString(item, "id") ?? string.Empty,
+                        GetString(item, "displayName") ?? "(Unnamed reusable setting)",
+                        GetString(item, "description"),
+                        GetDateTimeOffset(item, "lastModifiedDateTime")));
+                }
+            }
+
+            nextLink = root.TryGetProperty("@odata.nextLink", out var next) ? next.GetString() : null;
+        }
+
+        return reusableSettings;
     }
 
     public async Task<ElevationRuleCollectionInfo> GetElevationRuleCollectionInfoAsync(

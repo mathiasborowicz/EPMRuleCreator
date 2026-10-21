@@ -77,6 +77,11 @@
                             <Button Content="Read rule count" Command="{Binding LoadSelectedPolicyCountCommand}" HorizontalAlignment="Left" Margin="0,6,0,0"/>
                             <TextBlock Text="{Binding PolicyLoadStatus}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
                             <TextBlock Text="{Binding SelectedPolicySummary}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            <Separator Margin="0,12,0,10"/>
+                            <TextBlock Text="Reusable EPM certificate settings" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock Text="Only reusable settings whose definition is the EPM certificate setting are shown; other Intune reusable settings are excluded." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
+                            <Button Content="Load reusable certificate settings" Command="{Binding LoadReusableCertificateSettingsCommand}" HorizontalAlignment="Left" Margin="0,8,0,6"/>
+                            <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" DisplayMemberPath="DisplayName"/>
                             <TextBlock Text="The app counts the groupSettingCollectionValue entries in the Elevation Rules setting. The policy settingCount is a different number. This build does not write rules yet." TextWrapping="Wrap" Foreground="#754C00" Margin="0,8,0,0"/>
                         </StackPanel>
                     </Border>

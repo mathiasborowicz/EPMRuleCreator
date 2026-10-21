@@ -10,6 +10,8 @@ The test-tenant response supplied for this implementation confirms the root sett
 
 The app requests the setting definition's `maximumCount` when available and otherwise uses the observed EPM limit of 100. A policy with existing settings but no identifiable EPM root collection is treated as an error rather than guessed to be empty.
 
+Reusable settings are listed through `GET /beta/deviceManagement/reusablePolicySettings`. This collection also contains unrelated Intune settings, so the app filters client-side by the exact EPM certificate definition ID `device_vendor_msft_policy_privilegemanagement_reusablesettings_certificatefile`. The test tenant returned the EPM setting "Netextender" and an unrelated Defender setting; only the former should appear in the EPM certificate selector. Results are paged using `@odata.nextLink`.
+
 ## Permissions
 
 The app requests delegated `User.Read` (signed-in identity) and `DeviceManagementConfiguration.ReadWrite.All` (policy/settings reads and planned writes). Admin consent is required. The setting create/update beta API documentation identifies this permission; `DeviceManagementEndpointSecurity.ReadWrite.All` is not needed for these configuration-policy settings endpoints.
@@ -17,6 +19,8 @@ The app requests delegated `User.Read` (signed-in identity) and `DeviceManagemen
 - [Create a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-create?view=graph-rest-beta)
 - [Update a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-update?view=graph-rest-beta)
 - [Permission reference](https://learn.microsoft.com/en-us/graph/permissions-reference#devicemanagementconfigurationreadwriteall)
+- [List reusable policy settings](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementreusablepolicysetting-list?view=graph-rest-beta)
+- [Reusable policy setting resource](https://learn.microsoft.com/en-us/graph/api/resources/intune-deviceconfigv2-devicemanagementreusablepolicysetting?view=graph-rest-beta)
 
 Graph consent does not replace Intune licensing or the signed-in user's Intune RBAC role and scope-tag access.
 

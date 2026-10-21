@@ -61,6 +61,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         DisconnectGraphCommand = new AsyncCommand(DisconnectGraphAsync, () => !Busy && GraphConnected);
         LoadPoliciesCommand = new AsyncCommand(LoadPoliciesAsync, () => !Busy && GraphConnected);
         LoadSelectedPolicyCountCommand = new AsyncCommand(LoadSelectedPolicyCountAsync, () => !Busy && GraphConnected && SelectedElevationPolicy is not null);
+        LoadReusableCertificateSettingsCommand = new AsyncCommand(LoadReusableCertificateSettingsAsync, () => !Busy && GraphConnected);
         LoadSettings();
     }
 
@@ -74,8 +75,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand DisconnectGraphCommand { get; }
     public ICommand LoadPoliciesCommand { get; }
     public ICommand LoadSelectedPolicyCountCommand { get; }
+    public ICommand LoadReusableCertificateSettingsCommand { get; }
     public ObservableCollection<string> ValidationMessages { get; } = [];
     public ObservableCollection<ElevationRulePolicy> ElevationPolicies { get; } = [];
+    public ObservableCollection<EpmReusableCertificateSetting> ReusableCertificateSettings { get; } = [];
 
     public string FilePath { get => _filePath; set { Set(ref _filePath, value); Raise(nameof(AnalyzeCommand)); } }
     public string Sha256 { get => _sha256; set => Set(ref _sha256, value); }
@@ -187,6 +190,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         await _graphAuthentication.RemoveAccountAsync();
         GraphConnected = false;
         ElevationPolicies.Clear();
+        ReusableCertificateSettings.Clear();
         SelectedElevationPolicy = null;
         _selectedPolicyRuleCount = null;
         _selectedPolicyRuleLimit = null;
@@ -235,6 +239,27 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _selectedPolicyRuleLimit = null;
             Raise(nameof(SelectedPolicySummary));
             PolicyLoadStatus = $"Could not read rule count: {exception.Message}";
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task LoadReusableCertificateSettingsAsync()
+    {
+        Busy = true;
+        PolicyLoadStatus = "Loading reusable EPM certificate settings…";
+        try
+        {
+            var settings = await _graphAuthentication.GetEpmReusableCertificateSettingsAsync();
+            ReusableCertificateSettings.Clear();
+            foreach (var setting in settings.OrderBy(setting => setting.DisplayName, StringComparer.CurrentCultureIgnoreCase))
+                ReusableCertificateSettings.Add(setting);
+            PolicyLoadStatus = settings.Count == 0
+                ? "No reusable EPM certificate settings were found. Non-EPM reusable settings are filtered out."
+                : $"Loaded {settings.Count} reusable EPM certificate setting(s).";
+        }
+        catch (Exception exception)
+        {
+            PolicyLoadStatus = $"Could not load reusable EPM certificate settings: {exception.Message}";
         }
         finally { Busy = false; }
     }
