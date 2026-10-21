@@ -486,15 +486,13 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         var choice = ruleType["choiceSettingValue"] as JsonObject
             ?? throw new InvalidOperationException("The elevation type setting has an unexpected format.");
         choice["value"] = definitionId + "_" + option;
-        // Match the shape emitted by the Intune admin center. The successful
-        // request supplied the template ID only (no useTemplateDefault flag).
-        if (rule.ElevationType == ElevationType.UserConfirmed)
-            choice["settingValueTemplateReference"] = new JsonObject
+        choice["settingValueTemplateReference"] = rule.ElevationType == ElevationType.UserConfirmed
+            ? new JsonObject
             {
-                ["settingValueTemplateId"] = "cb2ea689-ebc3-42ea-a7a4-c704bb13e3ad"
-            };
-        else
-            choice.Remove("settingValueTemplateReference");
+                ["settingValueTemplateId"] = "cb2ea689-ebc3-42ea-a7a4-c704bb13e3ad",
+                ["useTemplateDefault"] = false
+            }
+            : null;
 
         var nested = new JsonArray();
         switch (rule.ElevationType)
@@ -520,6 +518,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         foreach (var option in selectedOptions)
             values.Add(new JsonObject
             {
+                ["settingValueTemplateReference"] = null,
                 ["value"] = definitionId + "_" + option,
                 ["children"] = new JsonArray()
             });
@@ -528,6 +527,8 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         {
             ["@odata.type"] = "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
             ["settingDefinitionId"] = definitionId,
+            ["settingInstanceTemplateReference"] = null,
+            ["auditRuleInformation"] = null,
             ["choiceSettingCollectionValue"] = values
         };
     }
