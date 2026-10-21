@@ -38,6 +38,8 @@ See [Installation](docs/Installation.md) for obtaining the `work` branch in `C:\
 
 Graph authentication is optional and uses MSAL as a native public client. The current development build accepts a client ID and tenant in the optional connection panel. It requests delegated `User.Read` only to display the signed-in identity. No client secret is used. This scope does not grant Intune policy access, and no policy operations are implemented.
 
+The app saves the entered client ID and tenant ID in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` so they are prefilled next time. This is a normal, unencrypted per-user settings file; these IDs are identifiers, not credentials. They are not written to the executable or Git repository. MSAL stores sign-in tokens separately in its cache under the same per-user app-data directory, protected with Windows DPAPI. Signing out removes the account's MSAL cache entries; it does not remove the saved IDs.
+
 ### Permission needed for future EPM rule writes
 
 Microsoft Graph documents the delegated permission **`DeviceManagementConfiguration.ReadWrite.All`** for creating and updating configuration-policy settings, the Graph settings that hold policy values. It also permits the policy and settings read operations needed by the app, so a separate `DeviceManagementConfiguration.Read.All` scope is not required. The permission reference marks admin consent as required. For these settings endpoints, `DeviceManagementEndpointSecurity.ReadWrite.All` is not needed.
