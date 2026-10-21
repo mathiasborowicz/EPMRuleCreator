@@ -93,9 +93,9 @@
                             <TextBlock Text="Elevation rule" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                             <TextBlock Text="Rule name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Description" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="68" TextWrapping="Wrap"/>
-                            <TextBlock Text="File name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileName, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="{Binding FileNameLabel}" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Minimum file version (optional; four numeric parts, e.g. 12.3.5.5)" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}" MaxLength="30"/>
-                            <TextBlock Text="File hash (SHA256)" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileHash, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+                            <TextBlock Text="{Binding FileHashLabel}" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileHash, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
                             <TextBlock Text="File path" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFilePath, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Product name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleProductName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Internal name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleInternalName, UpdateSourceTrigger=PropertyChanged}"/>

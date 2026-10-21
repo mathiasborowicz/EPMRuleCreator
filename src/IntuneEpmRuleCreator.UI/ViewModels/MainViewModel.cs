@@ -124,9 +124,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             if (!Set(ref _identificationStrategy, value)) return;
             Raise(nameof(ShowCertificateSelection));
+            Raise(nameof(FileNameLabel));
+            Raise(nameof(FileHashLabel));
         }
     }
     public bool ShowCertificateSelection => IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes;
+    public string FileNameLabel => IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.Sha256
+        ? "File name *"
+        : "File name";
+    public string FileHashLabel => IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.Sha256
+        ? "File hash (SHA256) *"
+        : "File hash (SHA256)";
     public bool HasPublisherCertificate => PublisherCertificate is not null;
     public string PublisherCertificateChoiceText => PublisherCertificate is { } certificate
         ? $"Use analyzed file's publisher certificate — {certificate.Subject} (thumbprint {certificate.Thumbprint})"

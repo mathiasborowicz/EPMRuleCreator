@@ -13,13 +13,15 @@ A Windows desktop tool for inspecting local files and preparing Microsoft Intune
 - Embedded publisher certificate extraction with subject, issuer, thumbprint, and validity dates. Certificate extraction is not an Authenticode trust check.
 - Certificate-based rule selection between the analyzed file's extracted publisher certificate and a loaded reusable EPM certificate setting.
 - Explicit Graph upload that appends to an existing EPM rule collection, preserves its other entries, rechecks the 100-rule limit, requests confirmation, and verifies the updated count.
-- Local validation for rule name, file type, optional four-part numeric minimum file version (1–30 characters when set), SHA256 format, selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
+- Local validation for rule name, conditional file-name/SHA256 requirements, optional four-part numeric minimum file version (1–30 characters when set), selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
 - Optional Graph browsing of EPM Elevation Rules policies and EPM reusable certificate settings (unrelated reusable settings are filtered out by setting definition ID).
 - Per-user Explorer context menu registration and removal scripts.
 
 ### Offline file analysis
 
 No Intune tenant, Graph connection, or network access is needed to inspect a file. The app calculates SHA256 locally, reads available Windows version metadata, and attempts to extract the embedded publisher certificate. Certificate extraction does not verify Authenticode trust.
+
+Without a certificate, file name and SHA256 are required to identify the file. With a publisher or reusable certificate selected, file name and hash are optional constraints and are omitted from the Graph payload if blank.
 
 The elevation rule's **Minimum file version** field is prefilled from the analyzed file's version metadata when available and can be edited. It is optional. When supplied, Intune validates it against the format `number.number.number.number` and limits it to 30 characters; clear it if no matching version value is available.
 

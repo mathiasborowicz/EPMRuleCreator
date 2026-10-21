@@ -24,9 +24,10 @@ public sealed class RuleValidationService
         else if (existingRuleCount >= 100)
             issues.Add(new("policy.limit.reached", "An EPM Elevation Rules policy cannot contain more than 100 rules.", true));
 
-        if (string.IsNullOrWhiteSpace(rule.FileName))
+        var hashIdentification = rule.IdentificationStrategy == IdentificationStrategy.Sha256;
+        if (hashIdentification && string.IsNullOrWhiteSpace(rule.FileName))
             issues.Add(new("file.name.required", "A file name is required.", true));
-        else if (!SupportedExtensions.Contains(Path.GetExtension(rule.FileName)))
+        else if (!string.IsNullOrWhiteSpace(rule.FileName) && !SupportedExtensions.Contains(Path.GetExtension(rule.FileName)))
             issues.Add(new("file.type.unsupported", "Only .exe, .msi and .ps1 files are supported by this application.", true));
 
         if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) && rule.MinimumFileVersion.Length > 30)
@@ -34,9 +35,11 @@ public sealed class RuleValidationService
         else if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) && !FileVersionPattern.IsMatch(rule.MinimumFileVersion))
             issues.Add(new("file.version.invalid_format", "The file version must contain four numeric parts separated by dots, for example 12.3.5.5.", true));
 
-        if (rule.IdentificationStrategy == IdentificationStrategy.Sha256 &&
-            (rule.HashAlgorithm != "SHA256" || string.IsNullOrWhiteSpace(rule.FileHash) || !Sha256Pattern.IsMatch(rule.FileHash)))
-            issues.Add(new("file.sha256.invalid", "A 64-character SHA256 hash is required for hash-based identification.", true));
+        if (hashIdentification && string.IsNullOrWhiteSpace(rule.FileHash))
+            issues.Add(new("file.sha256.required", "A SHA256 hash is required when no certificate is selected.", true));
+        else if (!string.IsNullOrWhiteSpace(rule.FileHash) &&
+            (rule.HashAlgorithm != "SHA256" || !Sha256Pattern.IsMatch(rule.FileHash)))
+            issues.Add(new("file.sha256.invalid", "A supplied file hash must be a 64-character SHA256 value.", true));
 
         if (rule.IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes &&
             rule.PublisherCertificate is null && string.IsNullOrWhiteSpace(rule.ReusableCertificateSettingId))

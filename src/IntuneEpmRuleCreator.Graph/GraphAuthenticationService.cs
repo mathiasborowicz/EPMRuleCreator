@@ -406,7 +406,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             ?? throw new InvalidOperationException("The selected rule template has no child settings.");
         SetSimple(children, "name", rule.Name);
         SetOptionalSimple(children, "description", rule.Description);
-        SetSimple(children, "filename", rule.FileName);
+        SetOptionalSimple(children, "filename", rule.FileName);
         SetOptionalSimple(children, "filehash", rule.FileHash);
         SetOptionalSimple(children, "filepath", rule.FilePath);
         SetOptionalSimple(children, "productname", rule.ProductName);

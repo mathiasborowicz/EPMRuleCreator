@@ -15,6 +15,10 @@ public sealed class RuleValidationServiceTests
         var rule = new ElevationRule { Name = "Editor", FileName = "editor.exe", MinimumFileVersion = "1.0.0.0", FileHash = new string('a', 64) };
         Assert.True(_service.Validate(rule, 0, true).CanSubmit);
         Assert.False(_service.Validate(rule with { FileHash = "bad" }, 0, true).CanSubmit);
+        Assert.Contains(_service.Validate(rule with { FileName = string.Empty }, 0, true).Issues,
+            issue => issue.Code == "file.name.required" && issue.IsBlocking);
+        Assert.Contains(_service.Validate(rule with { FileHash = null }, 0, true).Issues,
+            issue => issue.Code == "file.sha256.required" && issue.IsBlocking);
     }
 
     [Fact]
@@ -66,6 +70,21 @@ public sealed class RuleValidationServiceTests
             Name = "Signed app",
             FileName = "signed.exe",
             MinimumFileVersion = "1.0.0.0",
+            IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes,
+            PublisherCertificate = certificate
+        };
+
+        Assert.True(_service.Validate(rule, 0, true).CanSubmit);
+    }
+
+    [Fact]
+    public void CertificateRule_DoesNotRequireFileNameOrHash()
+    {
+        var certificate = new CertificateAttributes("CN=Publisher", "CN=Issuer", "thumbprint",
+            DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1), true);
+        var rule = new ElevationRule
+        {
+            Name = "Signed app",
             IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes,
             PublisherCertificate = certificate
         };
