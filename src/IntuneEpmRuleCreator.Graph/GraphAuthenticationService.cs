@@ -413,6 +413,11 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         SetOptionalSimple(children, "fileversion", rule.MinimumFileVersion);
 
         SetChoice(children, "ruletype", GetRuleTypeOption(rule.ElevationType));
+        if (rule.ElevationType == ElevationType.UserConfirmed)
+        {
+            SetValidationCollectionSelection(children, "ruletype_userconfirmeduservalidation", rule.RequireWindowsAuthentication);
+            SetValidationCollectionSelection(children, "ruletype_userconfirmeduservalidation_2", rule.RequireBusinessJustification);
+        }
         SetChoice(children, "childprocessbehavior", GetChildProcessOption(rule.ChildProcessBehavior));
 
         if (rule.PublisherCertificate is { } certificate)
@@ -431,6 +436,31 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             SetChoice(children, "signaturesource", "0");
             SetSimpleRequired(children, "certificatepayloadwithreusablesetting", reusableId);
         }
+    }
+
+    private static void SetValidationCollectionSelection(JsonArray ruleChildren, string suffix, bool selected)
+    {
+        var ruleType = FindChild(ruleChildren, "ruletype")
+            ?? throw new InvalidOperationException("The selected rule template is missing its elevation type setting.");
+        var nestedChildren = ruleType["choiceSettingValue"]?["children"] as JsonArray
+            ?? throw new InvalidOperationException("The selected user-confirmed rule has no validation settings.");
+        var collection = FindChild(nestedChildren, suffix)
+            ?? throw new InvalidOperationException($"The selected user-confirmed rule is missing the '{suffix}' validation setting.");
+
+        if (!selected)
+        {
+            collection["choiceSettingCollectionValue"] = new JsonArray();
+            return;
+        }
+
+        var definitionId = collection["settingDefinitionId"]?.GetValue<string>()
+            ?? throw new InvalidOperationException($"The '{suffix}' validation setting has no definition ID.");
+        collection["choiceSettingCollectionValue"] = new JsonArray(new JsonObject
+        {
+            ["settingValueTemplateReference"] = null,
+            ["value"] = definitionId + "_0",
+            ["children"] = new JsonArray()
+        });
     }
 
     private static JsonObject FindCertificateSourceTemplate(JsonArray rules, bool reusable)

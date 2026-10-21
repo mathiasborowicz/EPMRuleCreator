@@ -20,6 +20,8 @@ public sealed record ElevationRule
     public CertificateAttributes? PublisherCertificate { get; init; }
     public string? ReusableCertificateSettingId { get; init; }
     public ElevationType ElevationType { get; init; } = ElevationType.UserConfirmed;
+    public bool RequireBusinessJustification { get; init; }
+    public bool RequireWindowsAuthentication { get; init; }
     public ChildProcessBehavior ChildProcessBehavior { get; init; } = ChildProcessBehavior.RequireRuleToElevate;
 }
 
