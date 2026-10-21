@@ -236,8 +236,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SignatureStatus = result.SignatureStatus ?? "Not available";
             AnalysisWarnings = string.Join(Environment.NewLine, result.Warnings);
             RuleFileName = result.FileName;
-            var normalizedVersion = RuleValidationService.NormalizeMinimumFileVersionToFourParts(result.Version);
-            RuleFileVersion = RuleValidationService.IsValidMinimumFileVersion(normalizedVersion) ? normalizedVersion ?? string.Empty : string.Empty;
+            // Preserve detected metadata in the editable rule field; validation reports
+            // unsupported version formats instead of silently blanking the prefilled value.
+            RuleFileVersion = RuleValidationService.NormalizeMinimumFileVersionToFourParts(result.Version?.Trim()) ?? string.Empty;
             RuleFileHash = result.Sha256;
             RuleFilePath = result.FilePath;
             RuleProductName = result.ProductName ?? string.Empty;
