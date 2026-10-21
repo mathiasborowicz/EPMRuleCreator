@@ -164,8 +164,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         get => _selectedReusableCertificateSetting;
         set => Set(ref _selectedReusableCertificateSetting, value);
     }
-    public ElevationType ElevationType { get => _elevationType; set { if (Set(ref _elevationType, value)) Raise(nameof(IsUserConfirmed)); } }
+    public ElevationType ElevationType { get => _elevationType; set { if (Set(ref _elevationType, value)) { Raise(nameof(IsUserConfirmed)); Raise(nameof(IsCurrentUser)); } } }
     public bool IsUserConfirmed => ElevationType == global::IntuneEpmRuleCreator.Core.Models.ElevationType.UserConfirmed;
+    public bool IsCurrentUser => ElevationType == global::IntuneEpmRuleCreator.Core.Models.ElevationType.CurrentUser;
     public bool RequireBusinessJustification { get => _requireBusinessJustification; set => Set(ref _requireBusinessJustification, value); }
     public bool RequireWindowsAuthentication { get => _requireWindowsAuthentication; set => Set(ref _requireWindowsAuthentication, value); }
     public ChildProcessBehavior ChildProcessBehavior { get => _childProcessBehavior; set => Set(ref _childProcessBehavior, value); }
@@ -385,7 +386,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ReusableCertificateSettingId = IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes && UseReusableCertificate ? SelectedReusableCertificateSetting?.Id : null,
         ElevationType = ElevationType,
         RequireBusinessJustification = RequireBusinessJustification,
-        RequireWindowsAuthentication = RequireWindowsAuthentication,
+        RequireWindowsAuthentication = IsCurrentUser || RequireWindowsAuthentication,
         ChildProcessBehavior = ChildProcessBehavior,
     };
 

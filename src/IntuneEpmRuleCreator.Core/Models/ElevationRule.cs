@@ -2,7 +2,7 @@ namespace IntuneEpmRuleCreator.Core.Models;
 
 public enum IdentificationStrategy { Sha256, CertificateAndAttributes, Custom }
 public enum ElevationType { UserConfirmed, Automatic, SupportApproved, Deny, CurrentUser }
-public enum ChildProcessBehavior { RequireRuleToElevate, DenyAll, AllowAllElevated }
+public enum ChildProcessBehavior { NotConfigured, RequireRuleToElevate, DenyAll, AllowAllElevated }
 
 public sealed record ElevationRule
 {

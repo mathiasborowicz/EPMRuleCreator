@@ -383,6 +383,9 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             if (!string.Equals(GetChoiceOption(children, "ruletype"), expectedRuleType, StringComparison.Ordinal))
                 continue;
 
+            if (!HasElevationTypeValidationSchema(children, rule.ElevationType))
+                continue;
+
             var matches = rule.IdentificationStrategy switch
             {
                 IdentificationStrategy.Sha256 => FindChild(children, "signaturesource") is null,
@@ -396,6 +399,22 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         throw new InvalidOperationException(rule.IdentificationStrategy == IdentificationStrategy.Sha256
             ? $"This policy has no hash-based rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first."
             : $"This policy has no rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first.");
+    }
+
+    private static bool HasElevationTypeValidationSchema(JsonArray ruleChildren, ElevationType elevationType)
+    {
+        var ruleType = FindChild(ruleChildren, "ruletype");
+        var nested = ruleType?["choiceSettingValue"]?["children"] as JsonArray;
+        if (nested is null)
+            return elevationType is not (ElevationType.UserConfirmed or ElevationType.CurrentUser);
+
+        return elevationType switch
+        {
+            ElevationType.UserConfirmed => FindChild(nested, "ruletype_userconfirmeduservalidation") is not null &&
+                                           FindChild(nested, "ruletype_userconfirmeduservalidation_2") is not null,
+            ElevationType.CurrentUser => FindChild(nested, "ruletype_validation") is not null,
+            _ => true
+        };
     }
 
     private static void PopulateRule(JsonObject newRule, ElevationRule rule, JsonArray allRules)
@@ -415,10 +434,20 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         SetChoice(children, "ruletype", GetRuleTypeOption(rule.ElevationType));
         if (rule.ElevationType == ElevationType.UserConfirmed)
         {
-            SetValidationCollectionSelection(children, "ruletype_userconfirmeduservalidation", rule.RequireWindowsAuthentication);
-            SetValidationCollectionSelection(children, "ruletype_userconfirmeduservalidation_2", rule.RequireBusinessJustification);
+            SetValidationCollectionSelection(children, "ruletype_userconfirmeduservalidation",
+                rule.RequireWindowsAuthentication ? ["0"] : []);
+            SetValidationCollectionSelection(children, "ruletype_userconfirmeduservalidation_2",
+                rule.RequireBusinessJustification ? ["0"] : []);
         }
-        SetChoice(children, "childprocessbehavior", GetChildProcessOption(rule.ChildProcessBehavior));
+        else if (rule.ElevationType == ElevationType.CurrentUser)
+        {
+            SetValidationCollectionSelection(children, "ruletype_validation",
+                rule.RequireBusinessJustification ? ["0", "1"] : ["1"]);
+        }
+        if (rule.ChildProcessBehavior == ChildProcessBehavior.NotConfigured)
+            RemoveChild(children, "childprocessbehavior");
+        else
+            SetChoice(children, "childprocessbehavior", GetChildProcessOption(rule.ChildProcessBehavior));
 
         if (rule.PublisherCertificate is { } certificate)
         {
@@ -438,7 +467,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         }
     }
 
-    private static void SetValidationCollectionSelection(JsonArray ruleChildren, string suffix, bool selected)
+    private static void SetValidationCollectionSelection(JsonArray ruleChildren, string suffix, string[] selectedOptions)
     {
         var ruleType = FindChild(ruleChildren, "ruletype")
             ?? throw new InvalidOperationException("The selected rule template is missing its elevation type setting.");
@@ -447,7 +476,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         var collection = FindChild(nestedChildren, suffix)
             ?? throw new InvalidOperationException($"The selected user-confirmed rule is missing the '{suffix}' validation setting.");
 
-        if (!selected)
+        if (selectedOptions.Length == 0)
         {
             collection["choiceSettingCollectionValue"] = new JsonArray();
             return;
@@ -455,12 +484,18 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
         var definitionId = collection["settingDefinitionId"]?.GetValue<string>()
             ?? throw new InvalidOperationException($"The '{suffix}' validation setting has no definition ID.");
-        collection["choiceSettingCollectionValue"] = new JsonArray(new JsonObject
+        var selectedValues = new JsonArray();
+        foreach (var option in selectedOptions)
         {
-            ["settingValueTemplateReference"] = null,
-            ["value"] = definitionId + "_0",
-            ["children"] = new JsonArray()
-        });
+            selectedValues.Add(new JsonObject
+            {
+                ["@odata.type"] = "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+                ["settingValueTemplateReference"] = null,
+                ["value"] = definitionId + "_" + option,
+                ["children"] = new JsonArray()
+            });
+        }
+        collection["choiceSettingCollectionValue"] = selectedValues;
     }
 
     private static JsonObject FindCertificateSourceTemplate(JsonArray rules, bool reusable)
@@ -545,11 +580,18 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
     private static string GetChildProcessOption(ChildProcessBehavior behavior) => behavior switch
     {
+        ChildProcessBehavior.NotConfigured => throw new InvalidOperationException("Not configured has no child-process choice; its setting must be omitted."),
         ChildProcessBehavior.RequireRuleToElevate => "allowrunelevatedrulerequired",
         ChildProcessBehavior.AllowAllElevated => "allowrunelevated",
-        ChildProcessBehavior.DenyAll => throw new InvalidOperationException("Deny all child processes is not yet supported by the verified Graph payloads."),
+        ChildProcessBehavior.DenyAll => "deny",
         _ => throw new InvalidOperationException("Unsupported child-process behavior.")
     };
+
+    private static void RemoveChild(JsonArray children, string suffix)
+    {
+        if (FindChild(children, suffix) is { } child)
+            children.Remove(child);
+    }
 
     private static void SetSimpleRequired(JsonArray children, string suffix, string value)
     {

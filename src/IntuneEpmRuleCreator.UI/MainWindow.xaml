@@ -113,6 +113,12 @@
                                 <CheckBox Content="Business justification" IsChecked="{Binding RequireBusinessJustification}" Margin="0,3"/>
                                 <CheckBox Content="Windows authentication" IsChecked="{Binding RequireWindowsAuthentication}" Margin="0,3"/>
                             </StackPanel>
+                            <StackPanel Margin="0,4,0,8" Visibility="{Binding IsCurrentUser, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="Validation" FontWeight="SemiBold" Margin="0,2,0,4"/>
+                                <CheckBox Content="Windows authentication (required)" IsChecked="{Binding IsCurrentUser}" IsEnabled="False" Margin="0,3"/>
+                                <TextBlock Text="Additional validation requirement" FontWeight="SemiBold" Margin="0,6,0,4"/>
+                                <CheckBox Content="Business justification" IsChecked="{Binding RequireBusinessJustification}" Margin="0,3"/>
+                            </StackPanel>
                             <TextBlock Text="Child process behavior" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding ChildProcessBehaviors}" SelectedItem="{Binding ChildProcessBehavior}"/>
                         </StackPanel>
                     </Border>

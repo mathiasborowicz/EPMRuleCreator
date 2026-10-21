@@ -28,6 +28,20 @@ public sealed class RuleValidationServiceTests
         Assert.Contains(_service.Validate(rule, 100, true).Issues, issue => issue.Code == "policy.limit.reached" && issue.IsBlocking);
     }
 
+    [Fact]
+    public void DenyAllChildProcessBehavior_IsAcceptedForUpload()
+    {
+        var rule = new ElevationRule
+        {
+            Name = "Blocked child processes",
+            FileName = "editor.exe",
+            FileHash = new string('c', 64),
+            ChildProcessBehavior = ChildProcessBehavior.DenyAll
+        };
+
+        Assert.True(_service.Validate(rule, 0, true).CanSubmit);
+    }
+
     [Theory]
     [InlineData("installer.msi")]
     [InlineData("deploy.ps1")]
