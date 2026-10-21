@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntuneEpmRuleCreator.Core",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntuneEpmRuleCreator.UI", "src\IntuneEpmRuleCreator.UI\IntuneEpmRuleCreator.UI.csproj", "{23E855B7-5DC1-44B7-BD2A-286EC274C66A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntuneEpmRuleCreator.Graph", "src\IntuneEpmRuleCreator.Graph\IntuneEpmRuleCreator.Graph.csproj", "{89A28674-7168-4C5E-B8A3-C89959C32C75}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntuneEpmRuleCreator.Tests", "tests\IntuneEpmRuleCreator.Tests\IntuneEpmRuleCreator.Tests.csproj", "{05BDBA2B-EFA7-4F20-BBD4-E6C5C7282AB7}"
 EndProject
 Global
@@ -22,6 +24,10 @@ Global
 		{23E855B7-5DC1-44B7-BD2A-286EC274C66A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{23E855B7-5DC1-44B7-BD2A-286EC274C66A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{23E855B7-5DC1-44B7-BD2A-286EC274C66A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{89A28674-7168-4C5E-B8A3-C89959C32C75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{89A28674-7168-4C5E-B8A3-C89959C32C75}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{89A28674-7168-4C5E-B8A3-C89959C32C75}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{89A28674-7168-4C5E-B8A3-C89959C32C75}.Release|Any CPU.Build.0 = Release|Any CPU
 		{05BDBA2B-EFA7-4F20-BBD4-E6C5C7282AB7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{05BDBA2B-EFA7-4F20-BBD4-E6C5C7282AB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{05BDBA2B-EFA7-4F20-BBD4-E6C5C7282AB7}.Release|Any CPU.ActiveCfg = Release|Any CPU

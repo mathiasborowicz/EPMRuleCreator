@@ -1,6 +1,6 @@
 # Intune EPM Rule Creator
 
-A Windows desktop tool for inspecting local files and preparing Microsoft Intune Endpoint Privilege Management elevation rules. Local file analysis works offline and does not require signing in to a tenant. The current build does not connect to Graph or modify Intune policies.
+A Windows desktop tool for inspecting local files and preparing Microsoft Intune Endpoint Privilege Management elevation rules. Local file analysis works offline and does not require signing in to a tenant. Optional Microsoft Graph sign-in is available to verify the account and tenant; this build does not modify Intune policies.
 
 > **Graph publishing is disabled.** The official Microsoft Learn pages needed to verify EPM setting identifiers and safe rule collection updates returned HTTP 403 from the build environment. The project does not guess Graph payloads or send policy changes. See [the verification record](docs/GraphIntegration.md).
 
@@ -36,7 +36,7 @@ See [Installation](docs/Installation.md) for obtaining the `work` branch in `C:\
 
 ## Graph, authentication, and security
 
-No MSAL client ID, Graph scope, client secret, or tenant setting is requested in the current version because no Graph calls are implemented. The permission names in the project brief are candidates only. They must be matched to verified API operations, least privilege, and Intune RBAC before authentication or policy writes are added.
+Graph authentication is optional and uses MSAL as a native public client. The current development build accepts a client ID and tenant in the optional connection panel. It requests delegated `User.Read` only to display the signed-in identity. No client secret is used. This scope does not grant Intune policy access, and no policy operations are implemented. See [optional Graph authentication](docs/GraphAuthentication.md) and [Graph integration research](docs/GraphIntegration.md).
 
 No policy changes occur in this build. The UI does not provide a create/publish control. Never interpret local rule validation as proof that a rule is accepted by Intune.
 

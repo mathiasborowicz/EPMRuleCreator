@@ -6,6 +6,8 @@ using System.Windows;
 using System.Windows.Input;
 using IntuneEpmRuleCreator.Core.Models;
 using IntuneEpmRuleCreator.Core.Services;
+using IntuneEpmRuleCreator.Graph;
+using System.Text.Json;
 
 namespace IntuneEpmRuleCreator.UI.ViewModels;
 
@@ -36,6 +38,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private ElevationType _elevationType = ElevationType.UserConfirmed;
     private ChildProcessBehavior _childProcessBehavior = ChildProcessBehavior.RequireRuleToElevate;
     private bool _busy;
+    private readonly GraphAuthenticationService _graphAuthentication = new();
+    private readonly string _settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "IntuneEpmRuleCreator", "settings.json");
+    private string _clientId = typeof(MainViewModel).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+        .Cast<System.Reflection.AssemblyMetadataAttribute>()
+        .FirstOrDefault(attribute => attribute.Key == "GraphClientId")?.Value ?? string.Empty;
+    private string _tenantId = "organizations";
+    private string _graphConnectionStatus = "Optional: sign in only if you want to connect to Microsoft Graph. Local file analysis works without sign-in.";
+    private string _graphAccount = string.Empty;
+    private bool _graphConnected;
 
     public MainViewModel()
     {
@@ -44,6 +55,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ChildProcessBehaviors = Enum.GetValues<ChildProcessBehavior>();
         AnalyzeCommand = new AsyncCommand(AnalyzeAsync, () => !Busy && !string.IsNullOrWhiteSpace(FilePath));
         ValidateCommand = new RelayCommand(Validate);
+        ConnectGraphCommand = new AsyncCommand(ConnectGraphAsync, () => !Busy && !GraphConnected);
+        DisconnectGraphCommand = new AsyncCommand(DisconnectGraphAsync, () => !Busy && GraphConnected);
+        LoadSettings();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -52,6 +66,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public Array ChildProcessBehaviors { get; }
     public ICommand AnalyzeCommand { get; }
     public ICommand ValidateCommand { get; }
+    public ICommand ConnectGraphCommand { get; }
+    public ICommand DisconnectGraphCommand { get; }
     public ObservableCollection<string> ValidationMessages { get; } = [];
 
     public string FilePath { get => _filePath; set { Set(ref _filePath, value); Raise(nameof(AnalyzeCommand)); } }
@@ -77,6 +93,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ElevationType ElevationType { get => _elevationType; set => Set(ref _elevationType, value); }
     public ChildProcessBehavior ChildProcessBehavior { get => _childProcessBehavior; set => Set(ref _childProcessBehavior, value); }
     public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(AnalyzeCommand)); } }
+    public string ClientId { get => _clientId; set { Set(ref _clientId, value); SaveSettings(); } }
+    public string TenantId { get => _tenantId; set { Set(ref _tenantId, value); SaveSettings(); } }
+    public string GraphConnectionStatus { get => _graphConnectionStatus; private set => Set(ref _graphConnectionStatus, value); }
+    public string GraphAccount { get => _graphAccount; private set => Set(ref _graphAccount, value); }
+    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); } }
 
     private async Task AnalyzeAsync()
     {
@@ -115,6 +136,59 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Busy = false;
         }
     }
+
+    private async Task ConnectGraphAsync()
+    {
+        Busy = true;
+        try
+        {
+            var window = Application.Current?.MainWindow;
+            var profile = await _graphAuthentication.SignInAsync(ClientId, TenantId, window is null ? IntPtr.Zero : new System.Windows.Interop.WindowInteropHelper(window).Handle);
+            GraphConnected = true;
+            GraphAccount = $"{profile.DisplayName} ({profile.UserPrincipalName})\nTenant ID: {profile.TenantId}";
+            GraphConnectionStatus = "Connected to Microsoft Graph. No Intune policy changes are made by this connection.";
+            TenantId = profile.TenantId;
+        }
+        catch (Exception exception)
+        {
+            GraphConnectionStatus = $"Connection failed: {exception.Message}";
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task DisconnectGraphAsync()
+    {
+        await _graphAuthentication.RemoveAccountAsync();
+        GraphConnected = false;
+        GraphAccount = string.Empty;
+        GraphConnectionStatus = "Disconnected. Local file analysis remains available offline.";
+    }
+
+    private void LoadSettings()
+    {
+        try
+        {
+            if (!File.Exists(_settingsPath)) return;
+            var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(_settingsPath));
+            if (settings is null) return;
+            if (!string.IsNullOrWhiteSpace(settings.ClientId))
+                _clientId = settings.ClientId;
+            _tenantId = string.IsNullOrWhiteSpace(settings.TenantId) ? "organizations" : settings.TenantId;
+        }
+        catch { /* Invalid or inaccessible optional settings must not block offline use. */ }
+    }
+
+    private void SaveSettings()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
+            File.WriteAllText(_settingsPath, JsonSerializer.Serialize(new AppSettings(ClientId, TenantId)));
+        }
+        catch { /* Settings are optional and never block local functionality. */ }
+    }
+
+    private sealed record AppSettings(string? ClientId, string? TenantId);
 
     private void Validate()
     {

@@ -58,8 +58,18 @@
                     </Border>
                     <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18">
                         <StackPanel>
-                            <TextBlock Text="Policy target" FontSize="18" FontWeight="SemiBold"/>
-                            <TextBlock Text="Tenant connection and policy selection will be enabled after the official Graph EPM setting model and permissions are verified." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,10,0,0"/>
+                            <TextBlock Text="Optional Microsoft Graph connection" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock Text="Local file analysis works without sign-in, network access, or a tenant. Connect only when you want to use Graph." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,10"/>
+                            <TextBlock Text="Application (client) ID" Foreground="{StaticResource MutedBrush}"/>
+                            <TextBox Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="Tenant ID or 'organizations'" Foreground="{StaticResource MutedBrush}"/>
+                            <TextBox Text="{Binding TenantId, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,4">
+                                <Button Content="Sign in / switch account" Command="{Binding ConnectGraphCommand}"/>
+                                <Button Content="Sign out" Command="{Binding DisconnectGraphCommand}"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding GraphConnectionStatus}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="{Binding GraphAccount}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

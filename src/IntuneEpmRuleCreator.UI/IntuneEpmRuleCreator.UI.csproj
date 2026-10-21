@@ -10,8 +10,13 @@
     <AssemblyName>IntuneEpmRuleCreator</AssemblyName>
     <RootNamespace>IntuneEpmRuleCreator.UI</RootNamespace>
     <Version>0.1.0</Version>
+    <GraphClientId Condition="'$(GraphClientId)' == ''"></GraphClientId>
   </PropertyGroup>
   <ItemGroup>
+    <AssemblyMetadata Include="GraphClientId" Value="$(GraphClientId)" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../IntuneEpmRuleCreator.Core/IntuneEpmRuleCreator.Core.csproj" />
+    <ProjectReference Include="../IntuneEpmRuleCreator.Graph/IntuneEpmRuleCreator.Graph.csproj" />
   </ItemGroup>
 </Project>

@@ -12,5 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/IntuneEpmRuleCreator.Core/IntuneEpmRuleCreator.Core.csproj" />
+    <ProjectReference Include="../../src/IntuneEpmRuleCreator.Graph/IntuneEpmRuleCreator.Graph.csproj" />
   </ItemGroup>
 </Project>

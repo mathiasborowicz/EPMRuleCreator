@@ -23,7 +23,7 @@ Before implementing writes, verify from current first-party documentation and a 
 5. ETag or other concurrency behavior, the rule limit, and post-write readback.
 6. Delegated Graph scopes and Intune RBAC roles for read and write operations.
 
-Until those points are verified, this application performs no Graph authentication, policy listing, policy creation, or rule writes. It does not request Graph permissions.
+Optional MSAL authentication has since been added for the distinct purpose of displaying the signed-in identity through `GET /me` (`User.Read`). Until the EPM API points above are verified, the application performs no Intune policy listing, creation, or rule writes.
 
 ## Permission candidates to verify
 
