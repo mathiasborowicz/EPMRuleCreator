@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../IntuneEpmRuleCreator.Core/IntuneEpmRuleCreator.Core.csproj" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.91.1" />
     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.91.1" />
   </ItemGroup>
