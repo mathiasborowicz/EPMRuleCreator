@@ -99,13 +99,18 @@
                             <TextBlock Text="File path" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFilePath, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Product name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleProductName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Internal name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleInternalName, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="Identification strategy" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding IdentificationStrategies}" SelectedItem="{Binding IdentificationStrategy}"/>
+                            <TextBlock Text="Signature source" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding SignatureSourceOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding SignatureSource}"/>
                             <StackPanel Visibility="{Binding ShowCertificateSelection, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,8">
-                                <TextBlock Text="Certificate selection" FontWeight="SemiBold" Margin="0,4,0,4"/>
-                                <RadioButton Content="{Binding PublisherCertificateChoiceText}" IsChecked="{Binding UsePublisherCertificate}" IsEnabled="{Binding HasPublisherCertificate}" GroupName="CertificateSource" Margin="0,4"/>
-                                <RadioButton Content="Use an EPM reusable certificate setting" IsChecked="{Binding UseReusableCertificate}" GroupName="CertificateSource" Margin="0,4"/>
-                                <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" SelectedItem="{Binding SelectedReusableCertificateSetting}" DisplayMemberPath="DisplayName" IsEnabled="{Binding UseReusableCertificate}"/>
-                                <TextBlock Text="{Binding ReusableCertificateSelectionHint}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Visibility="{Binding UseReusableCertificate, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                <StackPanel Visibility="{Binding ShowCertificateFileSource, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="Certificate" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                                    <TextBlock Text="{Binding PublisherCertificateChoiceText}" TextWrapping="Wrap"/>
+                                    <Button Content="Choose certificate file…" Click="ChooseCertificateFile_Click" HorizontalAlignment="Left" Margin="0,6,0,4"/>
+                                </StackPanel>
+                                <StackPanel Visibility="{Binding ShowReusableCertificateSource, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="Certificate" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                                    <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" SelectedItem="{Binding SelectedReusableCertificateSetting}" DisplayMemberPath="DisplayName"/>
+                                    <TextBlock Text="{Binding ReusableCertificateSelectionHint}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
                                 <TextBlock Text="Certificate type" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
                                 <ComboBox ItemsSource="{Binding CertificateTypeOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding CertificateType}"/>
                             </StackPanel>
@@ -122,6 +127,11 @@
                                 <CheckBox Content="Business justification" IsChecked="{Binding RequireBusinessJustification}" Margin="0,3"/>
                             </StackPanel>
                             <TextBlock Text="Child process behavior" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding ChildProcessBehaviors}" SelectedItem="{Binding ChildProcessBehavior}"/>
+                            <TextBlock Text="Restrict Arguments" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding RestrictArgumentsOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding RestrictArguments}"/>
+                            <StackPanel Visibility="{Binding ShowArgumentList, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="Argument List (one argument per line)" Foreground="{StaticResource MutedBrush}"/>
+                                <TextBox Text="{Binding ArgumentListText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="72" TextWrapping="Wrap"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                     <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18">

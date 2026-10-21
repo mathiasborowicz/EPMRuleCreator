@@ -66,12 +66,12 @@ public sealed class RuleValidationServiceTests
             Name = "Signed app",
             FileName = "signed.exe",
             MinimumFileVersion = "1.0.0.0",
-            IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes
+            SignatureSource = SignatureSource.CertificateFile
         };
 
         Assert.Contains(_service.Validate(rule, 0, true).Issues,
             issue => issue.Code == "certificate.required" && issue.IsBlocking);
-        Assert.True(_service.Validate(rule with { ReusableCertificateSettingId = "reusable-id" }, 0, true).CanSubmit);
+        Assert.True(_service.Validate(rule with { SignatureSource = SignatureSource.ReusableSettings, ReusableCertificateSettingId = "reusable-id" }, 0, true).CanSubmit);
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class RuleValidationServiceTests
             Name = "Signed app",
             FileName = "signed.exe",
             MinimumFileVersion = "1.0.0.0",
-            IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes,
+            SignatureSource = SignatureSource.CertificateFile,
             PublisherCertificate = certificate
         };
 
@@ -99,7 +99,7 @@ public sealed class RuleValidationServiceTests
         var rule = new ElevationRule
         {
             Name = "Signed app",
-            IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes,
+            SignatureSource = SignatureSource.CertificateFile,
             PublisherCertificate = certificate
         };
 
@@ -112,7 +112,7 @@ public sealed class RuleValidationServiceTests
         var rule = new ElevationRule
         {
             Name = "Signed app",
-            IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes,
+            SignatureSource = SignatureSource.CertificateFile,
             PublisherCertificate = new CertificateAttributes("CN=Publisher", "CN=Issuer", "thumbprint",
                 DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1), true),
             FileDescription = new string('x', 60)
@@ -121,6 +121,16 @@ public sealed class RuleValidationServiceTests
         var result = _service.Validate(rule, 0, true);
         Assert.True(result.CanSubmit);
         Assert.Contains(result.Issues, issue => issue.Code == "file.description.truncated" && !issue.IsBlocking);
+    }
+
+    [Fact]
+    public void RestrictArguments_RequiresAtLeastOneValidArgument()
+    {
+        var rule = new ElevationRule { Name = "Rule", FileName = "app.exe", FileHash = new string('a', 64), RestrictArguments = RestrictArgumentsMode.Allow };
+        Assert.Contains(_service.Validate(rule, 0, true).Issues, issue => issue.Code == "arguments.required" && issue.IsBlocking);
+        Assert.True(_service.Validate(rule with { ArgumentList = ["/quiet"] }, 0, true).CanSubmit);
+        Assert.Contains(_service.Validate(rule with { ArgumentList = [new string('x', 252)] }, 0, true).Issues,
+            issue => issue.Code == "arguments.invalid" && issue.IsBlocking);
     }
 
     [Fact]

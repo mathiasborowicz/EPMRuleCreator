@@ -24,7 +24,7 @@ public sealed class RuleValidationService
         else if (existingRuleCount >= 100)
             issues.Add(new("policy.limit.reached", "An EPM Elevation Rules policy cannot contain more than 100 rules.", true));
 
-        var hashIdentification = rule.IdentificationStrategy == IdentificationStrategy.Sha256;
+        var hashIdentification = rule.SignatureSource == SignatureSource.NotConfigured;
         if (hashIdentification && string.IsNullOrWhiteSpace(rule.FileName))
             issues.Add(new("file.name.required", "A file name is required.", true));
         else if (!string.IsNullOrWhiteSpace(rule.FileName) && !SupportedExtensions.Contains(Path.GetExtension(rule.FileName)))
@@ -45,11 +45,19 @@ public sealed class RuleValidationService
             (rule.HashAlgorithm != "SHA256" || !Sha256Pattern.IsMatch(rule.FileHash)))
             issues.Add(new("file.sha256.invalid", "A supplied file hash must be a 64-character SHA256 value.", true));
 
-        if (rule.IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes &&
-            rule.PublisherCertificate is null && string.IsNullOrWhiteSpace(rule.ReusableCertificateSettingId))
-            issues.Add(new("certificate.required", "Select the publisher certificate extracted from the analyzed file or an EPM reusable certificate setting.", true));
-        if (rule.IdentificationStrategy == IdentificationStrategy.Custom)
-            issues.Add(new("file.custom.unsupported", "Custom identification is not supported by the current Intune upload mapping.", true));
+        if (rule.SignatureSource == SignatureSource.CertificateFile && rule.PublisherCertificate is null)
+            issues.Add(new("certificate.required", "Select the publisher certificate extracted from the analyzed file or choose a certificate file.", true));
+        if (rule.SignatureSource == SignatureSource.ReusableSettings && string.IsNullOrWhiteSpace(rule.ReusableCertificateSettingId))
+            issues.Add(new("certificate.reusable.required", "Select an EPM reusable certificate setting.", true));
+        if (rule.RestrictArguments == RestrictArgumentsMode.Allow)
+        {
+            if (rule.ArgumentList.Count == 0)
+                issues.Add(new("arguments.required", "Add at least one Argument List entry when Restrict Arguments is set to Allow.", true));
+            if (rule.ArgumentList.Any(argument => string.IsNullOrWhiteSpace(argument) || argument.Length > 251))
+                issues.Add(new("arguments.invalid", "Each Argument List entry must contain 1 to 251 characters.", true));
+            if (rule.ArgumentList.Count > 600)
+                issues.Add(new("arguments.too_many", "Argument List cannot contain more than 600 entries.", true));
+        }
 
         if (rule.ChildProcessBehavior == ChildProcessBehavior.AllowAllElevated)
             issues.Add(new("security.child-process.broad", "All child processes would run elevated. Review this high-risk choice carefully.", false));

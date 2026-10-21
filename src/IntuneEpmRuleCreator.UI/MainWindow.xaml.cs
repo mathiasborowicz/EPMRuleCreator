@@ -31,4 +31,20 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) == true && DataContext is MainViewModel viewModel)
             viewModel.FilePath = dialog.FileName;
     }
+
+    private void ChooseCertificateFile_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select a certificate file",
+            Filter = "Certificate files (*.cer;*.crt;*.pem;*.der)|*.cer;*.crt;*.pem;*.der|All files (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) == true && DataContext is MainViewModel viewModel)
+        {
+            try { viewModel.LoadCertificateFile(dialog.FileName); }
+            catch (Exception exception) { MessageBox.Show(this, $"Could not read the certificate file: {exception.Message}", "Certificate file", MessageBoxButton.OK, MessageBoxImage.Error); }
+        }
+    }
 }

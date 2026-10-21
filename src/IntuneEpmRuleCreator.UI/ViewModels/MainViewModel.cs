@@ -8,10 +8,14 @@ using IntuneEpmRuleCreator.Core.Models;
 using IntuneEpmRuleCreator.Core.Services;
 using IntuneEpmRuleCreator.Graph;
 using System.Text.Json;
+using System.Text;
+using System.Security.Cryptography.X509Certificates;
 
 namespace IntuneEpmRuleCreator.UI.ViewModels;
 
 public sealed record CertificateTypeOption(CertificateType Value, string DisplayName);
+public sealed record SignatureSourceOption(SignatureSource Value, string DisplayName);
+public sealed record RestrictArgumentsOption(RestrictArgumentsMode Value, string DisplayName);
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
@@ -38,7 +42,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _ruleProductName = string.Empty;
     private string _ruleInternalName = string.Empty;
     private string _validationSummary = "Choose a supported file and analyze it before validation.";
-    private IdentificationStrategy _identificationStrategy = IdentificationStrategy.Sha256;
+    private SignatureSource _signatureSource = SignatureSource.NotConfigured;
+    private RestrictArgumentsMode _restrictArguments = RestrictArgumentsMode.NotConfigured;
+    private string _argumentListText = string.Empty;
+    private string _selectedCertificateFile = string.Empty;
     private ElevationType _elevationType = ElevationType.UserConfirmed;
     private ChildProcessBehavior _childProcessBehavior = ChildProcessBehavior.RequireRuleToElevate;
     private bool _busy;
@@ -53,15 +60,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _policyLoadStatus = "Sign in to load EPM policies from this tenant.";
     private int? _selectedPolicyRuleCount;
     private int? _selectedPolicyRuleLimit;
-    private bool _usePublisherCertificate = true;
-    private bool _useReusableCertificate;
     private bool _requireBusinessJustification;
     private bool _requireWindowsAuthentication;
     private EpmReusableCertificateSetting? _selectedReusableCertificateSetting;
 
     public MainViewModel()
     {
-        IdentificationStrategies = Enum.GetValues<IdentificationStrategy>();
         ElevationTypes = Enum.GetValues<ElevationType>();
         ChildProcessBehaviors = Enum.GetValues<ChildProcessBehavior>();
         AnalyzeCommand = new AsyncCommand(AnalyzeAsync, () => !Busy && !string.IsNullOrWhiteSpace(FilePath));
@@ -76,9 +80,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
-    public Array IdentificationStrategies { get; }
     public Array ElevationTypes { get; }
     public Array ChildProcessBehaviors { get; }
+    public IReadOnlyList<SignatureSourceOption> SignatureSourceOptions { get; } =
+    [
+        new(SignatureSource.NotConfigured, "Not configured"),
+        new(SignatureSource.CertificateFile, "Upload a certificate file"),
+        new(SignatureSource.ReusableSettings, "Use a certificate file in reusable settings")
+    ];
+    public IReadOnlyList<RestrictArgumentsOption> RestrictArgumentsOptions { get; } =
+    [
+        new(RestrictArgumentsMode.NotConfigured, "Not configured"),
+        new(RestrictArgumentsMode.Allow, "Allow")
+    ];
     public IReadOnlyList<CertificateTypeOption> CertificateTypeOptions { get; } =
     [
         new(global::IntuneEpmRuleCreator.Core.Models.CertificateType.Publisher, "Publisher"),
@@ -126,50 +140,40 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string RuleProductName { get => _ruleProductName; set => Set(ref _ruleProductName, value); }
     public string RuleInternalName { get => _ruleInternalName; set => Set(ref _ruleInternalName, value); }
     public string ValidationSummary { get => _validationSummary; set => Set(ref _validationSummary, value); }
-    public IdentificationStrategy IdentificationStrategy
+    public SignatureSource SignatureSource
     {
-        get => _identificationStrategy;
+        get => _signatureSource;
         set
         {
-            if (!Set(ref _identificationStrategy, value)) return;
+            if (!Set(ref _signatureSource, value)) return;
             Raise(nameof(ShowCertificateSelection));
+            Raise(nameof(ShowCertificateFileSource));
+            Raise(nameof(ShowReusableCertificateSource));
             Raise(nameof(FileNameLabel));
             Raise(nameof(FileHashLabel));
         }
     }
-    public bool ShowCertificateSelection => IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes;
+    public bool ShowCertificateSelection => SignatureSource != global::IntuneEpmRuleCreator.Core.Models.SignatureSource.NotConfigured;
+    public bool ShowCertificateFileSource => SignatureSource == global::IntuneEpmRuleCreator.Core.Models.SignatureSource.CertificateFile;
+    public bool ShowReusableCertificateSource => SignatureSource == global::IntuneEpmRuleCreator.Core.Models.SignatureSource.ReusableSettings;
     private CertificateType _certificateType = global::IntuneEpmRuleCreator.Core.Models.CertificateType.Publisher;
     public CertificateType CertificateType { get => _certificateType; set => Set(ref _certificateType, value); }
-    public string FileNameLabel => IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.Sha256
+    public string FileNameLabel => SignatureSource == global::IntuneEpmRuleCreator.Core.Models.SignatureSource.NotConfigured
         ? "File name *"
         : "File name";
-    public string FileHashLabel => IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.Sha256
+    public string FileHashLabel => SignatureSource == global::IntuneEpmRuleCreator.Core.Models.SignatureSource.NotConfigured
         ? "File hash (SHA256) *"
         : "File hash (SHA256)";
     public bool HasPublisherCertificate => PublisherCertificate is not null;
-    public string PublisherCertificateChoiceText => PublisherCertificate is { } certificate
-        ? $"Use analyzed file's publisher certificate — {certificate.Subject} (thumbprint {certificate.Thumbprint})"
-        : "No publisher certificate found. Analyze a signed file or choose a reusable setting.";
-    public bool UsePublisherCertificate
-    {
-        get => _usePublisherCertificate;
-        set
-        {
-            if (!Set(ref _usePublisherCertificate, value) || !value) return;
-            UseReusableCertificate = false;
-            CertificateType = global::IntuneEpmRuleCreator.Core.Models.CertificateType.Publisher;
-        }
-    }
-    public bool UseReusableCertificate
-    {
-        get => _useReusableCertificate;
-        set
-        {
-            if (!Set(ref _useReusableCertificate, value) || !value) return;
-            UsePublisherCertificate = false;
-            CertificateType = global::IntuneEpmRuleCreator.Core.Models.CertificateType.CertificateAuthority;
-        }
-    }
+    public string PublisherCertificateChoiceText => !string.IsNullOrWhiteSpace(SelectedCertificateFile)
+        ? $"Selected certificate file: {Path.GetFileName(SelectedCertificateFile)}"
+        : PublisherCertificate is { } certificate
+            ? $"Using analyzed file's publisher certificate — {certificate.Subject} (thumbprint {certificate.Thumbprint})"
+            : "No certificate selected. Choose a certificate file or analyze a signed file.";
+    public string SelectedCertificateFile { get => _selectedCertificateFile; private set => Set(ref _selectedCertificateFile, value); }
+    public RestrictArgumentsMode RestrictArguments { get => _restrictArguments; set { if (Set(ref _restrictArguments, value)) Raise(nameof(ShowArgumentList)); } }
+    public bool ShowArgumentList => RestrictArguments == RestrictArgumentsMode.Allow;
+    public string ArgumentListText { get => _argumentListText; set => Set(ref _argumentListText, value); }
     public EpmReusableCertificateSetting? SelectedReusableCertificateSetting
     {
         get => _selectedReusableCertificateSetting;
@@ -214,6 +218,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             var result = await _fileService.AnalyzeAsync(FilePath);
+            SelectedCertificateFile = string.Empty;
             PublisherCertificate = result.PublisherCertificate;
             Sha256 = result.Sha256;
             ProductName = result.ProductName ?? string.Empty;
@@ -382,6 +387,27 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ? "No reusable EPM certificate settings are loaded. Load them in the Graph section first."
         : "Choose the reusable EPM certificate setting to reference in this rule.";
 
+    public void LoadCertificateFile(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        using var certificate = bytes.Length > 0 && Encoding.UTF8.GetString(bytes).Contains("-----BEGIN CERTIFICATE-----", StringComparison.Ordinal)
+            ? X509Certificate2.CreateFromPem(Encoding.UTF8.GetString(bytes))
+            : X509CertificateLoader.LoadCertificate(bytes);
+        PublisherCertificate = new CertificateAttributes(
+            certificate.Subject,
+            certificate.Issuer,
+            certificate.Thumbprint ?? string.Empty,
+            new DateTimeOffset(certificate.NotBefore.ToUniversalTime()),
+            new DateTimeOffset(certificate.NotAfter.ToUniversalTime()),
+            DateTime.UtcNow >= certificate.NotBefore.ToUniversalTime() && DateTime.UtcNow <= certificate.NotAfter.ToUniversalTime())
+        {
+            CertificateBase64 = Convert.ToBase64String(certificate.RawData)
+        };
+        SelectedCertificateFile = path;
+        CertificateSummary = $"Selected certificate: {certificate.Subject}{Environment.NewLine}Issuer: {certificate.Issuer}{Environment.NewLine}Thumbprint: {certificate.Thumbprint}";
+        Raise(nameof(PublisherCertificateChoiceText));
+    }
+
     private ElevationRule BuildRule() => new()
     {
         Name = RuleName,
@@ -393,14 +419,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ProductName = RuleProductName,
         FileDescription = this.FileDescription,
         InternalName = RuleInternalName,
-        IdentificationStrategy = IdentificationStrategy,
-        PublisherCertificate = IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes && UsePublisherCertificate ? PublisherCertificate : null,
-        ReusableCertificateSettingId = IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes && UseReusableCertificate ? SelectedReusableCertificateSetting?.Id : null,
+        SignatureSource = SignatureSource,
+        PublisherCertificate = SignatureSource == global::IntuneEpmRuleCreator.Core.Models.SignatureSource.CertificateFile ? PublisherCertificate : null,
+        ReusableCertificateSettingId = SignatureSource == global::IntuneEpmRuleCreator.Core.Models.SignatureSource.ReusableSettings ? SelectedReusableCertificateSetting?.Id : null,
         CertificateType = CertificateType,
         ElevationType = ElevationType,
         RequireBusinessJustification = RequireBusinessJustification,
         RequireWindowsAuthentication = IsCurrentUser || RequireWindowsAuthentication,
         ChildProcessBehavior = ChildProcessBehavior,
+        RestrictArguments = RestrictArguments,
+        ArgumentList = ArgumentListText.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
     };
 
     private void Validate()

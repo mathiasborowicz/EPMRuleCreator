@@ -387,17 +387,17 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             if (!HasElevationTypeValidationSchema(children, rule.ElevationType))
                 continue;
 
-            var matches = rule.IdentificationStrategy switch
+            var matches = rule.SignatureSource switch
             {
-                IdentificationStrategy.Sha256 => FindChild(children, "signaturesource") is null,
-                IdentificationStrategy.CertificateAndAttributes when rule.ReusableCertificateSettingId is not null => true,
-                IdentificationStrategy.CertificateAndAttributes when rule.PublisherCertificate is not null => true,
+                SignatureSource.NotConfigured => FindChild(children, "signaturesource") is null,
+                SignatureSource.ReusableSettings => GetChoiceOption(children, "signaturesource") == "0",
+                SignatureSource.CertificateFile => GetChoiceOption(children, "signaturesource") == "1",
                 _ => false
             };
             if (matches) return candidate;
         }
 
-        throw new InvalidOperationException(rule.IdentificationStrategy == IdentificationStrategy.Sha256
+        throw new InvalidOperationException(rule.SignatureSource == SignatureSource.NotConfigured
             ? $"This policy has no hash-based rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first."
             : $"This policy has no rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first.");
     }
@@ -453,7 +453,9 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         else
             SetChoice(children, "childprocessbehavior", GetChildProcessOption(rule.ChildProcessBehavior));
 
-        if (rule.PublisherCertificate is { } certificate)
+        SetRestrictArguments(children, rule);
+
+        if (rule.SignatureSource == SignatureSource.CertificateFile && rule.PublisherCertificate is { } certificate)
         {
             if (string.IsNullOrWhiteSpace(certificate.CertificateBase64))
                 throw new InvalidOperationException("The extracted publisher certificate data is unavailable. Analyze the file again.");
@@ -463,13 +465,57 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             SetNestedChoice(children, "signaturesource", "certificatetype", GetCertificateTypeOption(rule.CertificateType));
             SetSimpleRequired(children, "certificatefileupload", pem);
         }
-        if (rule.ReusableCertificateSettingId is { } reusableId)
+        if (rule.SignatureSource == SignatureSource.ReusableSettings && rule.ReusableCertificateSettingId is { } reusableId)
         {
             CopyCertificateSourceConfiguration(children, FindCertificateSourceTemplate(allRules, reusable: true));
             SetChoice(children, "signaturesource", "0");
             SetNestedChoice(children, "signaturesource", "certificatetype", GetCertificateTypeOption(rule.CertificateType));
             SetSimpleRequired(children, "certificatepayloadwithreusablesetting", reusableId);
         }
+    }
+
+    private static void SetRestrictArguments(JsonArray children, ElevationRule rule)
+    {
+        if (rule.RestrictArguments == RestrictArgumentsMode.NotConfigured)
+        {
+            RemoveChild(children, "arguments");
+            return;
+        }
+
+        var values = new JsonArray();
+        foreach (var argument in rule.ArgumentList)
+            values.Add(new JsonObject
+            {
+                ["@odata.type"] = "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+                ["settingValueTemplateReference"] = null,
+                ["value"] = argument
+            });
+
+        var argumentDefinitionId = ElevationRulesSettingDefinitionId + "_arguments";
+        var copy = new JsonObject
+        {
+            ["@odata.type"] = "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+            ["settingDefinitionId"] = argumentDefinitionId,
+            ["settingInstanceTemplateReference"] = null,
+            ["auditRuleInformation"] = null,
+            ["choiceSettingValue"] = new JsonObject
+            {
+                ["settingValueTemplateReference"] = null,
+                ["value"] = argumentDefinitionId + "_allow",
+                ["children"] = new JsonArray(new JsonObject
+                {
+                    ["@odata.type"] = "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+                    ["settingDefinitionId"] = argumentDefinitionId + "_restrictargumentlist",
+                    ["settingInstanceTemplateReference"] = null,
+                    ["auditRuleInformation"] = null,
+                    ["simpleSettingCollectionValue"] = values
+                })
+            }
+        };
+
+        var existing = FindChild(children, "arguments");
+        if (existing is null) children.Add(copy);
+        else children[children.IndexOf(existing)] = copy;
     }
 
     private static void SetValidationCollectionSelection(JsonArray ruleChildren, string suffix, string[] selectedOptions)
