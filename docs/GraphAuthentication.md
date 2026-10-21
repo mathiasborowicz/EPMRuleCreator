@@ -10,14 +10,7 @@ The project publisher must create an app registration before distributing a comm
 2. Choose **Accounts in any organizational directory** if the community release should support multiple customer tenants. Personal Microsoft accounts are not needed for Intune.
 3. Under **Authentication**, add the **Mobile and desktop applications** platform and the redirect URI `http://localhost`. This is a public native client; do not create or ship a client secret.
 4. Add the delegated Microsoft Graph permission `User.Read`. It is used only to display the signed-in user's name and UPN after authentication. Admin consent may be required by the tenant's consent policy.
-5. Copy the Application (client) ID. For development builds, enter it in the app's optional Graph connection panel. For a community release, the publisher can bake the public identifier into the single-file build so users do not have to supply it themselves. Build with `-p:GraphClientId=<application-client-id>`; a client ID is not a secret. For example:
-
-   ```powershell
-   $clientId = "00000000-0000-0000-0000-000000000000" # replace with the registration's client ID
-   dotnet publish .\src\IntuneEpmRuleCreator.UI\IntuneEpmRuleCreator.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true "-p:GraphClientId=$clientId" -o .\publish\win-x64
-   ```
-
-   Leave `GraphClientId` unset for a generic development build; users can enter their own test registration ID.
+5. Keep the Application (client) ID out of the executable and source repository. Enter it in the app's optional Graph connection panel when needed. The app stores it in the current user's local settings file alongside the tenant ID; neither value is a credential, and no secret is stored there.
 
 The tenant field accepts `organizations` for organizational accounts across tenants, or a tenant GUID to restrict sign-in to one tenant. Entering a different tenant and signing in again switches the authority; **Sign in / switch account** asks MSAL to show account selection.
 

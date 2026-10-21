@@ -40,9 +40,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _busy;
     private readonly GraphAuthenticationService _graphAuthentication = new();
     private readonly string _settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "IntuneEpmRuleCreator", "settings.json");
-    private string _clientId = typeof(MainViewModel).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
-        .Cast<System.Reflection.AssemblyMetadataAttribute>()
-        .FirstOrDefault(attribute => attribute.Key == "GraphClientId")?.Value ?? string.Empty;
+    private string _clientId = string.Empty;
     private string _tenantId = "organizations";
     private string _graphConnectionStatus = "Optional: sign in only if you want to connect to Microsoft Graph. Local file analysis works without sign-in.";
     private string _graphAccount = string.Empty;
