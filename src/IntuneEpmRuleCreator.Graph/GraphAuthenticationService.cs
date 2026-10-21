@@ -234,6 +234,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             throw new InvalidOperationException("The selected policy has no valid Graph ID.");
 
         var token = await GetAccessTokenAsync(cancellationToken);
+        var policyDocument = await GetPolicyDocumentForWriteAsync(policy, token, cancellationToken);
         var settings = await GetPolicySettingsForWriteAsync(policy, token, cancellationToken);
         var setting = settings.SingleOrDefault(item =>
             string.Equals(item["settingInstance"]?["settingDefinitionId"]?.GetValue<string>(), ElevationRulesSettingDefinitionId, StringComparison.Ordinal));
@@ -260,17 +261,39 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(settingId))
             throw new InvalidOperationException("Graph did not return an ID for the Elevation Rules setting.");
 
-        setting.Remove("settingDefinitions"); // Expanded relationship is read-only and is not part of the PATCH body.
-        setting.Remove("@odata.context");
-        var settingPath = Uri.EscapeDataString(settingId);
+        // The Intune admin center saves EPM rules by replacing the policy with PUT,
+        // including settings in the policy body. The settings navigation PATCH route
+        // is documented but is not routed by the EPM backend in the user's tenant.
+        var policySettings = new JsonArray();
+        foreach (var policySetting in settings)
+        {
+            var instance = policySetting["settingInstance"]?.DeepClone()
+                ?? throw new InvalidOperationException("A policy setting has no settingInstance and cannot be preserved safely.");
+            policySettings.Add(new JsonObject
+            {
+                ["@odata.type"] = "#microsoft.graph.deviceManagementConfigurationSetting",
+                ["settingInstance"] = instance
+            });
+        }
+
+        var body = new JsonObject();
+        foreach (var propertyName in new[]
+        {
+            "creationSource", "name", "description", "platforms", "technologies", "roleScopeTagIds", "templateReference"
+        })
+        {
+            if (!policyDocument.TryGetPropertyValue(propertyName, out var propertyValue))
+                throw new InvalidOperationException($"Graph did not return policy property '{propertyName}'; the policy cannot be replaced safely.");
+            body[propertyName] = propertyValue?.DeepClone();
+        }
+        body["settings"] = policySettings;
+
         var policyPath = Uri.EscapeDataString(policy.Id);
-        using var request = new HttpRequestMessage(HttpMethod.Patch,
-            $"https://graph.microsoft.com/beta/deviceManagement/configurationPolicies/{policyPath}/settings/{settingPath}");
+        using var request = new HttpRequestMessage(HttpMethod.Put,
+            $"https://graph.microsoft.com/beta/deviceManagement/configurationPolicies('{policyPath}')");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        if (setting["@odata.etag"]?.GetValue<string>() is { Length: > 0 } etag)
-            request.Headers.TryAddWithoutValidation("If-Match", etag);
-        request.Content = new StringContent(setting.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+        request.Content = new StringContent(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -322,6 +345,22 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         }
 
         return settings;
+    }
+
+    private async Task<JsonObject> GetPolicyDocumentForWriteAsync(
+        ElevationRulePolicy policy,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        var policyId = Uri.EscapeDataString(policy.Id);
+        var requestUri = new Uri($"https://graph.microsoft.com/beta/deviceManagement/configurationPolicies('{policyId}')");
+        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var policyDocument = await JsonNode.ParseAsync(stream, cancellationToken: cancellationToken) as JsonObject;
+        return policyDocument ?? throw new InvalidOperationException("Graph returned an invalid policy document.");
     }
 
     private static int GetMaximumRuleCount(JsonObject setting, int fallback)

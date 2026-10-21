@@ -2,7 +2,7 @@
 
 A Windows desktop tool for inspecting local files and preparing Microsoft Intune Endpoint Privilege Management elevation rules. Local file analysis works offline and does not require signing in to a tenant. Optional Microsoft Graph sign-in can list EPM policies, count their rules, browse reusable EPM certificate settings, and explicitly append a rule to a selected policy after confirmation.
 
-> **Graph writes modify the selected Intune policy.** The app refreshes the rule count, validates the rule, and asks for confirmation before sending a PATCH. See [the verification record](docs/GraphIntegration.md) for current constraints.
+> **Graph writes replace the selected Intune policy.** The app refreshes the policy and settings, validates the rule, and asks for confirmation before sending a PUT containing the complete settings collection. This follows the request captured from the Intune admin center; Microsoft Graph's public beta documentation currently describes PATCH instead. See [the verification record](docs/GraphIntegration.md) for current constraints.
 
 ## Current features
 
@@ -43,9 +43,9 @@ Graph authentication is optional and uses MSAL as a native public client. The cu
 
 The app saves the entered client ID and tenant ID in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` so they are prefilled next time. This is a normal, unencrypted per-user settings file; these IDs are identifiers, not credentials. They are not written to the executable or Git repository. MSAL stores sign-in tokens separately in its cache under the same per-user app-data directory, protected with Windows DPAPI. Signing out removes the account's MSAL cache entries; it does not remove the saved IDs.
 
-### Permissions for EPM policy browsing and future writes
+### Permissions for EPM policy browsing and writes
 
-The app requests **delegated `DeviceManagementConfiguration.ReadWrite.All`**. Microsoft Graph documents it for creating/updating configuration-policy settings, and lists it as an accepted scope for policy, settings, and reusable policy setting reads. Admin consent is required. For these settings endpoints, `DeviceManagementEndpointSecurity.ReadWrite.All` is not needed.
+The app requests **delegated `DeviceManagementConfiguration.ReadWrite.All`**. Microsoft Graph documents it for configuration-policy settings updates and lists it as an accepted scope for policy, settings, and reusable policy setting reads. Admin consent is required. The current policy-level PUT follows a request captured from the Intune admin center; its permission requirements are not separately documented or live-validated yet.
 
 - [Create a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-create?view=graph-rest-beta)
 - [Update a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-update?view=graph-rest-beta)
@@ -54,7 +54,7 @@ The app requests **delegated `DeviceManagementConfiguration.ReadWrite.All`**. Mi
 
 Add `DeviceManagementConfiguration.ReadWrite.All` as a **delegated Microsoft Graph permission** to the Entra app registration and grant admin consent. Graph permission does not replace the Intune license or the signed-in user's Intune RBAC role and scope-tag access. The policy-setting API is currently Graph **beta**. See [optional Graph authentication](docs/GraphAuthentication.md) and [Graph integration research](docs/GraphIntegration.md).
 
-The upload control only appends after explicit confirmation. It currently requires an existing Elevation Rules collection and an existing rule matching the selected identification/certificate source as a schema template; it does not create a policy or the first root setting. Deny-all child-process behavior is not yet supported by the verified payload mapping. Graph beta and tenant-specific RBAC can still reject a locally valid rule.
+The upload control only appends after explicit confirmation. It currently requires an existing Elevation Rules collection and an existing rule matching the selected identification/certificate source as a schema template; it does not create a policy or the first root setting. Deny-all child-process behavior is not yet supported by the verified payload mapping. The policy-level PUT still needs live validation in the test tenant; Graph beta and tenant-specific RBAC can reject a locally valid rule.
 
 See [Graph integration research](docs/GraphIntegration.md) for the endpoints supplied by the brief, research links, and unresolved verification items.
 
