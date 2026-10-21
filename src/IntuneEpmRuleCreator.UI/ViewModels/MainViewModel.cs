@@ -228,7 +228,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SignatureStatus = result.SignatureStatus ?? "Not available";
             AnalysisWarnings = string.Join(Environment.NewLine, result.Warnings);
             RuleFileName = result.FileName;
-            RuleFileVersion = RuleValidationService.IsValidMinimumFileVersion(result.Version) ? result.Version ?? string.Empty : string.Empty;
+            var normalizedVersion = RuleValidationService.NormalizeMinimumFileVersionToFourParts(result.Version);
+            RuleFileVersion = RuleValidationService.IsValidMinimumFileVersion(normalizedVersion) ? normalizedVersion ?? string.Empty : string.Empty;
             RuleFileHash = result.Sha256;
             RuleFilePath = result.FilePath;
             RuleProductName = result.ProductName ?? string.Empty;

@@ -430,7 +430,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         SetOptionalSimple(children, "productname", rule.ProductName);
         SetOptionalSimple(children, "filedescription", rule.FileDescription);
         SetOptionalSimple(children, "internalname", rule.InternalName);
-        SetOptionalSimple(children, "fileversion", RuleValidationService.NormalizeMinimumFileVersionForGraph(rule.MinimumFileVersion));
+        SetOptionalSimple(children, "fileversion", RuleValidationService.NormalizeMinimumFileVersionToFourParts(rule.MinimumFileVersion));
 
         SetChoice(children, "ruletype", GetRuleTypeOption(rule.ElevationType));
         if (rule.ElevationType == ElevationType.UserConfirmed)

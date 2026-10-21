@@ -107,7 +107,7 @@ public sealed class RuleValidationServiceTests
     }
 
     [Fact]
-    public void FileVersion_IsOptionalButMustMatchThreeOrFourPartNumericFormatAndThirtyCharacterLimit()
+    public void FileVersion_IsOptionalButMustMatchFourPartNumericFormatAndThirtyCharacterLimit()
     {
         var rule = new ElevationRule
         {
@@ -122,14 +122,15 @@ public sealed class RuleValidationServiceTests
         Assert.Contains(_service.Validate(rule with { MinimumFileVersion = "1.0" }, 0, true).Issues,
             issue => issue.Code == "file.version.invalid_format" && issue.IsBlocking);
         Assert.True(_service.Validate(rule with { MinimumFileVersion = "12345678.12345678.1234567.1234" }, 0, true).CanSubmit);
-        Assert.True(_service.Validate(rule with { MinimumFileVersion = "1.1.0" }, 0, true).CanSubmit);
+        Assert.Contains(_service.Validate(rule with { MinimumFileVersion = "1.1.0" }, 0, true).Issues,
+            issue => issue.Code == "file.version.invalid_format" && issue.IsBlocking);
         Assert.True(RuleValidationService.IsValidMinimumFileVersion(null));
-        Assert.True(RuleValidationService.IsValidMinimumFileVersion("1.1.0"));
+        Assert.False(RuleValidationService.IsValidMinimumFileVersion("1.1.0"));
         Assert.True(RuleValidationService.IsValidMinimumFileVersion("1.1.0.0"));
-        Assert.Equal("1.1.0.0", RuleValidationService.NormalizeMinimumFileVersionForGraph("1.1.0"));
-        Assert.Equal("12.3.5.5", RuleValidationService.NormalizeMinimumFileVersionForGraph("12.3.5.5"));
-        Assert.Equal(string.Empty, RuleValidationService.NormalizeMinimumFileVersionForGraph(string.Empty));
-        Assert.False(RuleValidationService.IsValidMinimumFileVersion("12345678.12345678.12345678"));
+        Assert.Equal("1.1.0.0", RuleValidationService.NormalizeMinimumFileVersionToFourParts("1.1.0"));
+        Assert.Equal("12.3.5.5", RuleValidationService.NormalizeMinimumFileVersionToFourParts("12.3.5.5"));
+        Assert.Equal(string.Empty, RuleValidationService.NormalizeMinimumFileVersionToFourParts(string.Empty));
+        Assert.True(RuleValidationService.IsValidMinimumFileVersion(RuleValidationService.NormalizeMinimumFileVersionToFourParts("1.1.0")));
     }
 
     [Fact]

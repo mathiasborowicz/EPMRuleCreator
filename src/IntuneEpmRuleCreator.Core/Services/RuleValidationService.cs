@@ -7,7 +7,7 @@ namespace IntuneEpmRuleCreator.Core.Services;
 public sealed class RuleValidationService
 {
     private static readonly Regex Sha256Pattern = new("\\A[0-9a-fA-F]{64}\\z", RegexOptions.CultureInvariant | RegexOptions.Compiled);
-    private static readonly Regex FileVersionPattern = new("\\A[0-9]+(?:\\.[0-9]+){2,3}\\z", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex FileVersionPattern = new("\\A[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\\z", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".exe", ".msi", ".ps1" };
 
     public RuleValidationResult Validate(ElevationRule rule, int existingRuleCount, bool hasPolicy)
@@ -31,10 +31,10 @@ public sealed class RuleValidationService
             issues.Add(new("file.type.unsupported", "Only .exe, .msi and .ps1 files are supported by this application.", true));
 
         if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) &&
-            (NormalizeMinimumFileVersionForGraph(rule.MinimumFileVersion)?.Length ?? 0) > 30)
+            (NormalizeMinimumFileVersionToFourParts(rule.MinimumFileVersion)?.Length ?? 0) > 30)
             issues.Add(new("file.version.too_long", "The file version must not exceed 30 characters.", true));
         else if (!string.IsNullOrWhiteSpace(rule.MinimumFileVersion) && !FileVersionPattern.IsMatch(rule.MinimumFileVersion))
-            issues.Add(new("file.version.invalid_format", "The file version must contain three or four numeric parts separated by dots, for example 1.1.0 or 12.3.5.5.", true));
+            issues.Add(new("file.version.invalid_format", "The file version must contain exactly four numeric parts separated by dots, for example 1.1.0.0 or 12.3.5.5.", true));
 
         if (hashIdentification && string.IsNullOrWhiteSpace(rule.FileHash))
             issues.Add(new("file.sha256.required", "A SHA256 hash is required when no certificate is selected.", true));
@@ -61,9 +61,9 @@ public sealed class RuleValidationService
 
     public static bool IsValidMinimumFileVersion(string? version) =>
         string.IsNullOrWhiteSpace(version) ||
-        ((NormalizeMinimumFileVersionForGraph(version)?.Length ?? 0) <= 30 && FileVersionPattern.IsMatch(version));
+        (version.Length <= 30 && FileVersionPattern.IsMatch(version));
 
-    public static string? NormalizeMinimumFileVersionForGraph(string? version)
+    public static string? NormalizeMinimumFileVersionToFourParts(string? version)
     {
         if (string.IsNullOrWhiteSpace(version)) return version;
         return version.Count(character => character == '.') == 2 ? version + ".0" : version;
