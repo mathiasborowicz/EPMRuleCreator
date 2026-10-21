@@ -4,7 +4,7 @@
 
 - Windows 11 x64.
 - Git for Windows to obtain the source branch.
-- .NET 10 SDK to build. The published application is self-contained and does not need a separate .NET runtime.
+- .NET 10 SDK only if building locally. The published application is self-contained and does not need a separate .NET runtime.
 - Microsoft Intune Endpoint Privilege Management Tools are optional for basic offline file information. They are needed only for `Get-FileAttributes` output. Obtain them through your organization's supported Microsoft Intune deployment; the application does not install the EPM agent or change device configuration.
 
 ## Get the project
@@ -51,6 +51,10 @@ dotnet publish .\src\IntuneEpmRuleCreator.UI\IntuneEpmRuleCreator.UI.csproj -c R
 
 The executable is `publish\win-x64\IntuneEpmRuleCreator.exe`. Run it directly to select a file in the app. No administrator rights, tenant connection, or network are needed for local file analysis.
 
+## Download the current standalone build
+
+Every push to `work` or `main` runs tests and creates a self-contained Windows x64 build automatically. To download it, open the repository's **Actions** tab, select the latest successful **Windows standalone build**, and download the `IntuneEpmRuleCreator-win-x64` artifact. Extract the ZIP; it contains `IntuneEpmRuleCreator.exe` and any companion publish files. GitHub retains each artifact for 30 days. The build does not embed an Entra client ID; enter one in the optional Graph connection panel if you want to test Graph sign-in.
+
 ## Register the Explorer menu
 
 From a normal, non-elevated PowerShell session in the repository root, register the current user's menu:
@@ -81,4 +85,4 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Unregist
 
 ## Current limitations
 
-Graph authentication and Intune policy operations remain disabled until the EPM setting model is verified; see [Graph integration](GraphIntegration.md). Local analysis and validation do not create or modify policies. The solution and self-contained Windows x64 publish build successfully, and the six core unit tests pass. The development runner is Linux, so the WPF app, PowerShell integration, and Explorer registration still need an on-device Windows smoke test.
+Optional Graph authentication can show the signed-in identity; Intune policy operations remain disabled until the EPM setting model is verified. See [Graph authentication](GraphAuthentication.md) and [Graph integration](GraphIntegration.md). Local analysis and validation do not create or modify policies. The solution and self-contained Windows x64 publish build successfully, and the six core unit tests pass. The development runner is Linux, so the WPF app, PowerShell integration, and Explorer registration still need an on-device Windows smoke test.
