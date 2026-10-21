@@ -387,19 +387,12 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             if (!HasElevationTypeValidationSchema(children, rule.ElevationType))
                 continue;
 
-            var matches = rule.SignatureSource switch
-            {
-                SignatureSource.NotConfigured => FindChild(children, "signaturesource") is null,
-                SignatureSource.ReusableSettings => GetChoiceOption(children, "signaturesource") == "0",
-                SignatureSource.CertificateFile => GetChoiceOption(children, "signaturesource") == "1",
-                _ => false
-            };
-            if (matches) return candidate;
+            // Signature source is independent of elevation type. Use this rule for the
+            // elevation-specific schema, then replace/remove its signature source below.
+            return candidate;
         }
 
-        throw new InvalidOperationException(rule.SignatureSource == SignatureSource.NotConfigured
-            ? $"This policy has no hash-based rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first."
-            : $"This policy has no rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first.");
+        throw new InvalidOperationException($"This policy has no rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first.");
     }
 
     private static bool HasElevationTypeValidationSchema(JsonArray ruleChildren, ElevationType elevationType)
@@ -472,6 +465,8 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             SetNestedChoice(children, "signaturesource", "certificatetype", GetCertificateTypeOption(rule.CertificateType));
             SetSimpleRequired(children, "certificatepayloadwithreusablesetting", reusableId);
         }
+        if (rule.SignatureSource == SignatureSource.NotConfigured)
+            RemoveChild(children, "signaturesource");
     }
 
     private static void SetRestrictArguments(JsonArray children, ElevationRule rule)
