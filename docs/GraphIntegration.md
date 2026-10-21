@@ -12,6 +12,8 @@ The app requests the setting definition's `maximumCount` when available and othe
 
 Reusable settings are listed through `GET /beta/deviceManagement/reusablePolicySettings`. This collection also contains unrelated Intune settings, so the app filters client-side by the exact EPM certificate definition ID `device_vendor_msft_policy_privilegemanagement_reusablesettings_certificatefile`. The test tenant returned the EPM setting "Netextender" and an unrelated Defender setting; only the former should appear in the EPM certificate selector. Results are paged using `@odata.nextLink`.
 
+For local certificate-rule preparation, the app can retain the extracted public X.509 signer certificate in memory and allows choosing it or a loaded reusable EPM certificate setting. Extraction does not validate Authenticode trust. Certificate upload and policy writes are not implemented by the current build.
+
 ## Permissions
 
 The app requests delegated `User.Read` (signed-in identity) and `DeviceManagementConfiguration.ReadWrite.All` (policy/settings reads and planned writes). Admin consent is required. The setting create/update beta API documentation identifies this permission; `DeviceManagementEndpointSecurity.ReadWrite.All` is not needed for these configuration-policy settings endpoints.

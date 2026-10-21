@@ -99,6 +99,13 @@
                             <TextBlock Text="Product name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleProductName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Internal name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleInternalName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Identification strategy" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding IdentificationStrategies}" SelectedItem="{Binding IdentificationStrategy}"/>
+                            <StackPanel Visibility="{Binding ShowCertificateSelection, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,8">
+                                <TextBlock Text="Certificate selection" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                                <RadioButton Content="{Binding PublisherCertificateChoiceText}" IsChecked="{Binding UsePublisherCertificate}" IsEnabled="{Binding HasPublisherCertificate}" GroupName="CertificateSource" Margin="0,4"/>
+                                <RadioButton Content="Use an EPM reusable certificate setting" IsChecked="{Binding UseReusableCertificate}" GroupName="CertificateSource" Margin="0,4"/>
+                                <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" SelectedItem="{Binding SelectedReusableCertificateSetting}" DisplayMemberPath="DisplayName" IsEnabled="{Binding UseReusableCertificate}"/>
+                                <TextBlock Text="{Binding ReusableCertificateSelectionHint}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Visibility="{Binding UseReusableCertificate, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
                             <TextBlock Text="Elevation type" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding ElevationTypes}" SelectedItem="{Binding ElevationType}"/>
                             <TextBlock Text="Child process behavior" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding ChildProcessBehaviors}" SelectedItem="{Binding ChildProcessBehavior}"/>
                         </StackPanel>

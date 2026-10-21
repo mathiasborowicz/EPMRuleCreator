@@ -32,8 +32,9 @@ public sealed class RuleValidationService
             (rule.HashAlgorithm != "SHA256" || string.IsNullOrWhiteSpace(rule.FileHash) || !Sha256Pattern.IsMatch(rule.FileHash)))
             issues.Add(new("file.sha256.invalid", "A 64-character SHA256 hash is required for hash-based identification.", true));
 
-        if (rule.IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes)
-            issues.Add(new("certificate.unverified", "Certificate-based rule payload support has not been verified against the current Graph schema.", true));
+        if (rule.IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes &&
+            rule.PublisherCertificate is null && string.IsNullOrWhiteSpace(rule.ReusableCertificateSettingId))
+            issues.Add(new("certificate.required", "Select the publisher certificate extracted from the analyzed file or an EPM reusable certificate setting.", true));
 
         if (rule.ChildProcessBehavior == ChildProcessBehavior.AllowAllElevated)
             issues.Add(new("security.child-process.broad", "All child processes would run elevated. Review this high-risk choice carefully.", false));

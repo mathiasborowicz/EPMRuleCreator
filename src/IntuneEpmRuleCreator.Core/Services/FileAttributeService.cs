@@ -132,7 +132,10 @@ public sealed class FileAttributeService(Sha256FileHasher hasher)
 #pragma warning restore SYSLIB0057
             var now = DateTimeOffset.UtcNow;
             return new(certificate.Subject, certificate.Issuer, certificate.Thumbprint ?? string.Empty,
-                certificate.NotBefore, certificate.NotAfter, certificate.NotBefore <= now && certificate.NotAfter >= now);
+                certificate.NotBefore, certificate.NotAfter, certificate.NotBefore <= now && certificate.NotAfter >= now)
+            {
+                CertificateBase64 = Convert.ToBase64String(certificate.Export(X509ContentType.Cert))
+            };
         }
         catch (CryptographicException)
         {

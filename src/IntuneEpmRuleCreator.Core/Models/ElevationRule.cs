@@ -16,6 +16,8 @@ public sealed record ElevationRule
     public string? InternalName { get; init; }
     public string? MinimumFileVersion { get; init; }
     public IdentificationStrategy IdentificationStrategy { get; init; } = IdentificationStrategy.Sha256;
+    public CertificateAttributes? PublisherCertificate { get; init; }
+    public string? ReusableCertificateSettingId { get; init; }
     public ElevationType ElevationType { get; init; } = ElevationType.UserConfirmed;
     public ChildProcessBehavior ChildProcessBehavior { get; init; } = ChildProcessBehavior.RequireRuleToElevate;
 }

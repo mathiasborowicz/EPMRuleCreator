@@ -41,6 +41,37 @@ public sealed class RuleValidationServiceTests
     }
 
     [Fact]
+    public void CertificateRule_RequiresASelectedCertificateSource()
+    {
+        var rule = new ElevationRule
+        {
+            Name = "Signed app",
+            FileName = "signed.exe",
+            IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes
+        };
+
+        Assert.Contains(_service.Validate(rule, 0, true).Issues,
+            issue => issue.Code == "certificate.required" && issue.IsBlocking);
+        Assert.True(_service.Validate(rule with { ReusableCertificateSettingId = "reusable-id" }, 0, true).CanSubmit);
+    }
+
+    [Fact]
+    public void CertificateRule_AcceptsAnalyzedPublisherCertificate()
+    {
+        var certificate = new CertificateAttributes("CN=Publisher", "CN=Issuer", "thumbprint",
+            DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1), true);
+        var rule = new ElevationRule
+        {
+            Name = "Signed app",
+            FileName = "signed.exe",
+            IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes,
+            PublisherCertificate = certificate
+        };
+
+        Assert.True(_service.Validate(rule, 0, true).CanSubmit);
+    }
+
+    [Fact]
     public async Task Sha256Hasher_CalculatesExpectedDigest()
     {
         var path = Path.GetTempFileName();

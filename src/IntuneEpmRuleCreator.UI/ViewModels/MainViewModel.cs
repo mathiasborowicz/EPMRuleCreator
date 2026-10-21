@@ -24,6 +24,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _internalName = string.Empty;
     private string _fileDescription = string.Empty;
     private string _certificateSummary = string.Empty;
+    private CertificateAttributes? _publisherCertificate;
     private string _signatureStatus = "Not analyzed";
     private string _analysisWarnings = string.Empty;
     private string _ruleName = string.Empty;
@@ -49,6 +50,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _policyLoadStatus = "Sign in to load EPM policies from this tenant.";
     private int? _selectedPolicyRuleCount;
     private int? _selectedPolicyRuleLimit;
+    private bool _usePublisherCertificate = true;
+    private bool _useReusableCertificate;
+    private EpmReusableCertificateSetting? _selectedReusableCertificateSetting;
 
     public MainViewModel()
     {
@@ -89,6 +93,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string InternalName { get => _internalName; set => Set(ref _internalName, value); }
     public string FileDescription { get => _fileDescription; set => Set(ref _fileDescription, value); }
     public string CertificateSummary { get => _certificateSummary; set => Set(ref _certificateSummary, value); }
+    public CertificateAttributes? PublisherCertificate
+    {
+        get => _publisherCertificate;
+        private set
+        {
+            if (!Set(ref _publisherCertificate, value)) return;
+            Raise(nameof(HasPublisherCertificate));
+            Raise(nameof(PublisherCertificateChoiceText));
+        }
+    }
     public string SignatureStatus { get => _signatureStatus; set => Set(ref _signatureStatus, value); }
     public string AnalysisWarnings { get => _analysisWarnings; set => Set(ref _analysisWarnings, value); }
     public string RuleName { get => _ruleName; set => Set(ref _ruleName, value); }
@@ -99,7 +113,43 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string RuleProductName { get => _ruleProductName; set => Set(ref _ruleProductName, value); }
     public string RuleInternalName { get => _ruleInternalName; set => Set(ref _ruleInternalName, value); }
     public string ValidationSummary { get => _validationSummary; set => Set(ref _validationSummary, value); }
-    public IdentificationStrategy IdentificationStrategy { get => _identificationStrategy; set => Set(ref _identificationStrategy, value); }
+    public IdentificationStrategy IdentificationStrategy
+    {
+        get => _identificationStrategy;
+        set
+        {
+            if (!Set(ref _identificationStrategy, value)) return;
+            Raise(nameof(ShowCertificateSelection));
+        }
+    }
+    public bool ShowCertificateSelection => IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes;
+    public bool HasPublisherCertificate => PublisherCertificate is not null;
+    public string PublisherCertificateChoiceText => PublisherCertificate is { } certificate
+        ? $"Use analyzed file's publisher certificate — {certificate.Subject} (thumbprint {certificate.Thumbprint})"
+        : "No publisher certificate found. Analyze a signed file or choose a reusable setting.";
+    public bool UsePublisherCertificate
+    {
+        get => _usePublisherCertificate;
+        set
+        {
+            if (!Set(ref _usePublisherCertificate, value) || !value) return;
+            UseReusableCertificate = false;
+        }
+    }
+    public bool UseReusableCertificate
+    {
+        get => _useReusableCertificate;
+        set
+        {
+            if (!Set(ref _useReusableCertificate, value) || !value) return;
+            UsePublisherCertificate = false;
+        }
+    }
+    public EpmReusableCertificateSetting? SelectedReusableCertificateSetting
+    {
+        get => _selectedReusableCertificateSetting;
+        set => Set(ref _selectedReusableCertificateSetting, value);
+    }
     public ElevationType ElevationType { get => _elevationType; set => Set(ref _elevationType, value); }
     public ChildProcessBehavior ChildProcessBehavior { get => _childProcessBehavior; set => Set(ref _childProcessBehavior, value); }
     public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(AnalyzeCommand)); } }
@@ -134,6 +184,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             var result = await _fileService.AnalyzeAsync(FilePath);
+            PublisherCertificate = result.PublisherCertificate;
             Sha256 = result.Sha256;
             ProductName = result.ProductName ?? string.Empty;
             Version = result.Version ?? string.Empty;
@@ -191,6 +242,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         GraphConnected = false;
         ElevationPolicies.Clear();
         ReusableCertificateSettings.Clear();
+        SelectedReusableCertificateSetting = null;
+        Raise(nameof(ReusableCertificateSelectionHint));
         SelectedElevationPolicy = null;
         _selectedPolicyRuleCount = null;
         _selectedPolicyRuleLimit = null;
@@ -251,8 +304,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             var settings = await _graphAuthentication.GetEpmReusableCertificateSettingsAsync();
             ReusableCertificateSettings.Clear();
+            SelectedReusableCertificateSetting = null;
             foreach (var setting in settings.OrderBy(setting => setting.DisplayName, StringComparer.CurrentCultureIgnoreCase))
                 ReusableCertificateSettings.Add(setting);
+            Raise(nameof(ReusableCertificateSelectionHint));
             PolicyLoadStatus = settings.Count == 0
                 ? "No reusable EPM certificate settings were found. Non-EPM reusable settings are filtered out."
                 : $"Loaded {settings.Count} reusable EPM certificate setting(s).";
@@ -290,6 +345,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private sealed record AppSettings(string? ClientId, string? TenantId);
 
+    public string ReusableCertificateSelectionHint => ReusableCertificateSettings.Count == 0
+        ? "No reusable EPM certificate settings are loaded. Load them in the Graph section first."
+        : "Choose the reusable EPM certificate setting to reference in this rule.";
+
     private void Validate()
     {
         var rule = new ElevationRule
@@ -297,6 +356,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Name = RuleName, Description = RuleDescription, FileName = RuleFileName,
             FilePath = RuleFilePath, FileHash = RuleFileHash, ProductName = RuleProductName,
             InternalName = RuleInternalName, IdentificationStrategy = IdentificationStrategy,
+            PublisherCertificate = UsePublisherCertificate ? PublisherCertificate : null,
+            ReusableCertificateSettingId = UseReusableCertificate ? SelectedReusableCertificateSetting?.Id : null,
             ElevationType = ElevationType, ChildProcessBehavior = ChildProcessBehavior,
         };
         var result = _validator.Validate(rule, existingRuleCount: _selectedPolicyRuleCount ?? -1, hasPolicy: SelectedElevationPolicy is not null);
@@ -306,11 +367,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ValidationSummary = result.CanSubmit ? "Local validation passed." : "Resolve the blocking errors before this rule can be submitted.";
     }
 
-    private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    private bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
         field = value;
         Raise(name);
+        return true;
     }
 
     private void Raise(string? name)

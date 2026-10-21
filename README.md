@@ -11,6 +11,7 @@ A Windows desktop tool for inspecting local files and preparing Microsoft Intune
 - Independent SHA256 calculation and version resource metadata.
 - Detection of Microsoft EPM Tools and invocation of `Get-FileAttributes` through Windows PowerShell 5.1 using JSON input, without placing the file path in PowerShell source code.
 - Embedded publisher certificate extraction with subject, issuer, thumbprint, and validity dates. Certificate extraction is not an Authenticode trust check.
+- Certificate-based rule selection between the analyzed file's extracted publisher certificate and a loaded reusable EPM certificate setting. This is local preparation/validation only; the current build does not upload certificates or write rules to Intune.
 - Local validation for rule name, file type, SHA256 format, selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
 - Optional Graph browsing of EPM Elevation Rules policies and EPM reusable certificate settings (unrelated reusable settings are filtered out by setting definition ID).
 - Per-user Explorer context menu registration and removal scripts.
