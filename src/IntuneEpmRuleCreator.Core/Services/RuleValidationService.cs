@@ -7,6 +7,7 @@ namespace IntuneEpmRuleCreator.Core.Services;
 public sealed class RuleValidationService
 {
     private static readonly Regex Sha256Pattern = new("\\A[0-9a-fA-F]{64}\\z", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex FileVersionPattern = new("\\A[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\\z", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".exe", ".msi", ".ps1" };
 
     public RuleValidationResult Validate(ElevationRule rule, int existingRuleCount, bool hasPolicy)
@@ -29,9 +30,11 @@ public sealed class RuleValidationService
             issues.Add(new("file.type.unsupported", "Only .exe, .msi and .ps1 files are supported by this application.", true));
 
         if (string.IsNullOrWhiteSpace(rule.MinimumFileVersion))
-            issues.Add(new("file.version.required", "A file version is required by Intune; enter a version between 1 and 30 characters.", true));
+            issues.Add(new("file.version.required", "A file version is required by Intune; enter four numeric parts separated by dots (1–30 characters).", true));
         else if (rule.MinimumFileVersion.Length > 30)
             issues.Add(new("file.version.too_long", "The file version must not exceed 30 characters.", true));
+        else if (!FileVersionPattern.IsMatch(rule.MinimumFileVersion))
+            issues.Add(new("file.version.invalid_format", "The file version must contain four numeric parts separated by dots, for example 12.3.5.5.", true));
 
         if (rule.IdentificationStrategy == IdentificationStrategy.Sha256 &&
             (rule.HashAlgorithm != "SHA256" || string.IsNullOrWhiteSpace(rule.FileHash) || !Sha256Pattern.IsMatch(rule.FileHash)))

@@ -12,7 +12,7 @@ public sealed class RuleValidationServiceTests
     [Fact]
     public void Sha256Rule_RequiresCorrectHash()
     {
-        var rule = new ElevationRule { Name = "Editor", FileName = "editor.exe", MinimumFileVersion = "1.0", FileHash = new string('a', 64) };
+        var rule = new ElevationRule { Name = "Editor", FileName = "editor.exe", MinimumFileVersion = "1.0.0.0", FileHash = new string('a', 64) };
         Assert.True(_service.Validate(rule, 0, true).CanSubmit);
         Assert.False(_service.Validate(rule with { FileHash = "bad" }, 0, true).CanSubmit);
     }
@@ -20,7 +20,7 @@ public sealed class RuleValidationServiceTests
     [Fact]
     public void PolicyAtLimit_BlocksSubmission()
     {
-        var rule = new ElevationRule { Name = "Editor", FileName = "editor.exe", MinimumFileVersion = "1.0", FileHash = new string('a', 64) };
+        var rule = new ElevationRule { Name = "Editor", FileName = "editor.exe", MinimumFileVersion = "1.0.0.0", FileHash = new string('a', 64) };
         Assert.Contains(_service.Validate(rule, 100, true).Issues, issue => issue.Code == "policy.limit.reached" && issue.IsBlocking);
     }
 
@@ -29,14 +29,14 @@ public sealed class RuleValidationServiceTests
     [InlineData("deploy.ps1")]
     public void SupportedFileTypes_AreAccepted(string fileName)
     {
-        var rule = new ElevationRule { Name = "Rule", FileName = fileName, MinimumFileVersion = "1.0", FileHash = new string('b', 64) };
+        var rule = new ElevationRule { Name = "Rule", FileName = fileName, MinimumFileVersion = "1.0.0.0", FileHash = new string('b', 64) };
         Assert.True(_service.Validate(rule, 0, true).CanSubmit);
     }
 
     [Fact]
     public void UnsupportedType_IsBlocked()
     {
-        var rule = new ElevationRule { Name = "Rule", FileName = "document.pdf", MinimumFileVersion = "1.0", FileHash = new string('b', 64) };
+        var rule = new ElevationRule { Name = "Rule", FileName = "document.pdf", MinimumFileVersion = "1.0.0.0", FileHash = new string('b', 64) };
         Assert.Contains(_service.Validate(rule, 0, true).Issues, issue => issue.Code == "file.type.unsupported");
     }
 
@@ -47,7 +47,7 @@ public sealed class RuleValidationServiceTests
         {
             Name = "Signed app",
             FileName = "signed.exe",
-            MinimumFileVersion = "1.0",
+            MinimumFileVersion = "1.0.0.0",
             IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes
         };
 
@@ -65,7 +65,7 @@ public sealed class RuleValidationServiceTests
         {
             Name = "Signed app",
             FileName = "signed.exe",
-            MinimumFileVersion = "1.0",
+            MinimumFileVersion = "1.0.0.0",
             IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes,
             PublisherCertificate = certificate
         };
@@ -74,7 +74,7 @@ public sealed class RuleValidationServiceTests
     }
 
     [Fact]
-    public void FileVersion_IsRequiredAndLimitedToThirtyCharacters()
+    public void FileVersion_MustMatchFourPartNumericFormatAndThirtyCharacterLimit()
     {
         var rule = new ElevationRule
         {
@@ -85,9 +85,11 @@ public sealed class RuleValidationServiceTests
 
         Assert.Contains(_service.Validate(rule, 0, true).Issues,
             issue => issue.Code == "file.version.required" && issue.IsBlocking);
-        Assert.Contains(_service.Validate(rule with { MinimumFileVersion = new string('1', 31) }, 0, true).Issues,
+        Assert.Contains(_service.Validate(rule with { MinimumFileVersion = "12345678.12345678.12345678.12345678" }, 0, true).Issues,
             issue => issue.Code == "file.version.too_long" && issue.IsBlocking);
-        Assert.True(_service.Validate(rule with { MinimumFileVersion = new string('1', 30) }, 0, true).CanSubmit);
+        Assert.Contains(_service.Validate(rule with { MinimumFileVersion = "1.0" }, 0, true).Issues,
+            issue => issue.Code == "file.version.invalid_format" && issue.IsBlocking);
+        Assert.True(_service.Validate(rule with { MinimumFileVersion = "12345678.12345678.1234567.1234" }, 0, true).CanSubmit);
     }
 
     [Fact]
