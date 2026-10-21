@@ -124,7 +124,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(ShowCertificateSelection));
         }
     }
-    public bool ShowCertificateSelection => IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes;
+    public bool ShowCertificateSelection => IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes;
     public bool HasPublisherCertificate => PublisherCertificate is not null;
     public string PublisherCertificateChoiceText => PublisherCertificate is { } certificate
         ? $"Use analyzed file's publisher certificate — {certificate.Subject} (thumbprint {certificate.Thumbprint})"
@@ -362,8 +362,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ProductName = RuleProductName,
         InternalName = RuleInternalName,
         IdentificationStrategy = IdentificationStrategy,
-        PublisherCertificate = IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes && UsePublisherCertificate ? PublisherCertificate : null,
-        ReusableCertificateSettingId = IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes && UseReusableCertificate ? SelectedReusableCertificateSetting?.Id : null,
+        PublisherCertificate = IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes && UsePublisherCertificate ? PublisherCertificate : null,
+        ReusableCertificateSettingId = IdentificationStrategy == global::IntuneEpmRuleCreator.Core.Models.IdentificationStrategy.CertificateAndAttributes && UseReusableCertificate ? SelectedReusableCertificateSetting?.Id : null,
         ElevationType = ElevationType,
         ChildProcessBehavior = ChildProcessBehavior,
     };
