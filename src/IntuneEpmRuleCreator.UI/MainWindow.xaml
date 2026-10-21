@@ -115,7 +115,7 @@
                                 <TextBlock Text="Certificate type" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
                                 <ComboBox ItemsSource="{Binding CertificateTypeOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding CertificateType}"/>
                             </StackPanel>
-                            <TextBlock Text="Elevation type" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding ElevationTypes}" SelectedItem="{Binding ElevationType}"/>
+                            <TextBlock Text="Elevation type" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding ElevationTypes}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding ElevationType}"/>
                             <StackPanel Margin="0,4,0,8" Visibility="{Binding IsUserConfirmed, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBlock Text="User confirmation validation" FontWeight="SemiBold" Margin="0,2,0,4"/>
                                 <CheckBox Content="Business justification" IsChecked="{Binding RequireBusinessJustification}" Margin="0,3"/>

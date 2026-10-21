@@ -376,39 +376,14 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
     private static JsonObject FindRuleTemplate(JsonArray rules, ElevationRule rule)
     {
-        var expectedRuleType = GetRuleTypeOption(rule.ElevationType);
         foreach (var candidate in rules.OfType<JsonObject>())
         {
             var children = candidate["children"] as JsonArray;
-            if (children is null) continue;
-            if (!string.Equals(GetChoiceOption(children, "ruletype"), expectedRuleType, StringComparison.Ordinal))
-                continue;
-
-            if (!HasElevationTypeValidationSchema(children, rule.ElevationType))
-                continue;
-
-            // Signature source is independent of elevation type. Use this rule for the
-            // elevation-specific schema, then replace/remove its signature source below.
-            return candidate;
+            if (children is not null && FindChild(children, "ruletype") is not null)
+                return candidate;
         }
 
-        throw new InvalidOperationException($"This policy has no rule with elevation type '{expectedRuleType}' to use as a schema template. Add a matching rule in Intune first.");
-    }
-
-    private static bool HasElevationTypeValidationSchema(JsonArray ruleChildren, ElevationType elevationType)
-    {
-        var ruleType = FindChild(ruleChildren, "ruletype");
-        var nested = ruleType?["choiceSettingValue"]?["children"] as JsonArray;
-        if (nested is null)
-            return elevationType is not (ElevationType.UserConfirmed or ElevationType.CurrentUser);
-
-        return elevationType switch
-        {
-            ElevationType.UserConfirmed => FindChild(nested, "ruletype_userconfirmeduservalidation") is not null &&
-                                           FindChild(nested, "ruletype_userconfirmeduservalidation_2") is not null,
-            ElevationType.CurrentUser => FindChild(nested, "ruletype_validation") is not null,
-            _ => true
-        };
+        throw new InvalidOperationException("This policy's Elevation Rules collection has no existing rule to use as a payload template. Add an initial rule in Intune first.");
     }
 
     private static void PopulateRule(JsonObject newRule, ElevationRule rule, JsonArray allRules)
@@ -428,19 +403,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         SetOptionalSimple(children, "internalname", rule.InternalName);
         SetOptionalSimple(children, "fileversion", RuleValidationService.NormalizeMinimumFileVersionToFourParts(rule.MinimumFileVersion));
 
-        SetChoice(children, "ruletype", GetRuleTypeOption(rule.ElevationType));
-        if (rule.ElevationType == ElevationType.UserConfirmed)
-        {
-            SetValidationCollectionSelection(children, "ruletype_userconfirmeduservalidation",
-                rule.RequireWindowsAuthentication ? ["0"] : []);
-            SetValidationCollectionSelection(children, "ruletype_userconfirmeduservalidation_2",
-                rule.RequireBusinessJustification ? ["0"] : []);
-        }
-        else if (rule.ElevationType == ElevationType.CurrentUser)
-        {
-            SetValidationCollectionSelection(children, "ruletype_validation",
-                rule.RequireBusinessJustification ? ["0", "1"] : ["1"]);
-        }
+        SetElevationType(children, rule);
         if (rule.ChildProcessBehavior == ChildProcessBehavior.NotConfigured)
             RemoveChild(children, "childprocessbehavior");
         else
@@ -513,35 +476,61 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         else children[children.IndexOf(existing)] = copy;
     }
 
-    private static void SetValidationCollectionSelection(JsonArray ruleChildren, string suffix, string[] selectedOptions)
+    private static void SetElevationType(JsonArray ruleChildren, ElevationRule rule)
     {
         var ruleType = FindChild(ruleChildren, "ruletype")
             ?? throw new InvalidOperationException("The selected rule template is missing its elevation type setting.");
-        var nestedChildren = ruleType["choiceSettingValue"]?["children"] as JsonArray
-            ?? throw new InvalidOperationException("The selected user-confirmed rule has no validation settings.");
-        var collection = FindChild(nestedChildren, suffix)
-            ?? throw new InvalidOperationException($"The selected user-confirmed rule is missing the '{suffix}' validation setting.");
-
-        if (selectedOptions.Length == 0)
-        {
-            collection["choiceSettingCollectionValue"] = new JsonArray();
-            return;
-        }
-
-        var definitionId = collection["settingDefinitionId"]?.GetValue<string>()
-            ?? throw new InvalidOperationException($"The '{suffix}' validation setting has no definition ID.");
-        var selectedValues = new JsonArray();
-        foreach (var option in selectedOptions)
-        {
-            selectedValues.Add(new JsonObject
+        var definitionId = ruleType["settingDefinitionId"]?.GetValue<string>()
+            ?? throw new InvalidOperationException("The elevation type setting has no definition ID.");
+        var option = GetRuleTypeOption(rule.ElevationType);
+        var choice = ruleType["choiceSettingValue"] as JsonObject
+            ?? throw new InvalidOperationException("The elevation type setting has an unexpected format.");
+        choice["value"] = definitionId + "_" + option;
+        choice["settingValueTemplateReference"] = rule.ElevationType == ElevationType.UserConfirmed
+            ? new JsonObject
             {
-                ["@odata.type"] = "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+                ["settingValueTemplateId"] = "cb2ea689-ebc3-42ea-a7a4-c704bb13e3ad",
+                ["useTemplateDefault"] = false
+            }
+            : null;
+
+        var nested = new JsonArray();
+        switch (rule.ElevationType)
+        {
+            case ElevationType.UserConfirmed:
+                var userConfirmedOptions = new List<string>();
+                if (rule.RequireBusinessJustification) userConfirmedOptions.Add("0");
+                if (rule.RequireWindowsAuthentication) userConfirmedOptions.Add("1");
+                nested.Add(CreateValidationCollection(definitionId + "_validation", [.. userConfirmedOptions]));
+                break;
+            case ElevationType.CurrentUser:
+                nested.Add(CreateValidationCollection(definitionId + "_userconfirmeduservalidation", ["0"]));
+                nested.Add(CreateValidationCollection(definitionId + "_userconfirmeduservalidation_2",
+                    rule.RequireBusinessJustification ? ["0"] : []));
+                break;
+        }
+        choice["children"] = nested;
+    }
+
+    private static JsonObject CreateValidationCollection(string definitionId, string[] selectedOptions)
+    {
+        var values = new JsonArray();
+        foreach (var option in selectedOptions)
+            values.Add(new JsonObject
+            {
                 ["settingValueTemplateReference"] = null,
                 ["value"] = definitionId + "_" + option,
                 ["children"] = new JsonArray()
             });
-        }
-        collection["choiceSettingCollectionValue"] = selectedValues;
+
+        return new JsonObject
+        {
+            ["@odata.type"] = "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+            ["settingDefinitionId"] = definitionId,
+            ["settingInstanceTemplateReference"] = null,
+            ["auditRuleInformation"] = null,
+            ["choiceSettingCollectionValue"] = values
+        };
     }
 
     private static JsonObject FindCertificateSourceTemplate(JsonArray rules, bool reusable)
@@ -609,8 +598,8 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
     private static string GetRuleTypeOption(ElevationType elevationType) => elevationType switch
     {
-        ElevationType.CurrentUser => "self",
-        ElevationType.UserConfirmed => "userconfirmeduser",
+        ElevationType.CurrentUser => "userconfirmeduser",
+        ElevationType.UserConfirmed => "self",
         ElevationType.Automatic => "automatic",
         ElevationType.SupportApproved => "supportarbitrated",
         ElevationType.Deny => "deny",

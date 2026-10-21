@@ -16,6 +16,7 @@ namespace IntuneEpmRuleCreator.UI.ViewModels;
 public sealed record CertificateTypeOption(CertificateType Value, string DisplayName);
 public sealed record SignatureSourceOption(SignatureSource Value, string DisplayName);
 public sealed record RestrictArgumentsOption(RestrictArgumentsMode Value, string DisplayName);
+public sealed record ElevationTypeOption(ElevationType Value, string DisplayName);
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
@@ -67,7 +68,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public MainViewModel()
     {
-        ElevationTypes = Enum.GetValues<ElevationType>();
         ChildProcessBehaviors = Enum.GetValues<ChildProcessBehavior>();
         AnalyzeCommand = new AsyncCommand(AnalyzeAsync, () => !Busy && !string.IsNullOrWhiteSpace(FilePath));
         ValidateCommand = new RelayCommand(Validate);
@@ -81,7 +81,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
-    public Array ElevationTypes { get; }
+    public IReadOnlyList<ElevationTypeOption> ElevationTypes { get; } =
+    [
+        new(ElevationType.UserConfirmed, "User confirmed"),
+        new(ElevationType.Automatic, "Automatic"),
+        new(ElevationType.SupportApproved, "Support approved"),
+        new(ElevationType.Deny, "Deny"),
+        new(ElevationType.CurrentUser, "Elevate as current user")
+    ];
     public Array ChildProcessBehaviors { get; }
     public IReadOnlyList<SignatureSourceOption> SignatureSourceOptions { get; } =
     [
