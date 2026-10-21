@@ -1,0 +1,34 @@
+<Application x:Class="IntuneEpmRuleCreator.UI.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <SolidColorBrush x:Key="CanvasBrush" Color="#F3F5F8"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="InkBrush" Color="#182230"/>
+        <SolidColorBrush x:Key="MutedBrush" Color="#58677A"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#1463D6"/>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,5,0,12"/>
+            <Setter Property="BorderBrush" Value="#D4DCE6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Margin" Value="0,5,0,12"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="14,9"/>
+            <Setter Property="Margin" Value="0,4,8,4"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Application.Resources>
+</Application>
