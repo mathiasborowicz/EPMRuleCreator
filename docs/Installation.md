@@ -46,14 +46,14 @@ Run from the repository root:
 
 ```powershell
 dotnet test .\IntuneEpmRuleCreator.sln
-dotnet publish .\src\IntuneEpmRuleCreator.UI\IntuneEpmRuleCreator.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o .\publish\win-x64
+dotnet publish .\src\IntuneEpmRuleCreator.UI\IntuneEpmRuleCreator.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeAllContentForSelfExtract=true -o .\publish\win-x64
 ```
 
 The executable is `publish\win-x64\IntuneEpmRuleCreator.exe`. Run it directly to select a file in the app. No administrator rights, tenant connection, or network are needed for local file analysis.
 
 ## Download the current standalone build
 
-Every push to `work` or `main` runs tests and creates a self-contained, compressed Windows x64 build automatically. Compression reduces the main executable from about 127 MB to about 59 MB in the current build; the publish folder also contains a few WPF native runtime DLLs. To download it, open the repository's **Actions** tab, select the latest successful **Windows standalone build**, and download the `IntuneEpmRuleCreator-win-x64` artifact. Extract the ZIP; it contains `IntuneEpmRuleCreator.exe` and companion publish files. GitHub retains each artifact for 30 days. The build does not embed an Entra client ID; enter one in the optional Graph connection panel if you want to test Graph sign-in. Compression may add a small startup cost while bundled assemblies are decompressed.
+Every push to `work` or `main` runs tests and creates a self-contained, compressed Windows x64 build automatically. The single executable is about 63 MB in the current build (down from about 127 MB); WPF's native components are bundled and extracted by .NET at startup. To download it, open the repository's **Actions** tab, select the latest successful **Windows standalone build**, and download the `IntuneEpmRuleCreator-win-x64` artifact. GitHub provides the artifact as a ZIP containing only `IntuneEpmRuleCreator.exe`; no source project or companion files are included. GitHub retains each artifact for 30 days. The build does not embed an Entra client ID; enter one in the optional Graph connection panel if you want to test Graph sign-in. Compression and extraction may add a small startup cost.
 
 ## Register the Explorer menu
 

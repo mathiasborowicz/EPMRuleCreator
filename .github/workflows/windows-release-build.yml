@@ -33,12 +33,13 @@ jobs:
           --self-contained true
           -p:PublishSingleFile=true
           -p:EnableCompressionInSingleFile=true
+          -p:IncludeAllContentForSelfExtract=true
           --output .\publish\win-x64
 
       - name: Upload executable package
         uses: actions/upload-artifact@v4
         with:
           name: IntuneEpmRuleCreator-win-x64
-          path: publish/win-x64/
+          path: publish/win-x64/IntuneEpmRuleCreator.exe
           if-no-files-found: error
           retention-days: 30
