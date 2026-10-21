@@ -1,8 +1,8 @@
 # Intune EPM Rule Creator
 
-A Windows desktop tool for inspecting local files and preparing Microsoft Intune Endpoint Privilege Management elevation rules. Local file analysis works offline and does not require signing in to a tenant. Optional Microsoft Graph sign-in can list EPM policies, count their rules, and list reusable EPM certificate settings; this build does not modify Intune policies.
+A Windows desktop tool for inspecting local files and preparing Microsoft Intune Endpoint Privilege Management elevation rules. Local file analysis works offline and does not require signing in to a tenant. Optional Microsoft Graph sign-in can list EPM policies, count their rules, browse reusable EPM certificate settings, and explicitly append a rule to a selected policy after confirmation.
 
-> **Graph writes are not implemented yet.** The app only reads policy and reusable-setting data. See [the verification record](docs/GraphIntegration.md).
+> **Graph writes modify the selected Intune policy.** The app refreshes the rule count, validates the rule, and asks for confirmation before sending a PATCH. See [the verification record](docs/GraphIntegration.md) for current constraints.
 
 ## Current features
 
@@ -11,7 +11,8 @@ A Windows desktop tool for inspecting local files and preparing Microsoft Intune
 - Independent SHA256 calculation and version resource metadata.
 - Detection of Microsoft EPM Tools and invocation of `Get-FileAttributes` through Windows PowerShell 5.1 using JSON input, without placing the file path in PowerShell source code.
 - Embedded publisher certificate extraction with subject, issuer, thumbprint, and validity dates. Certificate extraction is not an Authenticode trust check.
-- Certificate-based rule selection between the analyzed file's extracted publisher certificate and a loaded reusable EPM certificate setting. This is local preparation/validation only; the current build does not upload certificates or write rules to Intune.
+- Certificate-based rule selection between the analyzed file's extracted publisher certificate and a loaded reusable EPM certificate setting.
+- Explicit Graph upload that appends to an existing EPM rule collection, preserves its other entries, rechecks the 100-rule limit, requests confirmation, and verifies the updated count.
 - Local validation for rule name, file type, SHA256 format, selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
 - Optional Graph browsing of EPM Elevation Rules policies and EPM reusable certificate settings (unrelated reusable settings are filtered out by setting definition ID).
 - Per-user Explorer context menu registration and removal scripts.
@@ -38,7 +39,7 @@ See [Installation](docs/Installation.md) for obtaining the `work` branch in `C:\
 
 ## Graph, authentication, and security
 
-Graph authentication is optional and uses MSAL as a native public client. The current development build accepts a client ID and tenant in the optional connection panel. It requests delegated `User.Read` to display the signed-in identity and `DeviceManagementConfiguration.ReadWrite.All` to list EPM policies/read their settings and enable the planned rule writes. Admin consent is required. No client secret is used. The current build does not write Intune policies yet.
+Graph authentication is optional and uses MSAL as a native public client. The current development build accepts a client ID and tenant in the optional connection panel. It requests delegated `User.Read` to display the signed-in identity and `DeviceManagementConfiguration.ReadWrite.All` to list EPM policies/read and update their settings. Admin consent is required. No client secret is used.
 
 The app saves the entered client ID and tenant ID in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` so they are prefilled next time. This is a normal, unencrypted per-user settings file; these IDs are identifiers, not credentials. They are not written to the executable or Git repository. MSAL stores sign-in tokens separately in its cache under the same per-user app-data directory, protected with Windows DPAPI. Signing out removes the account's MSAL cache entries; it does not remove the saved IDs.
 
@@ -53,7 +54,7 @@ The app requests **delegated `DeviceManagementConfiguration.ReadWrite.All`**. Mi
 
 Add `DeviceManagementConfiguration.ReadWrite.All` as a **delegated Microsoft Graph permission** to the Entra app registration and grant admin consent. Graph permission does not replace the Intune license or the signed-in user's Intune RBAC role and scope-tag access. The policy-setting API is currently Graph **beta**. See [optional Graph authentication](docs/GraphAuthentication.md) and [Graph integration research](docs/GraphIntegration.md).
 
-No policy changes occur in this build. The UI does not provide a create/publish control. Never interpret local rule validation as proof that a rule is accepted by Intune.
+The upload control only appends after explicit confirmation. It currently requires an existing Elevation Rules collection and an existing rule matching the selected identification/certificate source as a schema template; it does not create a policy or the first root setting. Deny-all child-process behavior is not yet supported by the verified payload mapping. Graph beta and tenant-specific RBAC can still reject a locally valid rule.
 
 See [Graph integration research](docs/GraphIntegration.md) for the endpoints supplied by the brief, research links, and unresolved verification items.
 

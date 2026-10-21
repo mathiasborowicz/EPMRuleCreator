@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-The optional Graph connection lists Endpoint Privilege Management Elevation Rules policies and can read the number of rules in the selected policy. It does not create or modify policy settings yet.
+The optional Graph connection lists Endpoint Privilege Management Elevation Rules policies, reads rule counts and reusable certificate settings, and can append a rule to a selected policy after user confirmation.
 
 The app lists policies with `GET /beta/deviceManagement/configurationPolicies`, filtered by `templateReference/templateFamily eq 'endpointSecurityEndpointPrivilegeManagement'`, selecting the metadata shown in the UI. It follows `@odata.nextLink`. For the selected policy it reads `GET /beta/deviceManagement/configurationPolicies('{id}')/settings?$expand=settingDefinitions&$top=1000`, also following `@odata.nextLink`.
 
@@ -12,7 +12,9 @@ The app requests the setting definition's `maximumCount` when available and othe
 
 Reusable settings are listed through `GET /beta/deviceManagement/reusablePolicySettings`. This collection also contains unrelated Intune settings, so the app filters client-side by the exact EPM certificate definition ID `device_vendor_msft_policy_privilegemanagement_reusablesettings_certificatefile`. The test tenant returned the EPM setting "Netextender" and an unrelated Defender setting; only the former should appear in the EPM certificate selector. Results are paged using `@odata.nextLink`.
 
-For local certificate-rule preparation, the app can retain the extracted public X.509 signer certificate in memory and allows choosing it or a loaded reusable EPM certificate setting. Extraction does not validate Authenticode trust. Certificate upload and policy writes are not implemented by the current build.
+For certificate rules, the app can use the extracted public X.509 signer certificate or reference a loaded EPM reusable certificate setting. Extraction does not validate Authenticode trust. For writes, the app refreshes the entire policy settings collection, clones an existing rule with the matching hash/publisher/reusable-certificate shape, changes the selected values, and PATCHes the existing root setting. Existing rules are preserved. After confirmation, it rereads the policy and checks the count. If Graph rejects the write or verification fails, the UI reports the result; after a verification failure users should check Intune before retrying.
+
+Current safeguards/constraints: writes require an existing EPM root setting and an existing rule of the same identification/certificate-source shape to use as a payload template. The app does not create the initial root setting or create a policy. The 100-rule limit is reread immediately before PATCH. If Graph includes `@odata.etag` in the setting representation, the app sends `If-Match`; the provided tenant response did not include it, so concurrent edits by another administrator cannot be fully excluded. `DenyAll` child-process behavior is intentionally rejected because its choice value was not present in the supplied tenant examples. The write path still needs a live end-to-end test against the user's test tenant before community release.
 
 ## Permissions
 
@@ -26,6 +28,6 @@ The app requests delegated `User.Read` (signed-in identity) and `DeviceManagemen
 
 Graph consent does not replace Intune licensing or the signed-in user's Intune RBAC role and scope-tag access.
 
-## Remaining before writes
+## Remaining before release
 
-Before sending writes, verify the complete nested payload and whether the API safely supports appending a rule or requires replacing the whole collection. Concurrency/ETag handling and post-write readback also need validation in the test tenant. The current build sends no policy-write request.
+Validate actual PATCH acceptance and readback in the test tenant for hash, uploaded publisher certificate, reusable certificate reference, each supported elevation type, and both observed child-process choices. Confirm the server-side behavior for simultaneous admin edits; the example response had no ETag. Do not distribute as production-ready until these beta API integration cases pass.

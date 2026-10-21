@@ -61,6 +61,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ChildProcessBehaviors = Enum.GetValues<ChildProcessBehavior>();
         AnalyzeCommand = new AsyncCommand(AnalyzeAsync, () => !Busy && !string.IsNullOrWhiteSpace(FilePath));
         ValidateCommand = new RelayCommand(Validate);
+        UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && GraphConnected && SelectedElevationPolicy is not null);
         ConnectGraphCommand = new AsyncCommand(ConnectGraphAsync, () => !Busy && !GraphConnected);
         DisconnectGraphCommand = new AsyncCommand(DisconnectGraphAsync, () => !Busy && GraphConnected);
         LoadPoliciesCommand = new AsyncCommand(LoadPoliciesAsync, () => !Busy && GraphConnected);
@@ -75,6 +76,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public Array ChildProcessBehaviors { get; }
     public ICommand AnalyzeCommand { get; }
     public ICommand ValidateCommand { get; }
+    public ICommand UploadRuleCommand { get; }
     public ICommand ConnectGraphCommand { get; }
     public ICommand DisconnectGraphCommand { get; }
     public ICommand LoadPoliciesCommand { get; }
@@ -152,12 +154,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
     public ElevationType ElevationType { get => _elevationType; set => Set(ref _elevationType, value); }
     public ChildProcessBehavior ChildProcessBehavior { get => _childProcessBehavior; set => Set(ref _childProcessBehavior, value); }
-    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(AnalyzeCommand)); } }
+    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(AnalyzeCommand)); Raise(nameof(UploadRuleCommand)); } }
     public string ClientId { get => _clientId; set { Set(ref _clientId, value); SaveSettings(); } }
     public string TenantId { get => _tenantId; set { Set(ref _tenantId, value); SaveSettings(); } }
     public string GraphConnectionStatus { get => _graphConnectionStatus; private set => Set(ref _graphConnectionStatus, value); }
     public string GraphAccount { get => _graphAccount; private set => Set(ref _graphAccount, value); }
-    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); } }
+    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); } }
     public ElevationRulePolicy? SelectedElevationPolicy
     {
         get => _selectedElevationPolicy;
@@ -169,6 +171,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _selectedPolicyRuleLimit = null;
             Raise(nameof(SelectedPolicySummary));
             Raise(nameof(LoadSelectedPolicyCountCommand));
+            Raise(nameof(UploadRuleCommand));
         }
     }
     public string PolicyLoadStatus { get => _policyLoadStatus; private set => Set(ref _policyLoadStatus, value); }
@@ -226,7 +229,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var profile = await _graphAuthentication.SignInAsync(ClientId, TenantId, window is null ? IntPtr.Zero : new System.Windows.Interop.WindowInteropHelper(window).Handle);
             GraphConnected = true;
             GraphAccount = $"{profile.DisplayName} ({profile.UserPrincipalName})\nTenant ID: {profile.TenantId}";
-            GraphConnectionStatus = "Connected to Microsoft Graph. No Intune policy changes are made by this connection.";
+            GraphConnectionStatus = "Connected to Microsoft Graph. Intune is changed only when you explicitly upload a rule.";
             TenantId = profile.TenantId;
         }
         catch (Exception exception)
@@ -349,22 +352,86 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ? "No reusable EPM certificate settings are loaded. Load them in the Graph section first."
         : "Choose the reusable EPM certificate setting to reference in this rule.";
 
+    private ElevationRule BuildRule() => new()
+    {
+        Name = RuleName,
+        Description = RuleDescription,
+        FileName = RuleFileName,
+        FilePath = RuleFilePath,
+        FileHash = RuleFileHash,
+        ProductName = RuleProductName,
+        InternalName = RuleInternalName,
+        IdentificationStrategy = IdentificationStrategy,
+        PublisherCertificate = IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes && UsePublisherCertificate ? PublisherCertificate : null,
+        ReusableCertificateSettingId = IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes && UseReusableCertificate ? SelectedReusableCertificateSetting?.Id : null,
+        ElevationType = ElevationType,
+        ChildProcessBehavior = ChildProcessBehavior,
+    };
+
     private void Validate()
     {
-        var rule = new ElevationRule
-        {
-            Name = RuleName, Description = RuleDescription, FileName = RuleFileName,
-            FilePath = RuleFilePath, FileHash = RuleFileHash, ProductName = RuleProductName,
-            InternalName = RuleInternalName, IdentificationStrategy = IdentificationStrategy,
-            PublisherCertificate = UsePublisherCertificate ? PublisherCertificate : null,
-            ReusableCertificateSettingId = UseReusableCertificate ? SelectedReusableCertificateSetting?.Id : null,
-            ElevationType = ElevationType, ChildProcessBehavior = ChildProcessBehavior,
-        };
-        var result = _validator.Validate(rule, existingRuleCount: _selectedPolicyRuleCount ?? -1, hasPolicy: SelectedElevationPolicy is not null);
+        var result = _validator.Validate(BuildRule(), existingRuleCount: _selectedPolicyRuleCount ?? -1, hasPolicy: SelectedElevationPolicy is not null);
         ValidationMessages.Clear();
         foreach (var issue in result.Issues)
             ValidationMessages.Add($"{(issue.IsBlocking ? "Error" : "Warning")}: {issue.Message}");
         ValidationSummary = result.CanSubmit ? "Local validation passed." : "Resolve the blocking errors before this rule can be submitted.";
+    }
+
+    private async Task UploadRuleAsync()
+    {
+        var policy = SelectedElevationPolicy;
+        if (policy is null) return;
+        var rule = BuildRule();
+        Busy = true;
+        try
+        {
+            PolicyLoadStatus = $"Refreshing rules in '{policy.Name}' before upload…";
+            var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(policy);
+            if (SelectedElevationPolicy?.Id == policy.Id)
+            {
+                _selectedPolicyRuleCount = collection.RuleCount;
+                _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+                Raise(nameof(SelectedPolicySummary));
+            }
+
+            var result = _validator.Validate(rule, collection.RuleCount, hasPolicy: true);
+            ValidationMessages.Clear();
+            foreach (var issue in result.Issues)
+                ValidationMessages.Add($"{(issue.IsBlocking ? "Error" : "Warning")}: {issue.Message}");
+            if (!result.CanSubmit)
+            {
+                ValidationSummary = "Resolve the blocking errors before uploading this rule.";
+                PolicyLoadStatus = "Upload stopped because validation failed.";
+                return;
+            }
+
+            var warningText = result.Issues.Where(issue => !issue.IsBlocking).Select(issue => issue.Message);
+            var details = string.Join(Environment.NewLine, warningText);
+            var confirmMessage = $"Append '{rule.Name}' to policy '{policy.Name}'?\n\nCurrent rules: {collection.RuleCount}/{collection.MaximumRuleCount}. This changes the Intune policy.";
+            if (!string.IsNullOrWhiteSpace(details)) confirmMessage += $"\n\nWarnings:\n{details}";
+            if (MessageBox.Show(confirmMessage, "Confirm Intune upload", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            {
+                PolicyLoadStatus = "Upload cancelled; no policy changes were sent.";
+                return;
+            }
+
+            PolicyLoadStatus = $"Uploading '{rule.Name}' to '{policy.Name}'…";
+            var updatedCount = await _graphAuthentication.AppendElevationRuleAsync(policy, rule);
+            if (SelectedElevationPolicy?.Id == policy.Id)
+            {
+                _selectedPolicyRuleCount = updatedCount;
+                _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+                Raise(nameof(SelectedPolicySummary));
+            }
+            ValidationSummary = "Rule uploaded successfully.";
+            PolicyLoadStatus = $"Uploaded '{rule.Name}'. The policy now contains {updatedCount}/{collection.MaximumRuleCount} rules.";
+        }
+        catch (Exception exception)
+        {
+            ValidationSummary = "Rule upload failed.";
+            PolicyLoadStatus = $"Could not upload the rule: {exception.Message}";
+        }
+        finally { Busy = false; }
     }
 
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)

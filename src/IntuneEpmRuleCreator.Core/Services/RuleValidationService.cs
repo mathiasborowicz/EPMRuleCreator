@@ -35,6 +35,11 @@ public sealed class RuleValidationService
         if (rule.IdentificationStrategy == IdentificationStrategy.CertificateAndAttributes &&
             rule.PublisherCertificate is null && string.IsNullOrWhiteSpace(rule.ReusableCertificateSettingId))
             issues.Add(new("certificate.required", "Select the publisher certificate extracted from the analyzed file or an EPM reusable certificate setting.", true));
+        if (rule.IdentificationStrategy == IdentificationStrategy.Custom)
+            issues.Add(new("file.custom.unsupported", "Custom identification is not supported by the current Intune upload mapping.", true));
+
+        if (rule.ChildProcessBehavior == ChildProcessBehavior.DenyAll)
+            issues.Add(new("security.child-process.deny-all.unsupported", "Deny-all child-process behavior is not yet supported by the verified Intune upload mapping.", true));
 
         if (rule.ChildProcessBehavior == ChildProcessBehavior.AllowAllElevated)
             issues.Add(new("security.child-process.broad", "All child processes would run elevated. Review this high-risk choice carefully.", false));

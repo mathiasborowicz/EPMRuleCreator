@@ -16,7 +16,7 @@
                 <TextBlock Text="Build a file-based elevation rule from verified file metadata." Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0"/>
             </StackPanel>
             <Border DockPanel.Dock="Right" Background="#FFF3D9" CornerRadius="7" Padding="12,8" VerticalAlignment="Center">
-                <TextBlock Text="Graph publishing unavailable until Microsoft schema is verified" Foreground="#754C00" FontSize="12"/>
+                <TextBlock Text="Intune writes require explicit confirmation" Foreground="#754C00" FontSize="12"/>
             </Border>
         </DockPanel>
 
@@ -82,7 +82,7 @@
                             <TextBlock Text="Only reusable settings whose definition is the EPM certificate setting are shown; other Intune reusable settings are excluded." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
                             <Button Content="Load reusable certificate settings" Command="{Binding LoadReusableCertificateSettingsCommand}" HorizontalAlignment="Left" Margin="0,8,0,6"/>
                             <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" DisplayMemberPath="DisplayName"/>
-                            <TextBlock Text="The app counts the groupSettingCollectionValue entries in the Elevation Rules setting. The policy settingCount is a different number. This build does not write rules yet." TextWrapping="Wrap" Foreground="#754C00" Margin="0,8,0,0"/>
+                            <TextBlock Text="The app counts groupSettingCollectionValue entries; policy settingCount is different. Upload appends a rule only after confirmation and requires an existing rule of the same identification/certificate source as a payload template." TextWrapping="Wrap" Foreground="#754C00" Margin="0,8,0,0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -114,6 +114,7 @@
                         <StackPanel>
                             <TextBlock Text="Validation" FontSize="18" FontWeight="SemiBold"/>
                             <Button Content="Validate rule" Command="{Binding ValidateCommand}" HorizontalAlignment="Left" Margin="0,12,0,0"/>
+                            <Button Content="Upload rule to selected Intune policy" Command="{Binding UploadRuleCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{StaticResource AccentBrush}" Foreground="White"/>
                             <TextBlock Text="{Binding ValidationSummary}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                             <ItemsControl ItemsSource="{Binding ValidationMessages}" Margin="0,8,0,0">
                                 <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="#8A3B12" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate>
@@ -124,6 +125,6 @@
             </Grid>
         </ScrollViewer>
 
-        <TextBlock Grid.Row="3" Text="No changes are sent to Intune from this build. Rule validation is local." Foreground="{StaticResource MutedBrush}" Margin="0,14,0,0"/>
+        <TextBlock Grid.Row="3" Text="No changes are automatic. The upload button appends only after a separate confirmation." Foreground="{StaticResource MutedBrush}" Margin="0,14,0,0"/>
     </Grid>
 </Window>
