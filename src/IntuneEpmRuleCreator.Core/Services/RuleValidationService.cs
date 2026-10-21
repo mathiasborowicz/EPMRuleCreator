@@ -28,6 +28,11 @@ public sealed class RuleValidationService
         else if (!SupportedExtensions.Contains(Path.GetExtension(rule.FileName)))
             issues.Add(new("file.type.unsupported", "Only .exe, .msi and .ps1 files are supported by this application.", true));
 
+        if (string.IsNullOrWhiteSpace(rule.MinimumFileVersion))
+            issues.Add(new("file.version.required", "A file version is required by Intune; enter a version between 1 and 30 characters.", true));
+        else if (rule.MinimumFileVersion.Length > 30)
+            issues.Add(new("file.version.too_long", "The file version must not exceed 30 characters.", true));
+
         if (rule.IdentificationStrategy == IdentificationStrategy.Sha256 &&
             (rule.HashAlgorithm != "SHA256" || string.IsNullOrWhiteSpace(rule.FileHash) || !Sha256Pattern.IsMatch(rule.FileHash)))
             issues.Add(new("file.sha256.invalid", "A 64-character SHA256 hash is required for hash-based identification.", true));

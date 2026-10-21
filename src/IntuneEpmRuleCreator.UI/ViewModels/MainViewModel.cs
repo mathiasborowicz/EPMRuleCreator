@@ -30,6 +30,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _ruleName = string.Empty;
     private string _ruleDescription = string.Empty;
     private string _ruleFileName = string.Empty;
+    private string _ruleFileVersion = string.Empty;
     private string _ruleFileHash = string.Empty;
     private string _ruleFilePath = string.Empty;
     private string _ruleProductName = string.Empty;
@@ -110,6 +111,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string RuleName { get => _ruleName; set => Set(ref _ruleName, value); }
     public string RuleDescription { get => _ruleDescription; set => Set(ref _ruleDescription, value); }
     public string RuleFileName { get => _ruleFileName; set => Set(ref _ruleFileName, value); }
+    public string RuleFileVersion { get => _ruleFileVersion; set => Set(ref _ruleFileVersion, value); }
     public string RuleFileHash { get => _ruleFileHash; set => Set(ref _ruleFileHash, value); }
     public string RuleFilePath { get => _ruleFilePath; set => Set(ref _ruleFilePath, value); }
     public string RuleProductName { get => _ruleProductName; set => Set(ref _ruleProductName, value); }
@@ -201,6 +203,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SignatureStatus = result.SignatureStatus ?? "Not available";
             AnalysisWarnings = string.Join(Environment.NewLine, result.Warnings);
             RuleFileName = result.FileName;
+            RuleFileVersion = result.Version ?? string.Empty;
             RuleFileHash = result.Sha256;
             RuleFilePath = result.FilePath;
             RuleProductName = result.ProductName ?? string.Empty;
@@ -357,6 +360,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Name = RuleName,
         Description = RuleDescription,
         FileName = RuleFileName,
+        MinimumFileVersion = RuleFileVersion,
         FilePath = RuleFilePath,
         FileHash = RuleFileHash,
         ProductName = RuleProductName,

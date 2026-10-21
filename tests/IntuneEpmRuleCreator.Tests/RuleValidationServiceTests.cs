@@ -12,7 +12,7 @@ public sealed class RuleValidationServiceTests
     [Fact]
     public void Sha256Rule_RequiresCorrectHash()
     {
-        var rule = new ElevationRule { Name = "Editor", FileName = "editor.exe", FileHash = new string('a', 64) };
+        var rule = new ElevationRule { Name = "Editor", FileName = "editor.exe", MinimumFileVersion = "1.0", FileHash = new string('a', 64) };
         Assert.True(_service.Validate(rule, 0, true).CanSubmit);
         Assert.False(_service.Validate(rule with { FileHash = "bad" }, 0, true).CanSubmit);
     }
@@ -20,7 +20,7 @@ public sealed class RuleValidationServiceTests
     [Fact]
     public void PolicyAtLimit_BlocksSubmission()
     {
-        var rule = new ElevationRule { Name = "Editor", FileName = "editor.exe", FileHash = new string('a', 64) };
+        var rule = new ElevationRule { Name = "Editor", FileName = "editor.exe", MinimumFileVersion = "1.0", FileHash = new string('a', 64) };
         Assert.Contains(_service.Validate(rule, 100, true).Issues, issue => issue.Code == "policy.limit.reached" && issue.IsBlocking);
     }
 
@@ -29,14 +29,14 @@ public sealed class RuleValidationServiceTests
     [InlineData("deploy.ps1")]
     public void SupportedFileTypes_AreAccepted(string fileName)
     {
-        var rule = new ElevationRule { Name = "Rule", FileName = fileName, FileHash = new string('b', 64) };
+        var rule = new ElevationRule { Name = "Rule", FileName = fileName, MinimumFileVersion = "1.0", FileHash = new string('b', 64) };
         Assert.True(_service.Validate(rule, 0, true).CanSubmit);
     }
 
     [Fact]
     public void UnsupportedType_IsBlocked()
     {
-        var rule = new ElevationRule { Name = "Rule", FileName = "document.pdf", FileHash = new string('b', 64) };
+        var rule = new ElevationRule { Name = "Rule", FileName = "document.pdf", MinimumFileVersion = "1.0", FileHash = new string('b', 64) };
         Assert.Contains(_service.Validate(rule, 0, true).Issues, issue => issue.Code == "file.type.unsupported");
     }
 
@@ -47,6 +47,7 @@ public sealed class RuleValidationServiceTests
         {
             Name = "Signed app",
             FileName = "signed.exe",
+            MinimumFileVersion = "1.0",
             IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes
         };
 
@@ -64,11 +65,29 @@ public sealed class RuleValidationServiceTests
         {
             Name = "Signed app",
             FileName = "signed.exe",
+            MinimumFileVersion = "1.0",
             IdentificationStrategy = IdentificationStrategy.CertificateAndAttributes,
             PublisherCertificate = certificate
         };
 
         Assert.True(_service.Validate(rule, 0, true).CanSubmit);
+    }
+
+    [Fact]
+    public void FileVersion_IsRequiredAndLimitedToThirtyCharacters()
+    {
+        var rule = new ElevationRule
+        {
+            Name = "Editor",
+            FileName = "editor.exe",
+            FileHash = new string('a', 64)
+        };
+
+        Assert.Contains(_service.Validate(rule, 0, true).Issues,
+            issue => issue.Code == "file.version.required" && issue.IsBlocking);
+        Assert.Contains(_service.Validate(rule with { MinimumFileVersion = new string('1', 31) }, 0, true).Issues,
+            issue => issue.Code == "file.version.too_long" && issue.IsBlocking);
+        Assert.True(_service.Validate(rule with { MinimumFileVersion = new string('1', 30) }, 0, true).CanSubmit);
     }
 
     [Fact]

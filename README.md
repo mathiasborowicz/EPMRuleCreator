@@ -13,13 +13,15 @@ A Windows desktop tool for inspecting local files and preparing Microsoft Intune
 - Embedded publisher certificate extraction with subject, issuer, thumbprint, and validity dates. Certificate extraction is not an Authenticode trust check.
 - Certificate-based rule selection between the analyzed file's extracted publisher certificate and a loaded reusable EPM certificate setting.
 - Explicit Graph upload that appends to an existing EPM rule collection, preserves its other entries, rechecks the 100-rule limit, requests confirmation, and verifies the updated count.
-- Local validation for rule name, file type, SHA256 format, selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
+- Local validation for rule name, file type, required 1–30-character file version, SHA256 format, selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
 - Optional Graph browsing of EPM Elevation Rules policies and EPM reusable certificate settings (unrelated reusable settings are filtered out by setting definition ID).
 - Per-user Explorer context menu registration and removal scripts.
 
 ### Offline file analysis
 
 No Intune tenant, Graph connection, or network access is needed to inspect a file. The app calculates SHA256 locally, reads available Windows version metadata, and attempts to extract the embedded publisher certificate. Certificate extraction does not verify Authenticode trust.
+
+The elevation rule's **File version** field is prefilled from the analyzed file's version metadata when available and can be edited. Intune requires a nonempty version of 1–30 characters; if the file has no version resource, enter the intended version before validating or uploading.
 
 Microsoft EPM Tools (`EpmCmdlets.dll`) are optional for the basic offline view. When they are installed, the app also calls `Get-FileAttributes` locally through Windows PowerShell 5.1. If they are absent, the app shows the locally available information and warns that EPM-specific attributes were not collected. It never installs the EPM agent or changes device configuration.
 
