@@ -38,6 +38,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _ruleFileName = string.Empty;
     private string _ruleFileVersion = string.Empty;
     private string _ruleFileHash = string.Empty;
+    private string _ruleFileDescription = string.Empty;
     private string _ruleFilePath = string.Empty;
     private string _ruleProductName = string.Empty;
     private string _ruleInternalName = string.Empty;
@@ -136,6 +137,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string RuleFileName { get => _ruleFileName; set => Set(ref _ruleFileName, value); }
     public string RuleFileVersion { get => _ruleFileVersion; set => Set(ref _ruleFileVersion, value); }
     public string RuleFileHash { get => _ruleFileHash; set => Set(ref _ruleFileHash, value); }
+    public string RuleFileDescription { get => _ruleFileDescription; set => Set(ref _ruleFileDescription, value); }
     public string RuleFilePath { get => _ruleFilePath; set => Set(ref _ruleFilePath, value); }
     public string RuleProductName { get => _ruleProductName; set => Set(ref _ruleProductName, value); }
     public string RuleInternalName { get => _ruleInternalName; set => Set(ref _ruleInternalName, value); }
@@ -227,6 +229,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             EpmFileHash = result.EpmFileHash ?? string.Empty;
             InternalName = result.InternalName ?? string.Empty;
             FileDescription = result.Description ?? string.Empty;
+            RuleFileDescription = result.Description ?? string.Empty;
             CertificateSummary = result.PublisherCertificate is { } certificate
                 ? $"Publisher: {certificate.Subject}{Environment.NewLine}Issuer: {certificate.Issuer}{Environment.NewLine}Thumbprint: {certificate.Thumbprint}{Environment.NewLine}Valid dates: {certificate.NotBefore:g} – {certificate.NotAfter:g} (valid now: {certificate.IsWithinValidityPeriod})"
                 : "Publisher certificate details unavailable.";
@@ -417,7 +420,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         FilePath = RuleFilePath,
         FileHash = RuleFileHash,
         ProductName = RuleProductName,
-        FileDescription = this.FileDescription,
+        FileDescription = RuleFileDescription,
         InternalName = RuleInternalName,
         SignatureSource = SignatureSource,
         PublisherCertificate = SignatureSource == global::IntuneEpmRuleCreator.Core.Models.SignatureSource.CertificateFile ? PublisherCertificate : null,
