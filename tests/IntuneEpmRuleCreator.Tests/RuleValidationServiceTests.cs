@@ -93,7 +93,7 @@ public sealed class RuleValidationServiceTests
     }
 
     [Fact]
-    public void FileVersion_IsOptionalButMustMatchFourPartNumericFormatAndThirtyCharacterLimit()
+    public void FileVersion_IsOptionalButMustMatchThreeOrFourPartNumericFormatAndThirtyCharacterLimit()
     {
         var rule = new ElevationRule
         {
@@ -108,8 +108,9 @@ public sealed class RuleValidationServiceTests
         Assert.Contains(_service.Validate(rule with { MinimumFileVersion = "1.0" }, 0, true).Issues,
             issue => issue.Code == "file.version.invalid_format" && issue.IsBlocking);
         Assert.True(_service.Validate(rule with { MinimumFileVersion = "12345678.12345678.1234567.1234" }, 0, true).CanSubmit);
+        Assert.True(_service.Validate(rule with { MinimumFileVersion = "1.1.0" }, 0, true).CanSubmit);
         Assert.True(RuleValidationService.IsValidMinimumFileVersion(null));
-        Assert.False(RuleValidationService.IsValidMinimumFileVersion("1.1.0"));
+        Assert.True(RuleValidationService.IsValidMinimumFileVersion("1.1.0"));
         Assert.True(RuleValidationService.IsValidMinimumFileVersion("1.1.0.0"));
     }
 
