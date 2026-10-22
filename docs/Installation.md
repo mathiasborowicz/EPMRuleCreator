@@ -83,6 +83,8 @@ The registration script also deploys to the fixed Local AppData path before writ
 
 These local operations do not require Microsoft Entra authentication, Graph permissions, a tenant, or an Internet connection. Certificate extraction alone does not establish that a signature is trusted.
 
+With **Signature source → Upload a certificate file**, the **Use analyzed file certificate** radio option is selected automatically when the analyzed file contains a signing certificate. Choosing your own certificate file selects that uploaded certificate instead. You can switch back using the radio options; the certificate card under File information always shows the certificate extracted from the analyzed file. Changing the analyzed file clears any previously uploaded certificate.
+
 To remove the registration:
 
 ```powershell

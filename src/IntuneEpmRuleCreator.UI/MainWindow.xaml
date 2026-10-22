@@ -223,9 +223,15 @@
                             <StackPanel Visibility="{Binding ShowCertificateSelection, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,8">
                                 <StackPanel Visibility="{Binding ShowCertificateFileSource, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <TextBlock Text="Certificate" FontWeight="SemiBold" Margin="0,4,0,4"/>
-                                    <TextBlock Text="{Binding CertificateSelectionLabel}" TextTrimming="CharacterEllipsis">
-                                        <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding PublisherCertificateChoiceText}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
-                                    </TextBlock>
+                                    <RadioButton Content="Use analyzed file certificate" GroupName="CertificateFileSource"
+                                                 IsChecked="{Binding UseAnalyzedCertificate, Mode=TwoWay}"
+                                                 IsEnabled="{Binding HasAnalyzedPublisherCertificate}" Margin="0,4,0,4">
+                                        <RadioButton.ToolTip><ToolTip><TextBlock Text="{Binding AnalyzedCertificateDetails}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></RadioButton.ToolTip>
+                                    </RadioButton>
+                                    <RadioButton Content="{Binding UploadedCertificateLabel}" GroupName="CertificateFileSource"
+                                                 IsChecked="{Binding UseUploadedCertificate, Mode=TwoWay}"
+                                                 Visibility="{Binding HasUploadedCertificate, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                 ToolTip="{Binding SelectedCertificateFile}" Margin="0,4,0,4"/>
                                     <Button Content="Choose certificate file…" Click="ChooseCertificateFile_Click" HorizontalAlignment="Left" Margin="0,6,0,4"/>
                                 </StackPanel>
                                 <StackPanel Visibility="{Binding ShowReusableCertificateSource, Converter={StaticResource BooleanToVisibilityConverter}}">

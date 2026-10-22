@@ -37,6 +37,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _fileDescription = string.Empty;
     private CertificateAttributes? _analyzedPublisherCertificate;
     private CertificateAttributes? _publisherCertificate;
+    private CertificateAttributes? _uploadedCertificate;
+    private bool _useUploadedCertificate;
     private string _signatureStatus = "Not analyzed";
     private string _analysisWarnings = string.Empty;
     private string _ruleName = string.Empty;
@@ -197,6 +199,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(HasAnalyzedPublisherCertificate));
             Raise(nameof(AnalyzedCertificateValidity));
             Raise(nameof(AnalyzedCertificateDetails));
+            Raise(nameof(UseAnalyzedCertificate));
         }
     }
     public bool HasAnalyzedPublisherCertificate => AnalyzedPublisherCertificate is not null;
@@ -261,12 +264,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ? "File hash (SHA256) *"
         : "File hash (SHA256)";
     public bool HasPublisherCertificate => PublisherCertificate is not null;
-    public string PublisherCertificateChoiceText => !string.IsNullOrWhiteSpace(SelectedCertificateFile)
+    public bool HasUploadedCertificate => _uploadedCertificate is not null;
+    public bool UseAnalyzedCertificate
+    {
+        get => !_useUploadedCertificate && HasAnalyzedPublisherCertificate;
+        set { if (value && HasAnalyzedPublisherCertificate) SelectCertificate(uploaded: false); }
+    }
+    public bool UseUploadedCertificate
+    {
+        get => _useUploadedCertificate && HasUploadedCertificate;
+        set { if (value && HasUploadedCertificate) SelectCertificate(uploaded: true); }
+    }
+    public string UploadedCertificateLabel => HasUploadedCertificate ? Path.GetFileName(SelectedCertificateFile) : "Uploaded certificate";
+    private void SelectCertificate(bool uploaded)
+    {
+        _useUploadedCertificate = uploaded;
+        PublisherCertificate = uploaded ? _uploadedCertificate : AnalyzedPublisherCertificate;
+        Raise(nameof(UseAnalyzedCertificate));
+        Raise(nameof(UseUploadedCertificate));
+        Raise(nameof(PublisherCertificateChoiceText));
+        Raise(nameof(CertificateSelectionLabel));
+    }
+    public string PublisherCertificateChoiceText => UseUploadedCertificate
         ? $"Selected certificate file: {Path.GetFileName(SelectedCertificateFile)}"
         : PublisherCertificate is { } certificate
             ? $"Using analyzed file's publisher certificate — {certificate.Subject} (thumbprint {certificate.Thumbprint})"
             : "No certificate selected. Choose a certificate file or analyze a signed file.";
-    public string CertificateSelectionLabel => !string.IsNullOrWhiteSpace(SelectedCertificateFile) ? Path.GetFileName(SelectedCertificateFile)
+    public string CertificateSelectionLabel => UseUploadedCertificate ? Path.GetFileName(SelectedCertificateFile)
         : HasPublisherCertificate ? "Analyzed file certificate" : "No certificate selected";
     public string SelectedCertificateFile { get => _selectedCertificateFile; private set { if (Set(ref _selectedCertificateFile, value)) { Raise(nameof(CertificateSelectionLabel)); Raise(nameof(PublisherCertificateChoiceText)); } } }
     public RestrictArgumentsMode RestrictArguments { get => _restrictArguments; set { if (Set(ref _restrictArguments, value)) Raise(nameof(ShowArgumentList)); } }
@@ -395,7 +419,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Sha256 = EpmFileHash = ProductName = Version = CompanyName = InternalName = FileDescription = string.Empty;
         PublisherCertificate = null;
         AnalyzedPublisherCertificate = null;
+        _uploadedCertificate = null;
+        _useUploadedCertificate = false;
         SelectedCertificateFile = SignatureDetails = AnalysisWarnings = string.Empty;
+        Raise(nameof(HasUploadedCertificate));
+        Raise(nameof(UploadedCertificateLabel));
+        Raise(nameof(UseAnalyzedCertificate));
+        Raise(nameof(UseUploadedCertificate));
         SignatureStatus = "Not analyzed";
         RuleName = RuleDescription = RuleFileName = RuleFileVersion = RuleFileHash = RuleFileDescription = string.Empty;
         RuleFilePath = RuleProductName = RuleInternalName = ArgumentListText = string.Empty;
@@ -673,7 +703,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         using var certificate = bytes.Length > 0 && Encoding.UTF8.GetString(bytes).Contains("-----BEGIN CERTIFICATE-----", StringComparison.Ordinal)
             ? X509Certificate2.CreateFromPem(Encoding.UTF8.GetString(bytes))
             : X509CertificateLoader.LoadCertificate(bytes);
-        PublisherCertificate = new CertificateAttributes(
+        _uploadedCertificate = new CertificateAttributes(
             certificate.Subject,
             certificate.Issuer,
             certificate.Thumbprint ?? string.Empty,
@@ -684,7 +714,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             CertificateBase64 = Convert.ToBase64String(certificate.RawData)
         };
         SelectedCertificateFile = path;
-        Raise(nameof(PublisherCertificateChoiceText));
+        Raise(nameof(HasUploadedCertificate));
+        Raise(nameof(UploadedCertificateLabel));
+        SelectCertificate(uploaded: true);
     }
 
     private ElevationRule BuildRule() => new()
