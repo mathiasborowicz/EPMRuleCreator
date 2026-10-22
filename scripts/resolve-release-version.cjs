@@ -38,7 +38,7 @@ function resolveVersion(baseVersion, tags, currentTags = []) {
 }
 
 if (require.main === module) {
-  const project = fs.readFileSync(path.join(__dirname, '../src/IntuneEpmRuleCreator.UI/IntuneEpmRuleCreator.UI.csproj'), 'utf8');
+  const project = fs.readFileSync(path.join(__dirname, '../src/EPMRuleCreator.UI/EPMRuleCreator.UI.csproj'), 'utf8');
   const baseVersion = project.match(/<Version>([^<]+)<\/Version>/)?.[1];
   parseVersion(baseVersion || '');
   const publishing = process.env.GITHUB_EVENT_NAME === 'push' && process.env.GITHUB_REF === 'refs/heads/main';

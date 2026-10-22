@@ -45,40 +45,56 @@ At least one `10.0.x` SDK should be listed.
 Run from the repository root:
 
 ```powershell
-dotnet test .\IntuneEpmRuleCreator.sln
-dotnet publish .\src\IntuneEpmRuleCreator.UI\IntuneEpmRuleCreator.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeAllContentForSelfExtract=true -o .\publish\win-x64
+dotnet test .\EPMRuleCreator.sln
+dotnet publish .\src\EPMRuleCreator.UI\EPMRuleCreator.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeAllContentForSelfExtract=true -o .\publish\win-x64
 ```
 
-The executable is `publish\win-x64\IntuneEpmRuleCreator.exe`. Run it directly to select a file in the app. No administrator rights, tenant connection, or network are needed for local file analysis.
+The executable is `publish\win-x64\EPMRuleCreator.exe`. Run it directly to select a file in the app. No administrator rights, tenant connection, or network are needed for local file analysis.
 
 ## Download the current standalone build
 
-For normal use, download [**IntuneEpmRuleCreator-win-x64.zip from the latest GitHub release**](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator-win-x64.zip). Extract it and run `IntuneEpmRuleCreator.exe`. This ZIP contains only the standalone EXE and `LICENSE`, not the source project; you do not need Git or the .NET SDK. New releases attach the ZIP instead of a raw EXE. ZIP packaging does not bypass Defender, SmartScreen, or ASR: your organization's security checks can still apply when downloading, extracting, or running the file. The archive is not password-protected.
+For normal use, download [**EPMRuleCreator-win-x64.zip from the latest GitHub release**](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.zip). Extract it and run `EPMRuleCreator.exe`. This ZIP contains only the standalone EXE and `LICENSE`, not the source project; you do not need Git or the .NET SDK. New releases attach the ZIP instead of a raw EXE. ZIP packaging does not bypass Defender, SmartScreen, or ASR: your organization's security checks can still apply when downloading, extracting, or running the file. The archive is not password-protected.
 
 A release is created automatically after a push/merge to `main` passes tests and publishes the Windows build. Releases use version tags starting at `v0.9.0` and are not subject to the 30-day Actions-artifact retention. Further merges automatically increment the highest version's patch number, and the same version is embedded in the EXE. A higher `<Version>` in the UI project starts a new version line. Retrying an already tagged commit reuses its release instead of incrementing again. Failed builds and pull-request checks do not publish releases. Older releases and their existing EXE downloads remain unchanged; the ZIP link becomes available once the first release with this packaging has been published.
 
-Every push to `work` or `main` runs tests and creates a self-contained, compressed Windows x64 build automatically. The single executable is about 63 MB in the current build (down from about 127 MB); WPF's native components are bundled and extracted by .NET at startup. To download it, open the repository's **Actions** tab, select the latest successful **Windows standalone build**, and download the `IntuneEpmRuleCreator-win-x64` artifact. GitHub provides the artifact as a ZIP containing only `IntuneEpmRuleCreator.exe`; no source project or companion files are included. GitHub retains each artifact for 30 days. The build does not embed an Entra client ID; click the circular account button with the person icon at the top right to enter the client ID and tenant if you want to test Graph sign-in. Compression and extraction may add a small startup cost.
+Every push to `work` or `main` runs tests and creates a self-contained, compressed Windows x64 build automatically. The single executable is about 63 MB in the current build (down from about 127 MB); WPF's native components are bundled and extracted by .NET at startup. To download it, open the repository's **Actions** tab, select the latest successful **Windows standalone build**, and download the `EPMRuleCreator-win-x64` artifact. GitHub provides the artifact as a ZIP containing only `EPMRuleCreator.exe`; no source project or companion files are included. GitHub retains each artifact for 30 days. The build does not embed an Entra client ID; click the circular account button with the person icon at the top right to enter the client ID and tenant if you want to test Graph sign-in. Compression and extraction may add a small startup cost.
 
 ## Register the Explorer menu
 
-Start the downloaded standalone EXE and click **Add menu** in the top-right header. The app copies the running EXE to `%LOCALAPPDATA%\IntuneEpmRuleCreator\App\IntuneEpmRuleCreator.exe`, registers that fixed path, and refreshes Explorer's association cache. You can then move or delete the downloaded EXE without breaking the menu. The managed copy must remain in Local AppData. No administrator rights or companion files are required.
+### Updating from the previous application name
+
+The app, solution, projects, and release assets are now named **EPMRuleCreator**. On first launch, the renamed app copies an existing `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` to `%LOCALAPPDATA%\EPMRuleCreator\settings.json` only if no settings exist at the new path. The original file is retained, and newer settings are never overwritten. Tokens now stay in memory only, so sign in again after starting the app. Old token caches are not read, copied, decrypted, or removed; the previous directory and its encrypted cache remain untouched. See [token handling and old-cache cleanup](GraphAuthentication.md#runtime-and-token-handling).
+
+For an existing Explorer menu, start the new EXE and click **↻**. This deploys the renamed EXE to the new fixed path and removes only the app's legacy menu entries after the new entries are registered. **Remove menu** recognizes both names. Existing old application copies are not deleted automatically.
+
+The display name of your own Entra app registration is managed separately in Entra and is not changed by this update.
+
+Start the downloaded standalone EXE and click **Add menu** in the top-right header. The app copies the running EXE to `%LOCALAPPDATA%\EPMRuleCreator\App\EPMRuleCreator.exe`, registers that fixed path, and refreshes Explorer's association cache. You can then move or delete the downloaded EXE without breaking the menu. The managed copy must remain in Local AppData. No administrator rights or companion files are required.
 
 The button changes to **Remove menu**, with a small **↻** repair/update button beside it. If you registered an earlier version at its download path, open the new EXE and click **↻** once to migrate the registration. To update later, open the newly downloaded EXE and click **↻** again. Close other instances launched from Explorer first. The complete replacement is staged before replacing the managed file, and registration is changed only after deployment succeeds. Identical copies and registration from the managed location do not rewrite the EXE.
 
 The PowerShell scripts are an alternative. From a normal, non-elevated PowerShell session in the repository root, register the current user's menu:
 
 ```powershell
-$appPath = Join-Path $PWD 'publish\win-x64\IntuneEpmRuleCreator.exe'
+$appPath = Join-Path $PWD 'publish\win-x64\EPMRuleCreator.exe'
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Register-ExplorerMenu.ps1 -ApplicationPath $appPath
 ```
 
-The registration is per-user under `HKEY_CURRENT_USER` and does not require administrator privileges. Windows 11 shows this classic registry menu item under **Show more options**; it is not in the primary modern context menu. The menu is registered for `.exe`, `.msi`, and `.ps1` files. Right-click one of those files, choose **Show more options**, then **Create Intune EPM Rule**. The application starts with that path and analyzes it automatically. The selected file is never executed. The path is passed as a quoted argument, including when it contains spaces or Unicode characters.
+The registration is per-user under `HKEY_CURRENT_USER` and does not require administrator privileges. Windows 11 shows this classic registry menu item under **Show more options**; it is not in the primary modern context menu. The menu is registered for `.exe`, `.msi`, and `.ps1` files. Right-click one of those files, choose **Show more options**, then **Create EPM Rule**. The application starts with that path and analyzes it automatically. The selected file is never executed. The path is passed as a quoted argument, including when it contains spaces or Unicode characters.
 
 The registration script also deploys to the fixed Local AppData path before writing the registry. Run it again with a newer `-ApplicationPath` to update or repair the menu.
 
-**Remove menu** and the removal script delete only the three app-owned `CreateIntuneEpmRule` registry subtrees. They retain the managed EXE, `settings.json`, and the token cache. For complete removal of the managed executable, remove the menu, close the app, and delete only `%LOCALAPPDATA%\IntuneEpmRuleCreator\App` in Explorer. Account settings remain in the parent folder.
+**Remove menu** and the removal script delete only the app-owned `CreateEPMRule` registry subtrees and their legacy `CreateIntuneEpmRule` equivalents for the three supported file types. They retain the managed EXE, `settings.json`, and any cache files left by old versions. The current version has no on-disk token cache. For complete removal of the managed executable, remove the menu, close the app, and delete only `%LOCALAPPDATA%\EPMRuleCreator\App` in Explorer. Account settings remain in the parent folder.
 
 ## What works offline
+
+### Appearance
+
+The **Dark** switch in the header changes the theme immediately, including input fields, dropdowns, certificate cards, logs, and the sign-in panel. Until a manual choice is saved, the app reads the current user's Windows **app** color mode at each startup (`HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme`: 0 means dark). Missing or inaccessible Windows settings fall back to light. This reads the setting only; it does not change Windows preferences. Live Windows theme changes while the app is open are not tracked.
+
+Using the switch saves your explicit choice as `IsDarkTheme: true` or `false` in the existing local `settings.json`, alongside the client/tenant identifiers. A saved choice takes precedence over Windows. Missing or `null` theme values follow Windows; saving sign-in settings does not convert that automatic mode into a manual choice. Existing explicit values from earlier versions are retained. To restore startup-based Windows detection, remove only `IsDarkTheme` from the settings file or set it to `null` while the app is closed. Switching themes preserves the saved sign-in configuration. No Graph connection is needed. The file path and its Choose/Analyze buttons share a dedicated row and the same height; the optional EpmCmdlets checkbox sits on the next row.
+
+### File details
 
 - SHA256 is calculated locally by the application.
 - Available Windows version metadata and embedded publisher certificate details are shown where present.

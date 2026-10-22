@@ -1,6 +1,6 @@
-<p><img src="docs/assets/epm-rule-creator.png" alt="Intune EPM Rule Creator logo" width="96" height="96"></p>
+<p><img src="docs/assets/epm-rule-creator.png" alt="EPMRuleCreator logo" width="96" height="96"></p>
 
-# Intune EPM Rule Creator
+# EPMRuleCreator
 
 [![Windows 11 x64](https://img.shields.io/badge/Windows-11_x64-0078D4?logo=windows&logoColor=white)](docs/Installation.md)
 [![Offline first](https://img.shields.io/badge/Offline-first-2ea44f)](#-get-started)
@@ -10,13 +10,13 @@
 
 Inspect file details, check signing certificates, and prepare Microsoft Intune Endpoint Privilege Management rules in one Windows app. File analysis works offline. Connect to Intune only when you want to upload a rule.
 
-### [⬇ Download the latest ZIP](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator-win-x64.zip)
+### [⬇ Download the latest ZIP](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.zip)
 
 Just the standalone EXE and license in a ZIP. No compiling, no separate .NET installation, no account needed to get started.
 
 ## 🚀 Get started
 
-1. Download and extract the ZIP, then open **IntuneEpmRuleCreator.exe** on Windows 11 x64.
+1. Download and extract the ZIP, then open **EPMRuleCreator.exe** on Windows 11 x64.
 2. Choose an `.exe`, `.msi`, or `.ps1` file and click **Analyze file**.
 3. Review its details and prepare your elevation rule. That's it for offline use!
 
@@ -28,6 +28,9 @@ Want to send the rule to Intune? Sign in using the account icon at the top right
 
 ## 🔎 What you can do
 
+- **Stay up to date:** open **Updates** to turn startup checks on/off or **Check now**. Click **Update** to download the release ZIP, verify its GitHub SHA256 checksum, replace the EXE in place and restart. Save your work first. The previous EXE stays beside it as `EPMRuleCreator.exe.previous`. No admin prompt or separate installer; if the folder is not writable, choose a writable location. Without a GitHub checksum, use **Open release page** instead. Checks never block offline analysis and send no file details, Entra IDs, or tokens to GitHub. Your preference is saved as `CheckForUpdatesAtStartup` in local `settings.json`.
+  The updater removes any Internet zone marker from the verified update EXE only (equivalent to `Unblock-File`). Defender and ASR policies are not changed. For your first manual download, use the file's **Properties > Unblock** if Windows requires it.
+- **Make it yours:** the app starts with your Windows app theme until you choose light or dark using the switch. Your manual choice is remembered locally.
 - **See what's in a file:** SHA256, version, product details, and its signing certificate, where available.
 - **Export its certificate chain:** save each public certificate as its own CER file, or the chain together as P7B/PEM. Missing issuers are clearly marked.
 - **Choose how to identify it:** file hash, the extracted signing certificate, your own certificate file, or an Intune reusable certificate setting.
@@ -53,7 +56,7 @@ Required delegated Graph permissions:
 
 Your account also needs the appropriate Intune license, RBAC permissions, and scope-tag access. Follow the [sign-in setup guide](docs/GraphAuthentication.md).
 
-The app remembers your client ID and tenant in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json`. This file is unencrypted; the IDs are identifiers, not secrets, and are **not embedded in the EXE or repository**. Sign-in tokens are stored separately using Windows DPAPI. Signing out clears the account's token-cache entries, not the saved IDs.
+The app remembers your client ID, tenant, and theme choice in `%LOCALAPPDATA%\EPMRuleCreator\settings.json`. This file is unencrypted; the IDs are identifiers, not secrets, and are **not embedded in the EXE or repository**. Tokens stay in memory for the app session: no new `msal.cache` is written. After closing the app, sign in again; your browser's existing Microsoft session may still provide SSO. Signing out clears the app's in-memory session, not the saved IDs or browser cookies. [Cache details and cleanup of older files](docs/GraphAuthentication.md#runtime-and-token-handling).
 
 </details>
 
@@ -72,6 +75,8 @@ Building it yourself? The [installation guide](docs/Installation.md#build-and-pu
 Found a bug or have an idea? [Open an issue](https://github.com/mathiasborowicz/EPMRuleCreator/issues) or send a pull request. Include your app version and steps to reproduce. Please redact tokens and personal or tenant-specific details.
 
 ## License
+
+Independent community project, not affiliated with or endorsed by Microsoft. Microsoft product names describe the services this tool works with.
 
 [GNU GPLv3](LICENSE). Commercial use is allowed; redistributed changes must remain under GPLv3 with the corresponding source available. No warranty. Third-party dependencies retain their own licenses.
 

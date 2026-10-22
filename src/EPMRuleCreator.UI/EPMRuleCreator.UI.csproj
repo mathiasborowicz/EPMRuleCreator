@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>EPMRuleCreator</AssemblyName>
+    <Product>EPMRuleCreator</Product>
+    <Title>EPMRuleCreator</Title>
+    <RootNamespace>EPMRuleCreator.UI</RootNamespace>
+    <Version>0.9.0</Version>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <Copyright>Copyright (c) 2026 Mathias Borowicz</Copyright>
+    <ApplicationIcon>Assets/epm-rule-creator.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets/epm-rule-creator.ico" />
+    <EmbeddedResource Include="../../LICENSE" LogicalName="EPMRuleCreator.LICENSE" />
+    <EmbeddedResource Include="../../scripts/Install-AppUpdate.ps1" LogicalName="EPMRuleCreator.Install-AppUpdate.ps1" />
+    <ProjectReference Include="../EPMRuleCreator.Core/EPMRuleCreator.Core.csproj" />
+    <ProjectReference Include="../EPMRuleCreator.Graph/EPMRuleCreator.Graph.csproj" />
+  </ItemGroup>
+</Project>

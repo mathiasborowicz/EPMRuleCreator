@@ -37,7 +37,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Validate Explorer script syntax in Windows PowerShell
+      - name: Validate Explorer and update script syntax in Windows PowerShell
         shell: powershell
         run: |
           foreach ($explorerScript in Get-ChildItem .\scripts\*.ps1) {
@@ -48,14 +48,14 @@ jobs:
           }
 
       - name: Run tests
-        run: dotnet test .\IntuneEpmRuleCreator.sln --configuration Release
+        run: dotnet test .\EPMRuleCreator.sln --configuration Release
 
       - name: Test release publishing with mocked GitHub API
         run: node --test tests/workflows/release-workflow.test.cjs
 
       - name: Publish standalone Windows x64 app
         run: >-
-          dotnet publish .\src\IntuneEpmRuleCreator.UI\IntuneEpmRuleCreator.UI.csproj
+          dotnet publish .\src\EPMRuleCreator.UI\EPMRuleCreator.UI.csproj
           --configuration Release
           --runtime win-x64
           --self-contained true
@@ -68,15 +68,15 @@ jobs:
       - name: Upload executable package
         uses: actions/upload-artifact@v4
         with:
-          name: IntuneEpmRuleCreator-win-x64
-          path: publish/win-x64/IntuneEpmRuleCreator.exe
+          name: EPMRuleCreator-win-x64
+          path: publish/win-x64/EPMRuleCreator.exe
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload license for release publication
         uses: actions/upload-artifact@v4
         with:
-          name: IntuneEpmRuleCreator-license
+          name: EPMRuleCreator-license
           path: LICENSE
           if-no-files-found: error
           retention-days: 30
@@ -92,18 +92,18 @@ jobs:
       - name: Download tested executable
         uses: actions/download-artifact@v4
         with:
-          name: IntuneEpmRuleCreator-win-x64
+          name: EPMRuleCreator-win-x64
           path: release
 
       - name: Download GPL license
         uses: actions/download-artifact@v4
         with:
-          name: IntuneEpmRuleCreator-license
+          name: EPMRuleCreator-license
           path: release
 
       - name: Package standalone EXE and license
         working-directory: release
-        run: zip -9 IntuneEpmRuleCreator-win-x64.zip IntuneEpmRuleCreator.exe LICENSE
+        run: zip -9 EPMRuleCreator-win-x64.zip EPMRuleCreator.exe LICENSE
 
       - name: Create release and upload standalone ZIP
         uses: actions/github-script@v8
@@ -116,7 +116,7 @@ jobs:
             const version = process.env.RELEASE_VERSION;
             if (!/^\d+\.\d+\.\d+$/.test(version || '')) throw new Error('Missing or invalid release version');
             const tag = `v${version}`;
-            const assetName = 'IntuneEpmRuleCreator-win-x64.zip';
+            const assetName = 'EPMRuleCreator-win-x64.zip';
             // Read the complete asset before creating a public release.
             const data = fs.readFileSync(`release/${assetName}`);
             const licenseData = fs.readFileSync('release/LICENSE');
@@ -128,8 +128,8 @@ jobs:
                 owner, repo,
                 tag_name: tag,
                 target_commitish: context.sha,
-                name: `Intune EPM Rule Creator v${version}`,
-                body: `Download IntuneEpmRuleCreator-win-x64.zip below, extract it, and run IntuneEpmRuleCreator.exe. The ZIP contains only the standalone Windows x64 EXE and LICENSE; no .NET installation or compilation required. Security checks can still apply when extracting or running the app.\n\nLicense: GNU GPLv3. License text and corresponding source code are available in this release's tagged source: https://github.com/${owner}/${repo}/tree/${tag}`,
+                name: `EPMRuleCreator v${version}`,
+                body: `Download EPMRuleCreator-win-x64.zip below, extract it, and run EPMRuleCreator.exe. The ZIP contains only the standalone Windows x64 EXE and LICENSE; no .NET installation or compilation required. Security checks can still apply when extracting or running the app.\n\nLicense: GNU GPLv3. License text and corresponding source code are available in this release's tagged source: https://github.com/${owner}/${repo}/tree/${tag}`,
                 generate_release_notes: true,
                 draft: true,
                 prerelease: false
@@ -162,5 +162,5 @@ jobs:
               }));
             }
             await core.summary.addHeading('Standalone Windows release')
-              .addLink('Download IntuneEpmRuleCreator-win-x64.zip', `${release.html_url.replace('/tag/', '/download/')}/${assetName}`)
+              .addLink('Download EPMRuleCreator-win-x64.zip', `${release.html_url.replace('/tag/', '/download/')}/${assetName}`)
               .write();
