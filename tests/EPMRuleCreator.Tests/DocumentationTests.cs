@@ -32,6 +32,17 @@ public sealed class DocumentationTests
         foreach (var slot in slots) Assert.Contains($"`{slot}.png`", checklist);
     }
 
+    [Fact]
+    public void ReadmeKeepsSetupActionableWithoutCacheInternals()
+    {
+        var readme = File.ReadAllText(Path.Combine(Root(), "README.md"));
+        Assert.DoesNotContain("msal.cache", readme, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DPAPI", readme, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Tokens stay in RAM", readme, StringComparison.OrdinalIgnoreCase);
+        foreach (var step in new[] { "New registration", "Mobile and desktop applications", "http://localhost", "Delegated permissions", "User.Read", "DeviceManagementConfiguration.ReadWrite.All", "Grant admin consent", "Directory (tenant) ID", "settings.json" })
+            Assert.Contains(step, readme);
+    }
+
     private static IEnumerable<string> Pages() => Directory.GetFiles(Path.Combine(Root(), "docs"), "*.md")
         .Append(Path.Combine(Root(), "README.md"));
 

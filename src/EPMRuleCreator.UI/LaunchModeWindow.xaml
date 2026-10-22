@@ -9,7 +9,7 @@
         <Border Style="{StaticResource Card}" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="Portable" FontSize="18" FontWeight="SemiBold"/>
-                <TextBlock Text="Keep this EXE here. Updates use this location. No context menu integration."
+                <TextBlock Text="Run here. No context menu integration."
                            TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,8"/>
                 <Button Content="Use portable" Click="Portable_Click"/>
             </StackPanel>
@@ -17,7 +17,7 @@
         <Border Style="{StaticResource Card}">
             <StackPanel x:Name="InstalledModePanel">
                 <TextBlock Text="Installed for this user" FontSize="18" FontWeight="SemiBold"/>
-                <TextBlock Text="One fixed EXE in Local AppData, with a Start menu shortcut. No admin permissions required."
+                <TextBlock Text="Local AppData install with Start menu shortcut. No admin permissions required."
                            TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,8"/>
                 <CheckBox x:Name="AddContextMenuCheckBox" Content="Add to Explorer context menu" IsChecked="False" Margin="0,4,0,8"/>
                 <Button x:Name="InstallButton" Content="Install for this user" Click="Install_Click"

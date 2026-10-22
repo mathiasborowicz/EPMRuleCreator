@@ -23,7 +23,7 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <ToggleButton x:Name="UpdatesButton" Content="{Binding UpdatesButtonText}" Padding="10,6" FontSize="12" Margin="0"
                               Style="{StaticResource HeaderMenuButtonStyle}" AutomationProperties.Name="Updates and startup check settings"
-                              IsChecked="{Binding IsUpdatesMenuOpen, Mode=TwoWay}" ToolTip="Updates and startup check settings"/>
+                              IsChecked="{Binding IsUpdatesMenuOpen, Mode=TwoWay}" ToolTip="Updates and settings"/>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                     <ToggleButton x:Name="ThemeSwitch" IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" Width="44" Height="26"
                                   Cursor="Hand" ToolTip="{Binding ThemeToggleToolTip}" AutomationProperties.Name="Dark theme">
@@ -116,15 +116,15 @@
                         <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"/>
                         <TextBlock Text="{Binding ApplicationModeLabel}" ToolTip="{Binding ApplicationLocation}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"/>
                         <Button Content="{Binding InstallApplicationLabel}" Command="{Binding InstallApplicationCommand}"
-                                ToolTip="Open the fixed per-user installation. The app restarts; unsaved rule edits will be lost."
+                                ToolTip="Open installed app. Unsaved rule edits will be lost."
                                 Visibility="{Binding IsPortableApplication, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                         <CheckBox Content="Check for updates at startup" IsChecked="{Binding CheckForUpdatesAtStartup, Mode=TwoWay}"
-                                  ToolTip="Checks public GitHub releases without sending file details or Entra credentials."/>
+                                  ToolTip="Check GitHub releases at startup."/>
                         <TextBlock Text="{Binding UpdateStatus}" TextWrapping="Wrap" Margin="0,12,0,8"/>
                         <Button Content="Check now" Command="{Binding CheckForUpdatesCommand}"/>
                         <Button Content="Update" Command="{Binding UpdateNowCommand}"
                                 Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}"
-                                ToolTip="Download, verify, replace this EXE and restart. Unsaved rule edits will be lost."
+                                ToolTip="Install update and restart. Unsaved rule edits will be lost."
                                 Visibility="{Binding HasAvailableUpdate, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                         <Button Content="Open release page" Command="{Binding OpenReleaseCommand}"
                                 Visibility="{Binding HasAvailableUpdate, Converter={StaticResource BooleanToVisibilityConverter}}"/>
@@ -142,7 +142,7 @@
                         <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Text="Microsoft Entra" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"
-                                       ToolTip="Sign-in is optional. Local file analysis works offline."/>
+                                       ToolTip="Optional. File analysis works offline."/>
                             <Button x:Name="CloseAccountButton" Grid.Column="1" Content="&#x2715;" Click="CloseAccount_Click"
                                     ToolTip="Close account panel" AutomationProperties.Name="Close account panel"
                                     Padding="8,3" Margin="8,0,0,0" Background="Transparent" BorderThickness="0"/>
@@ -150,15 +150,15 @@
                         <TextBlock Text="{Binding GraphAccount}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Visibility="{Binding GraphConnected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                         <TextBlock Text="Application (client) ID" Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBox x:Name="ClientIdInput" Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}" ToolTip="Application ID from your Entra app registration. Saved only in your local settings."/>
+                        <TextBox x:Name="ClientIdInput" Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}" ToolTip="Client ID from your Entra app registration."/>
                         <TextBlock Text="Tenant ID" Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBox Text="{Binding TenantId, UpdateSourceTrigger=PropertyChanged}" ToolTip="Optional. Enter a tenant ID to restrict sign-in, or leave blank for organizational accounts."/>
+                        <TextBox Text="{Binding TenantId, UpdateSourceTrigger=PropertyChanged}" ToolTip="Optional. Leave blank for any organizational tenant."/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button Content="Sign in" Command="{Binding ConnectGraphCommand}" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}"/>
                             <Button Content="Sign out" Command="{Binding DisconnectGraphCommand}"/>
                         </StackPanel>
                         <TextBlock Text="{Binding GraphConnectionLabel}" Style="{StaticResource StatusText}">
-                            <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding GraphConnectionStatus}" TextWrapping="Wrap" MaxWidth="400"/></ToolTip></TextBlock.ToolTip>
+                            <TextBlock.ToolTip><ToolTip><TextBlock Text="Connection details are in Logs."/></ToolTip></TextBlock.ToolTip>
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -206,16 +206,15 @@
                                     <TextBox Text="{Binding SignatureStatus}" IsReadOnly="True">
                                         <TextBox.ToolTip><ToolTip><StackPanel MaxWidth="440">
                                             <TextBlock Text="{Binding SignatureDetails}" TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding AnalyzedCertificateDetails}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                                         </StackPanel></ToolTip></TextBox.ToolTip>
                                     </TextBox>
                                 </StackPanel>
                                 <StackPanel Margin="0,0,10,0"><TextBlock Text="Internal name" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding InternalName}" IsReadOnly="True"/></StackPanel>
-                                <StackPanel Margin="10,0,0,0"><TextBlock Text="File description" Foreground="{DynamicResource MutedBrush}" ToolTip="Metadata read from the analyzed file."/><TextBox Text="{Binding FileDescription}" IsReadOnly="True" TextWrapping="Wrap"/></StackPanel>
+                                <StackPanel Margin="10,0,0,0"><TextBlock Text="File description" Foreground="{DynamicResource MutedBrush}" ToolTip="From file metadata."/><TextBox Text="{Binding FileDescription}" IsReadOnly="True" TextWrapping="Wrap"/></StackPanel>
                             </UniformGrid>
                             <TextBlock Text="&#x2139; Analysis notes" FontSize="12" Foreground="{DynamicResource WarningBrush}" Cursor="Help"
                                        Visibility="{Binding HasAnalysisWarnings, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding AnalysisWarnings}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
+                                <TextBlock.ToolTip><ToolTip><TextBlock Text="See Logs for analysis warnings."/></ToolTip></TextBlock.ToolTip>
                             </TextBlock>
                         </StackPanel>
                     </Border>
@@ -253,9 +252,9 @@
                             </TextBlock>
                             <WrapPanel Margin="0,10,0,0">
                                 <Button Content="Export certificates…" Click="ExportIndividualCertificates_Click" IsEnabled="{Binding CanExportCertificateChain}"
-                                        ToolTip="Save each public certificate as a separate CER file in a new folder. No private keys."/>
+                                        ToolTip="Export one CER per public certificate. No private keys."/>
                                 <Button Content="Export chain bundle…" Click="ExportCertificateChain_Click" IsEnabled="{Binding CanExportCertificateChain}"
-                                        ToolTip="Save all available public certificates together as P7B or PEM."/>
+                                        ToolTip="Export public certificates as P7B or PEM."/>
                             </WrapPanel>
                         </StackPanel>
                     </Border>
@@ -267,7 +266,7 @@
                             </DockPanel>
                             <TextBox Text="{Binding ActivityLogText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
                                      Height="230" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12"
-                                     TextChanged="ActivityLog_TextChanged" ToolTip="Session-only log. Select text to copy; Clear removes the current log."/>
+                                     TextChanged="ActivityLog_TextChanged" ToolTip="Session log. Select text to copy."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -299,14 +298,14 @@
                             <StackPanel Visibility="{Binding IsCreatingPolicy, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBlock Text="New policy name *" Foreground="{DynamicResource MutedBrush}"/>
                                 <TextBox Text="{Binding NewPolicyName, UpdateSourceTrigger=PropertyChanged}"/>
-                                <TextBlock Text="Policy description" Foreground="{DynamicResource MutedBrush}" ToolTip="Optional. New policies use the default scope tag (0) and have no assignments."/>
+                                <TextBlock Text="Policy description" Foreground="{DynamicResource MutedBrush}" ToolTip="Optional. Scope tag: 0; no assignments."/>
                                 <TextBox Text="{Binding NewPolicyDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap"/>
                             </StackPanel>
                             <TextBlock Text="{Binding SelectedPolicySummary}" Style="{StaticResource StatusText}" Margin="0,0,0,12"/>
                             <TextBlock Text="Rule name" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Rule description" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="68" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding FileNameLabel}" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFileName, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="Minimum version" Foreground="{DynamicResource MutedBrush}" ToolTip="Optional. Exactly four numeric parts, e.g. 1.1.0.0; up to 30 characters."/><TextBox Text="{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}" MaxLength="30" ToolTip="Optional. Four numeric parts, e.g. 1.1.0.0."/>
+                            <TextBlock Text="Minimum version" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}" MaxLength="30" ToolTip="Optional. Four numbers, e.g. 1.1.0.0."/>
                             <TextBlock Text="{Binding FileHashLabel}" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFileHash, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
                             <TextBlock Text="File description" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFileDescription, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="File path" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFilePath, UpdateSourceTrigger=PropertyChanged}"/>
@@ -363,12 +362,12 @@
                         <StackPanel>
                             <TextBlock Text="Validation" FontSize="18" FontWeight="SemiBold"/>
                             <Button Content="Validate rule" Command="{Binding ValidateCommand}" HorizontalAlignment="Left" Margin="0,12,0,0"/>
-                            <Button Content="{Binding UploadButtonText, Mode=OneWay}" Command="{Binding UploadRuleCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}" ToolTip="Uploads immediately after validation, without an additional confirmation dialog. Progress and results appear in Logs. New policies have no assignments."/>
+                            <Button Content="{Binding UploadButtonText, Mode=OneWay}" Command="{Binding UploadRuleCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}" ToolTip="Writes immediately. New policies have no assignments. See Logs."/>
                             <ItemsControl ItemsSource="{Binding BlockingValidationMessages}" Margin="0,6,0,0">
                                 <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <TextBlock Text="{Binding ValidationWarningsLabel}" Style="{StaticResource StatusText}" Foreground="{DynamicResource WarningBrush}" Cursor="Help">
-                                <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding ValidationWarningsDetails}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
+                                <TextBlock.ToolTip><ToolTip><TextBlock Text="See Logs for validation warnings."/></ToolTip></TextBlock.ToolTip>
                             </TextBlock>
                         </StackPanel>
                     </Border>

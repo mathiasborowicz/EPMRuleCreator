@@ -6,11 +6,13 @@ The app uses MSAL as a native public client. Microsoft Graph PowerShell and the 
 
 For optional Intune access, use an Entra app registration managed by you or your organization. The release contains no preconfigured publisher client ID or tenant ID. Enter the identifiers locally in the account panel; no registration is needed for offline file analysis.
 
-1. In the Microsoft Entra admin center, create an app registration for the application.
-2. Choose **Accounts in any organizational directory** if the community release should support multiple customer tenants. Personal Microsoft accounts are not needed for Intune.
-3. Under **Authentication**, add the **Mobile and desktop applications** platform and the redirect URI `http://localhost`. This is a public native client; do not create or ship a client secret.
-4. Add the delegated Microsoft Graph permissions `User.Read` and `DeviceManagementConfiguration.ReadWrite.All`. `User.Read` displays the signed-in user's name and UPN. `DeviceManagementConfiguration.ReadWrite.All` is used to list policies/read settings and append a rule to a selected policy. Admin consent is required.
-5. Keep the Application (client) ID out of the executable and source repository. Click the circular account button with the person icon at the top right to open the optional sign-in panel and enter the client ID and tenant. Choose **Sign in** to connect. The app stores these values in the current user's local settings file; neither value is a credential, and no secret is stored there.
+1. Open the [Entra admin center](https://entra.microsoft.com/) and go to **App registrations > New registration**. Name it **EPMRuleCreator**, select **Accounts in this organizational directory only** for your own tenant, and register it.
+2. Under **Authentication > Add a platform > Mobile and desktop applications**, add `http://localhost` and save.
+3. Under **API permissions > Add a permission > Microsoft Graph > Delegated permissions**, add `User.Read` and `DeviceManagementConfiguration.ReadWrite.All`.
+4. Select **Grant admin consent** for your organization using an account authorized to grant it.
+5. From **Overview**, copy **Application (client) ID** and **Directory (tenant) ID** into the tool's account panel, then click **Sign in**.
+
+For use across multiple organizations, choose **Accounts in any organizational directory** instead; each organization needs consent. `User.Read` displays your signed-in identity. `DeviceManagementConfiguration.ReadWrite.All` lets the app read and write the EPM policies. Your user still needs the appropriate Intune licensing, RBAC permissions, and scope-tag access. This is a public desktop client; no client secret is needed.
 
 The tenant field starts empty. Leave it blank for organizational accounts across tenants, or enter a tenant GUID to restrict sign-in to one tenant. The app uses `organizations` internally for a blank value, but does not prefill that text, including when older settings saved it. Saved concrete tenant IDs are retained. After signing in, the account button shows your initials with a green connection indicator. Click it again to view the connected account or choose **Sign out**. To switch accounts or tenants, sign out, adjust the values if needed, and sign in again; MSAL shows account selection. Policies load automatically after sign-in. Click outside the panel or press Escape to close it.
 
