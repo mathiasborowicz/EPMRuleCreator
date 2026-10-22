@@ -24,4 +24,8 @@ public sealed record CertificateAttributes(
     string Thumbprint,
     DateTimeOffset NotBefore,
     DateTimeOffset NotAfter,
-    bool IsWithinValidityPeriod);
+    bool IsWithinValidityPeriod)
+{
+    /// <summary>Public X.509 certificate only; kept in memory for a future EPM payload.</summary>
+    public string CertificateBase64 { get; init; } = string.Empty;
+}

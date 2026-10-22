@@ -1,30 +1,37 @@
 # Microsoft Graph and EPM rule model
 
-## Verification status
+## Current implementation
 
-Graph policy creation and rule writes are intentionally not implemented in this build. The project request requires verifying the EPM setting definitions, nested setting instance types, collection update semantics, and permission requirements from current Microsoft documentation before sending writes. The Microsoft Learn pages supplied with the request returned HTTP 403 from the onboarding runner on 2026-10-21, including:
+The optional Graph connection lists Endpoint Privilege Management Elevation Rules policies, reads rule counts and reusable certificate settings, and can append a rule to a selected policy after user confirmation.
 
-- [Create a device management configuration policy](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationpolicy-create?view=graph-rest-beta)
-- [Create a device management configuration setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-create?view=graph-rest-beta)
-- [Create elevation rules for Endpoint Privilege Management](https://learn.microsoft.com/en-us/intune/epm/create-elevation-rules)
+The app lists policies with `GET /beta/deviceManagement/configurationPolicies`, filtered by `templateReference/templateFamily eq 'endpointSecurityEndpointPrivilegeManagement'`, selecting the metadata shown in the UI. It follows `@odata.nextLink`. For the selected policy it reads `GET /beta/deviceManagement/configurationPolicies('{id}')/settings?$expand=settingDefinitions&$top=1000`, also following `@odata.nextLink`.
 
-The resulting schema details could not be verified. No setting definition ID, template ID, payload shape, or write permission has been guessed. This is a release blocker for the Intune publishing workflow, not a claim that the feature is unsupported by Microsoft Graph.
+The test-tenant response supplied for this implementation confirms the root setting instance type `deviceManagementConfigurationGroupSettingCollectionInstance` and definition ID `device_vendor_msft_policy_privilegemanagement_elevationrules_{elevationrulename}`. Rules are counted from the root instance's `groupSettingCollectionValue`; the supplied response contained two entries. Its expanded definition reported `maximumCount: 100` and `minimumCount: 1`. Policy-level `settingCount` is not the number of elevation rules.
 
-## Known API surface from the supplied references
+The app requests the setting definition's `maximumCount` when available and otherwise uses the observed EPM limit of 100. A policy with existing settings but no identifiable EPM root collection is treated as an error rather than guessed to be empty.
 
-The requested policy resource is `deviceManagement/configurationPolicies`, with settings beneath a policy. The links supplied point to Graph beta references. This establishes the resources to investigate, but does not by itself establish the EPM rule collection representation or a safe update strategy.
+Reusable settings are listed through `GET /beta/deviceManagement/reusablePolicySettings`. This collection also contains unrelated Intune settings, so the app filters client-side by the exact EPM certificate definition ID `device_vendor_msft_policy_privilegemanagement_reusablesettings_certificatefile`. The test tenant returned the EPM setting "Netextender" and an unrelated Defender setting; only the former should appear in the EPM certificate selector. Results are paged using `@odata.nextLink`.
 
-Before implementing writes, verify from current first-party documentation and a supported schema source:
+For **Signature source**, the app supports **Not configured**, **Upload a certificate file**, and **Use a certificate file in reusable settings**. An uploaded certificate can come from the analyzed file's signing certificate or a selected `.cer`, `.crt`, `.pem`, or `.der` file. Extraction does not validate Authenticode trust. **Certificate type** supports the observed values `publisher` and `issuingauthority`. For writes, the app refreshes the policy and all settings, clones an existing rule with the matching signature-source/elevation-type shape, changes the selected values, and sends a `PUT` to the policy resource with the policy fields and complete settings collection. The setting objects are serialized as `@odata.type` plus `settingInstance`, matching the request observed in the Intune admin center browser. This preserves the other settings and existing rules. After confirmation, it rereads the policy and checks the count. If Graph rejects the write or verification fails, the UI reports the result; after a verification failure users should check Intune before retrying.
 
-1. How an EPM Elevation Rules policy is identified and filtered from other configuration policies.
-2. The exact template, platform, technology, setting definition, and setting instance identifiers and types.
-3. How individual rules are represented, including certificate data and child-process behavior.
-4. Whether rules are one collection setting and how the complete collection must be read and updated.
-5. ETag or other concurrency behavior, the rule limit, and post-write readback.
-6. Delegated Graph scopes and Intune RBAC roles for read and write operations.
+Important API discrepancy: Microsoft Graph's published beta documentation currently specifies `PATCH /deviceManagement/configurationPolicies/{policyId}/settings/{settingId}` for an individual setting and `PATCH /deviceManagement/configurationPolicies/{policyId}` for a policy. In the user's test tenant, the documented setting PATCH returns a routing error; the request captured from the Intune admin center instead uses `PUT /deviceManagement/configurationPolicies('{policyId}')` with a full policy body. The app follows that observed request, but the PUT behavior is not listed in the public update documentation and remains subject to live validation in the user's tenant.
 
-Optional MSAL authentication has since been added for the distinct purpose of displaying the signed-in identity through `GET /me` (`User.Read`). Until the EPM API points above are verified, the application performs no Intune policy listing, creation, or rule writes.
+Current safeguards/constraints: writes require an existing EPM root setting and at least one existing rule to serve as a base payload template; the requested **Elevation type** does not need to exist already. The app rebuilds its type-specific validation children from the selected type. The Graph options are mapped as **User confirmed** (`self`, optional Business justification and Windows authentication) and **Elevate as current user** (`userconfirmeduser`, required Windows authentication and optional Business justification), following the supplied setting definitions and rule examples. Certificate source settings are composed from an existing rule in the same policy with a matching source; the matching source need not already use the requested elevation type. **Restrict Arguments** currently supports **Not configured** and the Graph-observed **Allow** option; each **Argument List** item is serialized as a string setting value. Empty optional text settings are omitted instead of being sent as empty strings. The supplied Graph file-version definition accepts an empty string or exactly four numeric components; three-part versions are normalized to four components before populating the UI and upload (for example, `1.1.0` becomes `1.1.0.0`). The app does not create the initial root setting or create a policy. The 100-rule limit is reread immediately before PUT. The policy is read again immediately before constructing the replacement body, but concurrent edits after that read cannot be excluded. The write path still needs a live end-to-end test against the user's test tenant before community release.
 
-## Permission candidates to verify
+When hash identification is selected (`signaturesource` not configured), file name and SHA256 hash are required. When a publisher or reusable certificate is selected, those two fields are optional; if left blank, their setting instances are removed from the rule payload rather than serialized with empty values. The optional minimum file version is also omitted when blank.
 
-The project brief names `DeviceManagementConfiguration.Read.All`, `DeviceManagementConfiguration.ReadWrite.All`, and `DeviceManagementEndpointSecurity.ReadWrite.All` as candidates. None is declared by this build: the exact least-privilege permission must be established from the documentation for the specific configuration policy operations. Intune RBAC authorization is also separate from delegated Graph scopes and must be documented and tested independently.
+## Permissions
+
+The app requests delegated `User.Read` (signed-in identity) and `DeviceManagementConfiguration.ReadWrite.All` (policy/settings reads and planned writes). Admin consent is required. The setting create/update beta API documentation identifies this permission; `DeviceManagementEndpointSecurity.ReadWrite.All` is not needed for these configuration-policy settings endpoints.
+
+- [Create a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-create?view=graph-rest-beta)
+- [Update a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-update?view=graph-rest-beta)
+- [Permission reference](https://learn.microsoft.com/en-us/graph/permissions-reference#devicemanagementconfigurationreadwriteall)
+- [List reusable policy settings](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementreusablepolicysetting-list?view=graph-rest-beta)
+- [Reusable policy setting resource](https://learn.microsoft.com/en-us/graph/api/resources/intune-deviceconfigv2-devicemanagementreusablepolicysetting?view=graph-rest-beta)
+
+Graph consent does not replace Intune licensing or the signed-in user's Intune RBAC role and scope-tag access.
+
+## Remaining before release
+
+Validate actual PUT acceptance and readback in the test tenant for hash, uploaded publisher certificate, reusable certificate reference, each supported elevation type, and both observed child-process choices. Confirm the server-side behavior for simultaneous admin edits; no concurrency token was included in the supplied payload. Do not distribute as production-ready until these beta API integration cases pass.

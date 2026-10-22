@@ -1,8 +1,10 @@
 namespace IntuneEpmRuleCreator.Core.Models;
 
-public enum IdentificationStrategy { Sha256, CertificateAndAttributes, Custom }
+public enum SignatureSource { NotConfigured, CertificateFile, ReusableSettings }
+public enum RestrictArgumentsMode { NotConfigured, Allow }
 public enum ElevationType { UserConfirmed, Automatic, SupportApproved, Deny, CurrentUser }
-public enum ChildProcessBehavior { RequireRuleToElevate, DenyAll, AllowAllElevated }
+public enum ChildProcessBehavior { NotConfigured, RequireRuleToElevate, DenyAll, AllowAllElevated }
+public enum CertificateType { Publisher, CertificateAuthority }
 
 public sealed record ElevationRule
 {
@@ -13,11 +15,19 @@ public sealed record ElevationRule
     public string? FileHash { get; init; }
     public string HashAlgorithm { get; init; } = "SHA256";
     public string? ProductName { get; init; }
+    public string? FileDescription { get; init; }
     public string? InternalName { get; init; }
     public string? MinimumFileVersion { get; init; }
-    public IdentificationStrategy IdentificationStrategy { get; init; } = IdentificationStrategy.Sha256;
+    public SignatureSource SignatureSource { get; init; } = SignatureSource.NotConfigured;
+    public CertificateAttributes? PublisherCertificate { get; init; }
+    public string? ReusableCertificateSettingId { get; init; }
+    public CertificateType CertificateType { get; init; } = CertificateType.Publisher;
     public ElevationType ElevationType { get; init; } = ElevationType.UserConfirmed;
+    public bool RequireBusinessJustification { get; init; }
+    public bool RequireWindowsAuthentication { get; init; }
     public ChildProcessBehavior ChildProcessBehavior { get; init; } = ChildProcessBehavior.RequireRuleToElevate;
+    public RestrictArgumentsMode RestrictArguments { get; init; }
+    public IReadOnlyList<string> ArgumentList { get; init; } = [];
 }
 
 public sealed record ValidationIssue(string Code, string Message, bool IsBlocking);
