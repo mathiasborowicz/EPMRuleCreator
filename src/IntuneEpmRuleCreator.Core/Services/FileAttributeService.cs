@@ -1,21 +1,19 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Text.Json;
 using IntuneEpmRuleCreator.Core.Models;
 
 namespace IntuneEpmRuleCreator.Core.Services;
 
-public sealed class FileAttributeService(Sha256FileHasher hasher)
+public sealed class FileAttributeService(Sha256FileHasher hasher, IEpmCmdletsReader? epmReader = null)
 {
-    private static readonly string[] ModuleCandidates =
-    [
-        @"C:\Program Files\Microsoft EPM Agent\EpmTools\EpmCmdlets.dll",
-        @"C:\Program Files (x86)\Microsoft EPM Agent\EpmTools\EpmCmdlets.dll"
-    ];
+    private readonly IEpmCmdletsReader _epmReader = epmReader ?? new EpmCmdletsReader();
+    public bool IsEpmCmdletsAvailable => _epmReader.IsAvailable;
 
-    public async Task<AnalyzedFileAttributes> AnalyzeAsync(string path, CancellationToken cancellationToken = default)
+    public Task<AnalyzedFileAttributes> AnalyzeAsync(string path, CancellationToken cancellationToken = default)
+        => AnalyzeAsync(path, useEpmCmdlets: false, cancellationToken);
+
+    public async Task<AnalyzedFileAttributes> AnalyzeAsync(string path, bool useEpmCmdlets, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var fullPath = Path.GetFullPath(path);
@@ -24,17 +22,42 @@ public sealed class FileAttributeService(Sha256FileHasher hasher)
 
         var hash = await hasher.ComputeAsync(fullPath, cancellationToken).ConfigureAwait(false);
         var warnings = new List<string>();
-        Dictionary<string, string?> epm = new(StringComparer.OrdinalIgnoreCase);
-        var module = ModuleCandidates.FirstOrDefault(File.Exists);
-        if (module is null)
-            warnings.Add("Microsoft EPM Tools were not found. EPM attributes were not collected; SHA256 and Windows file metadata are shown separately.");
-        else if (OperatingSystem.IsWindows())
-            epm = await GetEpmAttributesAsync(module, fullPath, cancellationToken).ConfigureAwait(false);
-        else
-            warnings.Add("Microsoft EPM Tools require Windows PowerShell and are unavailable on this operating system.");
+        IReadOnlyDictionary<string, string?> epm = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        if (useEpmCmdlets)
+        {
+            if (!IsEpmCmdletsAvailable)
+                warnings.Add("EpmCmdlets.dll is unavailable. Using local SHA256 and Windows file metadata.");
+            else
+            {
+                try { epm = await _epmReader.ReadAsync(fullPath, cancellationToken).ConfigureAwait(false); }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception exception) when (exception is InvalidOperationException or IOException or UnauthorizedAccessException
+                    or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
+                {
+                    warnings.Add($"EpmCmdlets could not be loaded or read the file. Using local SHA256 and Windows file metadata. {exception.Message}");
+                }
+            }
+        }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var version = FileVersionInfo.GetVersionInfo(fullPath);
         var certificate = TryReadCertificate(fullPath, warnings);
+        CertificateChainResult? certificateChain = null;
+        if (certificate is not null)
+        {
+            try
+            {
+                certificateChain = await Task.Run(() => CertificateChainService.FromSignedFile(fullPath, certificate), cancellationToken).ConfigureAwait(false);
+                if (!certificateChain.IsComplete)
+                    warnings.Add("The certificate chain is incomplete. A missing issuer or root was not available in the file or local certificate stores. No certificates were downloaded.");
+            }
+            catch (CryptographicException exception)
+            {
+                warnings.Add($"Certificate chain lookup failed; the signing certificate is still available. {exception.Message}");
+                certificateChain = new([certificate], false, [exception.Message]);
+            }
+        }
+        cancellationToken.ThrowIfCancellationRequested();
         var epmHash = Get(epm, "FileHash", "Hash");
         if (!string.IsNullOrWhiteSpace(epmHash) && !string.Equals(NormalizeHash(epmHash), hash, StringComparison.OrdinalIgnoreCase))
             warnings.Add("The EPM Tools hash differs from the independently calculated SHA256 hash.");
@@ -50,92 +73,20 @@ public sealed class FileAttributeService(Sha256FileHasher hasher)
             CompanyName = Get(epm, "CompanyName") ?? NullIfEmpty(version.CompanyName),
             SignatureStatus = certificate is null ? "Publisher certificate unavailable; signature trust not established" : "Publisher certificate extracted; signature trust not established",
             PublisherCertificate = certificate,
+            CertificateChain = certificateChain,
             Warnings = warnings
         };
-    }
-
-    private static async Task<Dictionary<string, string?>> GetEpmAttributesAsync(string module, string path, CancellationToken cancellationToken)
-    {
-        var powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
-        if (!File.Exists(powershell))
-            throw new InvalidOperationException("Windows PowerShell 5.1 was not found.");
-
-        const string script = "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); $p=ConvertFrom-Json -InputObject ([Console]::In.ReadToEnd()); Import-Module -Name $p.Module -ErrorAction Stop; $r=Get-FileAttributes -FilePath $p.Path -CertOutputPath $p.CertOutputPath -ErrorAction Stop; ConvertTo-Json -InputObject $r -Depth 10 -Compress";
-        var certificateOutputPath = Path.Combine(Path.GetTempPath(), $"IntuneEpmRuleCreator-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(certificateOutputPath);
-        var start = new ProcessStartInfo(powershell)
-        {
-            UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true,
-            RedirectStandardError = true, CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8
-        };
-        foreach (var argument in new[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script })
-            start.ArgumentList.Add(argument);
-
-        try
-        {
-            using var process = new Process { StartInfo = start };
-            process.Start();
-            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-            var input = JsonSerializer.Serialize(new { Module = module, Path = path, CertOutputPath = certificateOutputPath });
-            await process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken).ConfigureAwait(false);
-            process.StandardInput.Close();
-            try
-            {
-                await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                if (!process.HasExited) process.Kill(entireProcessTree: true);
-                throw;
-            }
-            var output = await outputTask.ConfigureAwait(false);
-            var error = await errorTask.ConfigureAwait(false);
-            if (process.ExitCode != 0)
-                throw new InvalidOperationException($"EPM Tools could not analyze this file. {error.Trim()}");
-
-            try
-            {
-                using var document = JsonDocument.Parse(output);
-                return FlattenJson(document.RootElement);
-            }
-            catch (JsonException exception)
-            {
-                throw new InvalidOperationException("EPM Tools returned an unrecognized response.", exception);
-            }
-        }
-        finally
-        {
-            Directory.Delete(certificateOutputPath, recursive: true);
-        }
-    }
-
-    private static Dictionary<string, string?> FlattenJson(JsonElement root)
-    {
-        var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        if (root.ValueKind == JsonValueKind.Array)
-            root = root.EnumerateArray().FirstOrDefault();
-        if (root.ValueKind != JsonValueKind.Object)
-            throw new JsonException("Expected a JSON object from Get-FileAttributes.");
-        foreach (var property in root.EnumerateObject())
-            values[property.Name] = property.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined ? null : property.Value.ToString();
-        return values;
     }
 
     private static CertificateAttributes? TryReadCertificate(string path, ICollection<string> warnings)
     {
         try
         {
-#pragma warning disable SYSLIB0057 // This API extracts the signer certificate from the signed file itself; X509CertificateLoader accepts certificate data, not signed executables.
-            using var certificate = new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
+#pragma warning disable SYSLIB0057 // Extract the signer from a signed file, not a certificate blob.
+            using var signedCertificate = X509Certificate.CreateFromSignedFile(path);
+            using var certificate = new X509Certificate2(signedCertificate);
 #pragma warning restore SYSLIB0057
-            var now = DateTimeOffset.UtcNow;
-            return new(certificate.Subject, certificate.Issuer, certificate.Thumbprint ?? string.Empty,
-                certificate.NotBefore, certificate.NotAfter, certificate.NotBefore <= now && certificate.NotAfter >= now)
-            {
-                CertificateBase64 = Convert.ToBase64String(certificate.Export(X509ContentType.Cert))
-            };
+            return CertificateChainService.Describe(certificate);
         }
         catch (CryptographicException)
         {

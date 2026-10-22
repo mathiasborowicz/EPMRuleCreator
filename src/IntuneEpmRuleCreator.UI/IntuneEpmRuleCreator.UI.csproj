@@ -12,8 +12,10 @@
     <Version>0.9.0</Version>
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
     <Copyright>Copyright (c) 2026 Mathias Borowicz</Copyright>
+    <ApplicationIcon>Assets/epm-rule-creator.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="Assets/epm-rule-creator.ico" />
     <EmbeddedResource Include="../../LICENSE" LogicalName="IntuneEpmRuleCreator.LICENSE" />
     <ProjectReference Include="../IntuneEpmRuleCreator.Core/IntuneEpmRuleCreator.Core.csproj" />
     <ProjectReference Include="../IntuneEpmRuleCreator.Graph/IntuneEpmRuleCreator.Graph.csproj" />

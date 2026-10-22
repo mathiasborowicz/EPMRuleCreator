@@ -5,7 +5,7 @@
 - Windows 11 x64.
 - Git for Windows to obtain the source branch.
 - .NET 10 SDK only if building locally. The published application is self-contained and does not need a separate .NET runtime.
-- Microsoft Intune Endpoint Privilege Management Tools are optional for basic offline file information. They are needed only for `Get-FileAttributes` output. Obtain them through your organization's supported Microsoft Intune deployment; the application does not install the EPM agent or change device configuration.
+- Microsoft Intune Endpoint Privilege Management Tools are optional and disabled by default. They are needed only if you enable **Use EpmCmdlets** for additional `Get-FileAttributes` output. Obtain them through your organization's supported Microsoft Intune deployment; the application does not install the EPM agent or change device configuration.
 
 ## Get the project
 
@@ -80,12 +80,23 @@ The registration script also deploys to the fixed Local AppData path before writ
 
 - SHA256 is calculated locally by the application.
 - Available Windows version metadata and embedded publisher certificate details are shown where present.
-- If `EpmCmdlets.dll` is installed, `Get-FileAttributes` is called locally through Windows PowerShell 5.1 and its hash is compared with the independent SHA256 result.
-- Without EPM Tools, the basic file details remain available; hover **Analysis notes** to see missing-tool notices and other analysis warnings. Hover the **Signature** field for certificate details and signature-trust information. Nothing is silently installed.
+- **Use EpmCmdlets** is unchecked on each app start. It is enabled only if `C:\Program Files\Microsoft EPM Agent\EpmTools\EpmCmdlets.dll` exists, and availability is refreshed when the app regains focus and before analysis. The checkbox is disabled during analysis and grayed out when the DLL is missing; hover it for the path. No module is loaded unless you explicitly select it.
+- With that option selected, `Get-FileAttributes` runs through Windows PowerShell 5.1 and its hash is compared with the independent SHA256 result. Module import can require administrator rights. The app does not elevate automatically: access-denied/import failures become **Analysis notes**, and local SHA256, Windows metadata, and signing certificate analysis still complete. The **EPM Tools hash** field appears only when a result is available.
+- Without EPM Tools, or with the checkbox off, file details are read directly without PowerShell. Hover **Analysis notes** for analysis warnings or **Signature** for certificate details and signature-trust information. Nothing is silently installed.
 
 These local operations do not require Microsoft Entra authentication, Graph permissions, a tenant, or an Internet connection. Certificate extraction alone does not establish that a signature is trusted.
 
 With **Signature source → Upload a certificate file**, the **Use analyzed file certificate** radio option is selected automatically when the analyzed file contains a signing certificate. Choosing your own certificate file selects that uploaded certificate instead. You can switch back using the radio options; the certificate card under File information always shows the certificate extracted from the analyzed file. Changing the analyzed file clears any previously uploaded certificate.
+
+### Export the certificate chain
+
+The **Signing certificate** card includes **Export certificate chain…**. Choose P7B (PKCS #7) or PEM to save the available public signing certificate, intermediate certificates, and root certificate together. This works without EpmCmdlets or admin rights. No private keys are exported. The chain belongs to the analyzed file, not to a separate certificate you selected for the rule; exporting it does not change the Graph upload, which still uses the selected rule certificate.
+
+On Windows, the app reads the signed file's embedded certificate store using `CryptQueryObject` and builds a chain using those certificates and local certificate stores. Certificate downloads are disabled and revocation checking is not performed. PEM output is ordered from signer to root; P7B contains the same set of public certificates. The card shows whether the chain is complete, and its tooltip lists certificates and chain statuses. A complete chain is not proof of a trusted or valid Authenticode signature.
+
+Not every file embeds its entire chain. If an issuer or root is missing locally, the app marks the chain **Incomplete** and asks before exporting the available subset. It never fabricates missing certificates or silently calls a partial chain complete. Changing the analyzed file clears the previous chain. Export remains disabled during analysis.
+
+Reference: [Microsoft CryptQueryObject documentation](https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptqueryobject).
 
 To remove the registration:
 
@@ -99,4 +110,4 @@ Graph authentication and policy selection are optional for offline analysis. Upl
 
 Changing files immediately clears previous metadata and rule fields, including certificates and validation choices. Analyze the new file before validating or uploading. The current Entra account and selected target policy are retained. Explanations are in tooltips; errors and short statuses stay visible.
 
-The development runner is Linux, so WPF and Explorer integration require a Windows smoke test: analyze two different files in sequence, add or repair the menu, move/delete the original downloaded EXE, launch from a supported file's right-click menu, update the managed copy, and remove the menu again. Automated tests cover command quoting, deployment, source deletion, updates, and failed replacement cleanup without modifying a real Windows registry. The Windows build also parses both Explorer scripts using Windows PowerShell.
+The development runner is Linux, so WPF, signed-file extraction, and Explorer integration require a Windows smoke test: analyze with EpmCmdlets off, retry with it selected in a non-admin session, verify an import failure preserves local results, test a missing DLL, export a signed file's complete or partial chain as P7B/PEM, and switch files to check old results are cleared. Verify the custom icon in Explorer and the window/taskbar. Also test menu registration, migration, updates, and removal. Automated tests cover EpmCmdlets opt-in/fallback/cancellation, generated certificate chains and public-only exports, plus menu deployment without modifying a real Windows registry. The Windows build also parses both Explorer scripts using Windows PowerShell.

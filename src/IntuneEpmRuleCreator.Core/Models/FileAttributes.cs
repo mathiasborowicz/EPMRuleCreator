@@ -15,8 +15,15 @@ public sealed record AnalyzedFileAttributes
     public string? CompanyName { get; init; }
     public string? SignatureStatus { get; init; }
     public CertificateAttributes? PublisherCertificate { get; init; }
+    public CertificateChainResult? CertificateChain { get; init; }
     public IReadOnlyList<string> Warnings { get; init; } = [];
 }
+
+/// <summary>Available public certificates, signer first. Completeness is not a trust or revocation verdict.</summary>
+public sealed record CertificateChainResult(
+    IReadOnlyList<CertificateAttributes> Certificates,
+    bool IsComplete,
+    IReadOnlyList<string> Status);
 
 public sealed record CertificateAttributes(
     string Subject,
