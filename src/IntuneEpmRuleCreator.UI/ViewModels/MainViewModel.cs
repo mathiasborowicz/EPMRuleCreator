@@ -36,6 +36,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _internalName = string.Empty;
     private string _fileDescription = string.Empty;
     private CertificateAttributes? _analyzedPublisherCertificate;
+    private CertificateChainResult? _analyzedCertificateChain;
+    private bool _useEpmCmdlets;
     private CertificateAttributes? _publisherCertificate;
     private CertificateAttributes? _uploadedCertificate;
     private bool _useUploadedCertificate;
@@ -187,7 +189,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string ProductName { get => _productName; set => Set(ref _productName, value); }
     public string Version { get => _version; set => Set(ref _version, value); }
     public string CompanyName { get => _companyName; set => Set(ref _companyName, value); }
-    public string EpmFileHash { get => _epmFileHash; set => Set(ref _epmFileHash, value); }
+    public string EpmFileHash { get => _epmFileHash; set { if (Set(ref _epmFileHash, value)) Raise(nameof(HasEpmFileHash)); } }
+    public bool HasEpmFileHash => !string.IsNullOrWhiteSpace(EpmFileHash);
+    public bool IsEpmCmdletsAvailable => _fileService.IsEpmCmdletsAvailable;
+    public bool CanUseEpmCmdlets => IsEpmCmdletsAvailable && !Busy;
+    public bool UseEpmCmdlets
+    {
+        get => _useEpmCmdlets;
+        set => Set(ref _useEpmCmdlets, value && IsEpmCmdletsAvailable);
+    }
+    public string EpmCmdletsToolTip => IsEpmCmdletsAvailable
+        ? "Optional PowerShell file attributes. The module may require administrator rights. Import errors do not block local analysis. Off by default."
+        : $"Unavailable: {EpmCmdletsReader.ModulePath} was not found. Local analysis does not need it.";
+    public void RefreshEpmCmdletsAvailability()
+    {
+        if (!IsEpmCmdletsAvailable) UseEpmCmdlets = false;
+        Raise(nameof(IsEpmCmdletsAvailable));
+        Raise(nameof(CanUseEpmCmdlets));
+        Raise(nameof(EpmCmdletsToolTip));
+    }
     public string InternalName { get => _internalName; set => Set(ref _internalName, value); }
     public string FileDescription { get => _fileDescription; set => Set(ref _fileDescription, value); }
     public CertificateAttributes? AnalyzedPublisherCertificate
@@ -203,6 +223,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
     public bool HasAnalyzedPublisherCertificate => AnalyzedPublisherCertificate is not null;
+    public CertificateChainResult? AnalyzedCertificateChain
+    {
+        get => _analyzedCertificateChain;
+        private set
+        {
+            if (!Set(ref _analyzedCertificateChain, value)) return;
+            Raise(nameof(CanExportCertificateChain));
+            Raise(nameof(CertificateChainLabel));
+            Raise(nameof(CertificateChainDetails));
+        }
+    }
+    public bool CanExportCertificateChain => !Busy && AnalyzedCertificateChain is { Certificates.Count: > 0 };
+    public string CertificateChainLabel => AnalyzedCertificateChain is { } chain
+        ? $"{chain.Certificates.Count} certificate(s) - {(chain.IsComplete ? "Complete chain" : "Incomplete chain")}" : string.Empty;
+    public string CertificateChainDetails => AnalyzedCertificateChain is { } chain
+        ? string.Join("\n", chain.Certificates.Select((certificate, index) => $"{index + 1}. {certificate.Subject}"))
+            + "\n\n" + string.Join("\n", chain.Status)
+            + "\n\nBuilt from embedded certificates and local stores. No downloads or revocation checks. Completeness does not establish signature trust. Export contains public certificates only."
+        : string.Empty;
     public string AnalyzedCertificateValidity => AnalyzedPublisherCertificate is { } certificate
         ? $"{certificate.NotBefore.ToLocalTime():d} – {certificate.NotAfter.ToLocalTime():d}" +
             (certificate.IsWithinValidityPeriod ? string.Empty : " · Outside validity period")
@@ -307,7 +346,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool RequireBusinessJustification { get => _requireBusinessJustification; set => Set(ref _requireBusinessJustification, value); }
     public bool RequireWindowsAuthentication { get => _requireWindowsAuthentication; set => Set(ref _requireWindowsAuthentication, value); }
     public ChildProcessBehavior ChildProcessBehavior { get => _childProcessBehavior; set => Set(ref _childProcessBehavior, value); }
-    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(CanChooseFile)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(AnalyzeCommand)); Raise(nameof(UploadRuleCommand)); } }
+    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(CanChooseFile)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(AnalyzeCommand)); Raise(nameof(UploadRuleCommand)); Raise(nameof(CanUseEpmCmdlets)); Raise(nameof(CanExportCertificateChain)); } }
     public bool CanChooseFile => !Busy;
     public string ClientId { get => _clientId; set { Set(ref _clientId, value); SaveSettings(); } }
     public string TenantId { get => _tenantId; set { Set(ref _tenantId, value); SaveSettings(); } }
@@ -362,6 +401,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task AnalyzeAsync()
     {
+        RefreshEpmCmdletsAvailability();
+        var useEpmCmdlets = UseEpmCmdlets;
         var path = FilePath;
         var revision = _fileRevision;
         using var cancellation = new CancellationTokenSource();
@@ -370,10 +411,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Busy = true;
         try
         {
-            var result = await _fileService.AnalyzeAsync(path, cancellation.Token);
+            var result = await _fileService.AnalyzeAsync(path, useEpmCmdlets, cancellation.Token);
             if (revision != _fileRevision || cancellation.IsCancellationRequested) return;
             SelectedCertificateFile = string.Empty;
             AnalyzedPublisherCertificate = result.PublisherCertificate;
+            AnalyzedCertificateChain = result.CertificateChain;
             PublisherCertificate = result.PublisherCertificate;
             Sha256 = result.Sha256;
             ProductName = result.ProductName ?? string.Empty;
@@ -419,6 +461,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Sha256 = EpmFileHash = ProductName = Version = CompanyName = InternalName = FileDescription = string.Empty;
         PublisherCertificate = null;
         AnalyzedPublisherCertificate = null;
+        AnalyzedCertificateChain = null;
         _uploadedCertificate = null;
         _useUploadedCertificate = false;
         SelectedCertificateFile = SignatureDetails = AnalysisWarnings = string.Empty;

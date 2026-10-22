@@ -1,3 +1,5 @@
+<p><img src="docs/assets/epm-rule-creator.png" alt="Intune EPM Rule Creator logo" width="96" height="96"></p>
+
 # Intune EPM Rule Creator
 
 [![Windows 11 x64](https://img.shields.io/badge/Windows-11_x64-0078D4?logo=windows&logoColor=white)](docs/Installation.md)
@@ -8,13 +10,13 @@
 
 Inspect file details, check signing certificates, and prepare Microsoft Intune Endpoint Privilege Management rules in one Windows app. File analysis works offline. Connect to Intune only when you want to upload a rule.
 
-### [⬇ Download the latest EXE](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator.exe)
+### [⬇ Download the latest ZIP](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator-win-x64.zip)
 
-Just the EXE. No compiling, no separate .NET installation, no account needed to get started.
+Just the standalone EXE and license in a ZIP. No compiling, no separate .NET installation, no account needed to get started.
 
 ## 🚀 Get started
 
-1. Download and open **IntuneEpmRuleCreator.exe** on Windows 11 x64.
+1. Download and extract the ZIP, then open **IntuneEpmRuleCreator.exe** on Windows 11 x64.
 2. Choose an `.exe`, `.msi`, or `.ps1` file and click **Analyze file**.
 3. Review its details and prepare your elevation rule. That's it for offline use!
 
@@ -27,6 +29,7 @@ Want to send the rule to Intune? Sign in using the account icon at the top right
 ## 🔎 What you can do
 
 - **See what's in a file:** SHA256, version, product details, and its signing certificate, where available.
+- **Export its certificate chain:** save public signing, intermediate, and root certificates as P7B or PEM. Missing issuers are clearly marked.
 - **Choose how to identify it:** file hash, the extracted signing certificate, your own certificate file, or an Intune reusable certificate setting.
 - **Prepare elevation rules:** configure elevation type, validation requirements, child processes, and arguments.
 - **Upload when you're ready:** add a rule to an existing policy or create a new policy with its first rule.
@@ -36,7 +39,7 @@ On Windows 11, the Explorer entry appears under **Show more options**. You can m
 
 ## 🔐 Intune connection is optional
 
-No tenant, Entra app registration, or EPM Tools installation is needed for basic file analysis. If Microsoft EPM Tools are already installed, the app also reads their additional file attributes. It never installs an agent or runs the file you analyze.
+No tenant, Entra app registration, or EPM Tools installation is needed for basic file analysis. **Use EpmCmdlets** is off by default and grayed out if the DLL is missing. Enable it only if you want the additional PowerShell attributes; module errors never block normal analysis. The app never installs an agent or runs the file you analyze.
 
 <details>
 <summary><strong>Connecting to Intune: permissions and local settings</strong></summary>
@@ -62,7 +65,7 @@ The app remembers your client ID and tenant in `%LOCALAPPDATA%\IntuneEpmRuleCrea
 - [Entra sign-in and Graph permissions](docs/GraphAuthentication.md)
 - [Graph behavior and current limitations](docs/GraphIntegration.md)
 
-Building it yourself? The [installation guide](docs/Installation.md#build-and-publish) covers the .NET 10 SDK and build commands. Merges to `main` automatically publish a tested, versioned EXE; development builds are available in Actions.
+Building it yourself? The [installation guide](docs/Installation.md#build-and-publish) covers the .NET 10 SDK and build commands. Merges to `main` automatically publish a tested, versioned ZIP containing the EXE; development builds are available in Actions. ZIP packaging does not disable Defender, SmartScreen, or ASR checks.
 
 ## 🤝 Feedback welcome
 
