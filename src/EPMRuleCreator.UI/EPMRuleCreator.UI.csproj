@@ -18,6 +18,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets/epm-rule-creator.ico" />
+    <Resource Include="../../docs/assets/epm-rule-creator.png" Link="Assets/epm-rule-creator.png" />
     <EmbeddedResource Include="../../LICENSE" LogicalName="EPMRuleCreator.LICENSE" />
     <EmbeddedResource Include="../../scripts/Install-AppUpdate.ps1" LogicalName="EPMRuleCreator.Install-AppUpdate.ps1" />
     <ProjectReference Include="../EPMRuleCreator.Core/EPMRuleCreator.Core.csproj" />

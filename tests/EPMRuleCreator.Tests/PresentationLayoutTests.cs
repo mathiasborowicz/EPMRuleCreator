@@ -147,8 +147,26 @@ public sealed class PresentationLayoutTests
         Assert.Equal("{DynamicResource HeaderBackgroundBrush}", (string?)header.Attribute("Background"));
         foreach (var name in new[] { "ThemeSwitch", "UpdatesButton", "AccountButton" })
             Assert.Contains(header.Descendants(), element => (string?)element.Attribute(Xaml + "Name") == name);
-        Assert.Contains(header.Descendants(Presentation + "TextBlock"), element => (string?)element.Attribute("Text") == "ZERO TRUST STORIES");
+        Assert.DoesNotContain(header.Descendants(Presentation + "TextBlock"), element => (string?)element.Attribute("Text") == "ZERO TRUST STORIES");
         Assert.Contains("app.Resources[\"HeaderBackgroundBrush\"] = new LinearGradientBrush", File.ReadAllText(Source("ThemeService.cs")));
+    }
+
+    [Fact]
+    public void HeaderUsesHighResolutionLogoAndCreditsStayInSmallFooter()
+    {
+        var window = XDocument.Load(Source("MainWindow.xaml"));
+        var image = window.Descendants(Presentation + "Image").Single(element => (string?)element.Attribute(Xaml + "Name") == "HeaderLogo");
+        Assert.Equal("Assets/epm-rule-creator.png", (string?)image.Attribute("Source"));
+        Assert.Equal("HighQuality", (string?)image.Attribute("RenderOptions.BitmapScalingMode"));
+        var project = XDocument.Load(Source("EPMRuleCreator.UI.csproj"));
+        Assert.Contains(project.Descendants("Resource"), element => (string?)element.Attribute("Link") == "Assets/epm-rule-creator.png");
+        var footer = window.Descendants(Presentation + "TextBlock").Single(element => (string?)element.Attribute(Xaml + "Name") == "AuthorFooter");
+        Assert.Equal("3", (string?)footer.Attribute("Grid.Row"));
+        Assert.Equal("11", (string?)footer.Attribute("FontSize"));
+        Assert.Contains(footer.Descendants(Presentation + "Run"), element => (string?)element.Attribute("Text") == "Built by Mathias Borowicz");
+        Assert.Equal(new[] { "https://github.com/mathiasborowicz/EPMRuleCreator", "https://zerotruststories.com/" },
+            footer.Descendants(Presentation + "Hyperlink").Select(element => (string?)element.Attribute("NavigateUri")));
+        Assert.All(footer.Descendants(Presentation + "Hyperlink"), link => Assert.Equal("AuthorLink_RequestNavigate", (string?)link.Attribute("RequestNavigate")));
     }
 
     private static double Contrast(string a, string b)
