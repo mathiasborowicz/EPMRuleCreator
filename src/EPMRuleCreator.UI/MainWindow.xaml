@@ -305,7 +305,7 @@
                             <TextBlock Text="Rule name" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Rule description" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="68" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding FileNameLabel}" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFileName, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="Minimum version" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}" MaxLength="30" ToolTip="Optional. Four numbers, e.g. 1.1.0.0."/>
+                            <TextBlock Text="Minimum version" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}" MaxLength="30" LostFocus="MinimumVersion_LostFocus" ToolTip="Optional. Missing version parts become 0, e.g. 11.1 becomes 11.1.0.0."/>
                             <TextBlock Text="{Binding FileHashLabel}" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFileHash, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
                             <TextBlock Text="File description" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFileDescription, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="File path" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFilePath, UpdateSourceTrigger=PropertyChanged}"/>

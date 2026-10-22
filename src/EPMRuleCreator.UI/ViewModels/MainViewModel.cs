@@ -432,6 +432,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string RuleDescription { get => _ruleDescription; set => Set(ref _ruleDescription, value); }
     public string RuleFileName { get => _ruleFileName; set => Set(ref _ruleFileName, value); }
     public string RuleFileVersion { get => _ruleFileVersion; set => Set(ref _ruleFileVersion, value); }
+    public void NormalizeRuleFileVersion() => RuleFileVersion =
+        RuleValidationService.NormalizeMinimumFileVersionToFourParts(RuleFileVersion) ?? string.Empty;
     public string RuleFileHash { get => _ruleFileHash; set => Set(ref _ruleFileHash, value); }
     public string RuleFileDescription { get => _ruleFileDescription; set => Set(ref _ruleFileDescription, value); }
     public string RuleFilePath { get => _ruleFilePath; set => Set(ref _ruleFilePath, value); }
@@ -937,28 +939,32 @@ public sealed class MainViewModel : INotifyPropertyChanged
         AddLog($"Selected certificate file '{Path.GetFileName(path)}'.");
     }
 
-    private ElevationRule BuildRule() => new()
+    private ElevationRule BuildRule()
     {
-        Name = RuleName,
-        Description = RuleDescription,
-        FileName = RuleFileName,
-        MinimumFileVersion = RuleFileVersion,
-        FilePath = RuleFilePath,
-        FileHash = RuleFileHash,
-        ProductName = RuleProductName,
-        FileDescription = RuleFileDescription,
-        InternalName = RuleInternalName,
-        SignatureSource = SignatureSource,
-        PublisherCertificate = SignatureSource == global::EPMRuleCreator.Core.Models.SignatureSource.CertificateFile ? PublisherCertificate : null,
-        ReusableCertificateSettingId = SignatureSource == global::EPMRuleCreator.Core.Models.SignatureSource.ReusableSettings ? SelectedReusableCertificateSetting?.Id : null,
-        CertificateType = CertificateType,
-        ElevationType = ElevationType,
-        RequireBusinessJustification = RequireBusinessJustification,
-        RequireWindowsAuthentication = IsCurrentUser || RequireWindowsAuthentication,
-        ChildProcessBehavior = ChildProcessBehavior,
-        RestrictArguments = RestrictArguments,
-        ArgumentList = ArgumentListText.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-    };
+        NormalizeRuleFileVersion();
+        return new()
+        {
+            Name = RuleName,
+            Description = RuleDescription,
+            FileName = RuleFileName,
+            MinimumFileVersion = RuleFileVersion,
+            FilePath = RuleFilePath,
+            FileHash = RuleFileHash,
+            ProductName = RuleProductName,
+            FileDescription = RuleFileDescription,
+            InternalName = RuleInternalName,
+            SignatureSource = SignatureSource,
+            PublisherCertificate = SignatureSource == global::EPMRuleCreator.Core.Models.SignatureSource.CertificateFile ? PublisherCertificate : null,
+            ReusableCertificateSettingId = SignatureSource == global::EPMRuleCreator.Core.Models.SignatureSource.ReusableSettings ? SelectedReusableCertificateSetting?.Id : null,
+            CertificateType = CertificateType,
+            ElevationType = ElevationType,
+            RequireBusinessJustification = RequireBusinessJustification,
+            RequireWindowsAuthentication = IsCurrentUser || RequireWindowsAuthentication,
+            ChildProcessBehavior = ChildProcessBehavior,
+            RestrictArguments = RestrictArguments,
+            ArgumentList = ArgumentListText.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+        };
+    }
 
     private void Validate()
     {

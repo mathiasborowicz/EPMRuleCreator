@@ -77,7 +77,10 @@ public sealed class RuleValidationService
     public static string? NormalizeMinimumFileVersionToFourParts(string? version)
     {
         if (string.IsNullOrWhiteSpace(version)) return version;
-        return version.Count(character => character == '.') == 2 ? version + ".0" : version;
+        var parts = version.Trim().Split('.');
+        if (parts.Length > 4 || parts.Any(part => part.Length == 0 || part.Any(character => character < '0' || character > '9')))
+            return version;
+        return string.Join(".", parts.Concat(Enumerable.Repeat("0", 4 - parts.Length)));
     }
 
     private static bool IsWritableLocation(string path)

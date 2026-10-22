@@ -175,6 +175,19 @@ public sealed class NewElevationPolicyTests
     private static JsonNode? Find(JsonArray children, string suffix) => children.FirstOrDefault(child =>
         child?["settingDefinitionId"]?.GetValue<string>()?.EndsWith("_" + suffix, StringComparison.Ordinal) == true);
 
+    [Theory]
+    [InlineData("11", "11.0.0.0")]
+    [InlineData("11.1", "11.1.0.0")]
+    [InlineData("11.1.2", "11.1.2.0")]
+    public void NewPolicySendsFourPartVersion(string input, string expected)
+    {
+        var rule = Rule() with { MinimumFileVersion = input };
+        var body = NewElevationPolicyPayload.Build("New policy", null, rule);
+        var children = body["settings"]![0]!["settingInstance"]!["groupSettingCollectionValue"]![0]!["children"]!.AsArray();
+        Assert.Equal(expected, Find(children, "fileversion")!["simpleSettingValue"]!["value"]!.GetValue<string>());
+        Assert.Equal(input, rule.MinimumFileVersion);
+    }
+
     private static ElevationRule Rule() => new()
     {
         Name = "First rule", FileName = "app.exe", FileHash = new string('A', 64),

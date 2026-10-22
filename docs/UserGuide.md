@@ -49,7 +49,7 @@ Use **Signature source**:
 
 With a certificate selected, **Certificate type** offers **Publisher** or **Certificate authority**. File name and hash are then optional, but think carefully about how broadly a certificate-only rule can match. A restricted file path that standard users cannot modify can reduce risk.
 
-**Minimum version** is optional. If supplied, it must have exactly four numeric parts, such as `1.1.0.0`. Review the other optional matching attributes and leave them empty if they should not constrain the rule. Do not fill every field just to pass validation.
+**Minimum version** is optional. Missing numeric parts are filled with zeros: `11.1` becomes `11.1.0.0`, and `1.1.0` becomes `1.1.0.0`. This happens for analyzed versions and when you leave the input field, and is also applied before validation or upload. Review the other optional matching attributes and leave them empty if they should not constrain the rule. Do not fill every field just to pass validation.
 
 > 📸 **Screenshot placeholder: certificate choices.** Show Signature source, the analyzed/uploaded certificate radio options, and Certificate type.
 <!-- SCREENSHOT: certificate-selection. -->

@@ -57,6 +57,20 @@ public sealed class AppendRulePayloadTests
         Assert.Equal("Another rule", FindSetting(next, "name")["simpleSettingValue"]!["value"]!.GetValue<string>());
     }
 
+    [Theory]
+    [InlineData("11", "11.0.0.0")]
+    [InlineData("11.1", "11.1.0.0")]
+    [InlineData("11.1.2", "11.1.2.0")]
+    public void AppendedRuleSendsFourPartVersion(string input, string expected)
+    {
+        var rules = CreateExistingRules(SignatureSource.NotConfigured);
+        var original = rules.ToJsonString();
+        var rule = new ElevationRule { Name = "Version rule", FileName = "app.exe", FileHash = new string('A', 64), MinimumFileVersion = input };
+        var result = GraphAuthenticationService.CreateRuleForAppend(rules, rule);
+        Assert.Equal(expected, FindSetting(result, "fileversion")["simpleSettingValue"]!["value"]!.GetValue<string>());
+        Assert.Equal(original, rules.ToJsonString());
+    }
+
     private static JsonObject FindSetting(JsonNode node, string suffix) => EnumerateObjects(node)
         .Single(item => item["settingDefinitionId"]?.GetValue<string>()?.EndsWith("_" + suffix, StringComparison.Ordinal) == true);
 

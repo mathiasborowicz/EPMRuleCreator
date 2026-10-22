@@ -262,6 +262,19 @@ public sealed class PresentationLayoutTests
         Assert.Equal("True", (string?)file.Attribute("IsReadOnly"));
     }
 
+    [Fact]
+    public void VersionIsNormalizedWhenLeavingTheFieldAndBeforeBuildingARule()
+    {
+        var window = XDocument.Load(Source("MainWindow.xaml"));
+        var field = window.Descendants(Presentation + "TextBox").Single(element => (string?)element.Attribute("Text") == "{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}");
+        Assert.Equal("MinimumVersion_LostFocus", (string?)field.Attribute("LostFocus"));
+        Assert.Equal("30", (string?)field.Attribute("MaxLength"));
+        var code = File.ReadAllText(Source("ViewModels/MainViewModel.cs"));
+        var build = code[code.IndexOf("private ElevationRule BuildRule()", StringComparison.Ordinal)..code.IndexOf("private void Validate()", StringComparison.Ordinal)];
+        Assert.True(build.IndexOf("NormalizeRuleFileVersion();", StringComparison.Ordinal) < build.IndexOf("MinimumFileVersion = RuleFileVersion", StringComparison.Ordinal));
+        Assert.Contains("NormalizeMinimumFileVersionToFourParts(result.Version?.Trim())", code);
+    }
+
     private static double Contrast(string a, string b)
     {
         static double Luminance(string color)
