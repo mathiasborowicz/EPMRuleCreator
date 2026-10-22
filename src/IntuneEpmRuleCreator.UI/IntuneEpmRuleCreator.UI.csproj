@@ -9,9 +9,12 @@
     <PlatformTarget>x64</PlatformTarget>
     <AssemblyName>IntuneEpmRuleCreator</AssemblyName>
     <RootNamespace>IntuneEpmRuleCreator.UI</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.9.0</Version>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <Copyright>Copyright (c) 2026 Mathias Borowicz</Copyright>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../../LICENSE" LogicalName="IntuneEpmRuleCreator.LICENSE" />
     <ProjectReference Include="../IntuneEpmRuleCreator.Core/IntuneEpmRuleCreator.Core.csproj" />
     <ProjectReference Include="../IntuneEpmRuleCreator.Graph/IntuneEpmRuleCreator.Graph.csproj" />
   </ItemGroup>
