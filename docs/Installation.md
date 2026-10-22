@@ -65,13 +65,26 @@ Every push to `work` or `main` runs tests and creates a self-contained, compress
 
 The app, solution, projects, and release assets are now named **EPMRuleCreator**. On first launch, the renamed app copies an existing `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` to `%LOCALAPPDATA%\EPMRuleCreator\settings.json` only if no settings exist at the new path. The original file is retained, and newer settings are never overwritten. Tokens now stay in memory only, so sign in again after starting the app. Old token caches are not read, copied, decrypted, or removed; the previous directory and its encrypted cache remain untouched. See [token handling and old-cache cleanup](GraphAuthentication.md#runtime-and-token-handling).
 
-For an existing Explorer menu, start the new EXE and click **↻**. This deploys the renamed EXE to the new fixed path and removes only the app's legacy menu entries after the new entries are registered. **Remove menu** recognizes both names. Existing old application copies are not deleted automatically.
+For an existing Explorer menu, start the new EXE and click **↻**. This points the menu to the running EXE and removes only the app's legacy menu entries after the new entries are registered. **Remove menu** recognizes both names. Existing old application copies are not deleted automatically.
 
 The display name of your own Entra app registration is managed separately in Entra and is not changed by this update.
 
-Start the downloaded standalone EXE and click **Add menu** in the top-right header. The app copies the running EXE to `%LOCALAPPDATA%\EPMRuleCreator\App\EPMRuleCreator.exe`, registers that fixed path, and refreshes Explorer's association cache. You can then move or delete the downloaded EXE without breaking the menu. The managed copy must remain in Local AppData. No administrator rights or companion files are required.
+### Portable or installed
 
-The button changes to **Remove menu**, with a small **↻** repair/update button beside it. If you registered an earlier version at its download path, open the new EXE and click **↻** once to migrate the registration. To update later, open the newly downloaded EXE and click **↻** again. Close other instances launched from Explorer first. The complete replacement is staged before replacing the managed file, and registration is changed only after deployment succeeds. Identical copies and registration from the managed location do not rewrite the EXE.
+On first launch outside the installed location, choose a mode:
+
+- **Use portable:** run the EXE where you extracted it. No app EXE is copied to AppData. An empty `EPMRuleCreator.portable` marker next to the EXE remembers this choice; keep it when moving the app. On read-only media the choice applies to this session only. Local preferences still use the documented AppData `settings.json`; tokens remain in RAM.
+- **Install for this user:** explicitly copy the EXE to `%LOCALAPPDATA%\EPMRuleCreator\App\EPMRuleCreator.exe`, create a Start menu shortcut and launch that installed EXE. The downloaded source is not automatically deleted; you can remove it once installation succeeds. No admin rights required.
+
+An EXE running at the fixed path is recognized as installed, including installations created by older context-menu registration. If an installation already exists, the choice becomes **Open installed app**. It does not overwrite that installation with a potentially older download. Update it using **Updates**. To replace a version whose updater is broken, close it and manually extract the new EXE into the fixed installation folder.
+
+Portable mode can switch to the installation through **Updates > Install for this user** (or **Open installed app**). Save rule edits before switching. **Updates** shows the mode, with the actual running EXE path in its tooltip. To choose portable mode again for a folder, remove only its `EPMRuleCreator.portable` marker while the app is closed.
+
+Updates always replace the running EXE in place, in either mode. Context-menu registration no longer installs or synchronizes a second executable. Existing menu registrations are pointed to the chosen EXE when selecting a mode. Old application copies are not automatically deleted.
+
+Click **Add menu** in the top-right header to register the running EXE and refresh Explorer's association cache. In installed mode you can move or delete the downloaded source without breaking the menu. In portable mode keep the EXE at the registered path, or repair the menu after moving it.
+
+The button changes to **Remove menu**, with a small **↻** repair button beside it. Open the EXE you intend to use and click **↻** to point the menu to that exact path. This never copies or updates an EXE. Use **Updates** for application updates.
 
 The PowerShell scripts are an alternative. From a normal, non-elevated PowerShell session in the repository root, register the current user's menu:
 
@@ -82,9 +95,9 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Register
 
 The registration is per-user under `HKEY_CURRENT_USER` and does not require administrator privileges. Windows 11 shows this classic registry menu item under **Show more options**; it is not in the primary modern context menu. The menu is registered for `.exe`, `.msi`, and `.ps1` files. Right-click one of those files, choose **Show more options**, then **Create EPM Rule**. The application starts with that path and analyzes it automatically. The selected file is never executed. The path is passed as a quoted argument, including when it contains spaces or Unicode characters.
 
-The registration script also deploys to the fixed Local AppData path before writing the registry. Run it again with a newer `-ApplicationPath` to update or repair the menu.
+The registration script uses exactly `-ApplicationPath` without copying an EXE. Run it again with the new path after moving a portable app.
 
-**Remove menu** and the removal script delete only the app-owned `CreateEPMRule` registry subtrees and their legacy `CreateIntuneEpmRule` equivalents for the three supported file types. They retain the managed EXE, `settings.json`, and any cache files left by old versions. The current version has no on-disk token cache. For complete removal of the managed executable, remove the menu, close the app, and delete only `%LOCALAPPDATA%\EPMRuleCreator\App` in Explorer. Account settings remain in the parent folder.
+**Remove menu** and the removal script delete only the app-owned `CreateEPMRule` registry subtrees and their legacy `CreateIntuneEpmRule` equivalents for the three supported file types. They retain the EXE, `settings.json`, and any cache files left by old versions. The current version has no on-disk token cache. To uninstall, remove the menu, close the app, remove the EPMRuleCreator Start menu shortcut and delete only `%LOCALAPPDATA%\EPMRuleCreator\App` in Explorer. For portable removal, delete your portable EXE and its marker instead. Account settings remain in the AppData parent folder.
 
 ## What works offline
 

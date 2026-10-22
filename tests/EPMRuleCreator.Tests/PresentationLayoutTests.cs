@@ -114,6 +114,26 @@ public sealed class PresentationLayoutTests
         Assert.Equal("{Binding IsUpdatesMenuOpen, Mode=TwoWay}", (string?)updates.Attribute("IsChecked"));
     }
 
+    [Fact]
+    public void ModeChoiceRunsBeforeMainWindowAndMenuRegistrationNeverDeploys()
+    {
+        var app = XDocument.Load(Source("App.xaml"));
+        Assert.Null(app.Root!.Attribute("StartupUri"));
+        Assert.Equal("OnExplicitShutdown", (string?)app.Root.Attribute("ShutdownMode"));
+        var startup = File.ReadAllText(Source("App.xaml.cs"));
+        Assert.True(startup.IndexOf("choice.ShowDialog()", StringComparison.Ordinal) < startup.IndexOf("new MainWindow()", StringComparison.Ordinal));
+        var root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Source("App.xaml.cs"))!, "../.."));
+        var menu = File.ReadAllText(Path.Combine(root, "src", "EPMRuleCreator.Core", "Services", "ExplorerContextMenuService.cs"));
+        Assert.DoesNotContain("ExplorerApplicationDeployment.Install", menu);
+        var script = File.ReadAllText(Path.Combine(root, "scripts", "Register-ExplorerMenu.ps1"));
+        Assert.DoesNotContain("[IO.File]::Copy", script);
+        Assert.DoesNotContain("managedPath", script);
+        var installation = File.ReadAllText(Source("ApplicationInstallation.cs"));
+        Assert.Contains("overwriteExisting: false", installation);
+        Assert.Contains("Environment.SpecialFolder.Programs", installation);
+        Assert.Contains("start.ArgumentList.Add(argument)", installation);
+    }
+
     private static double Contrast(string a, string b)
     {
         static double Luminance(string color)

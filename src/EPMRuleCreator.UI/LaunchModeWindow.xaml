@@ -1,0 +1,29 @@
+<Window x:Class="EPMRuleCreator.UI.LaunchModeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Welcome to EPMRuleCreator" Icon="Assets/epm-rule-creator.ico" Width="560" SizeToContent="Height"
+        ResizeMode="NoResize" WindowStartupLocation="CenterScreen" Background="{DynamicResource CanvasBrush}"
+        Style="{StaticResource {x:Type Window}}">
+    <StackPanel Margin="24">
+        <TextBlock Text="How would you like to use the app?" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,18"/>
+        <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="Portable" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock Text="Keep this EXE here. Updates and the context menu use this location."
+                           TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,8"/>
+                <Button Content="Use portable" Click="Portable_Click"/>
+            </StackPanel>
+        </Border>
+        <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="Installed for this user" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock Text="One fixed EXE in Local AppData, with a Start menu shortcut. No admin rights required."
+                           TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,8"/>
+                <Button x:Name="InstallButton" Content="Install for this user" Click="Install_Click"
+                        Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}"/>
+                <TextBlock x:Name="ExistingInstallationHint" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
+            </StackPanel>
+        </Border>
+        <TextBlock x:Name="Status" TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" Margin="0,12,0,0"/>
+    </StackPanel>
+</Window>

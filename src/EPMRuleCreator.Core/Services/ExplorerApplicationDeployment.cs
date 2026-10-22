@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 
 namespace EPMRuleCreator.Core.Services;
 
-/// <summary>Deploy the standalone app independently of its download location.</summary>
+/// <summary>Deploy the standalone app only after an explicit installation choice.</summary>
 public static class ExplorerApplicationDeployment
 {
     public static string GetInstalledPath(string localAppData)
@@ -11,17 +11,18 @@ public static class ExplorerApplicationDeployment
         return Path.Combine(AppDataPaths.GetRoot(localAppData), "App", "EPMRuleCreator.exe");
     }
 
-    public static string Install(string executablePath, string localAppData)
+    public static string Install(string executablePath, string localAppData, bool overwriteExisting = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
         var source = Path.GetFullPath(executablePath);
         if (!File.Exists(source) || !source.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(Path.GetFileName(source), "dotnet.exe", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Run the standalone application EXE to register its context menu.");
+            throw new InvalidOperationException("Run the standalone application EXE to install it.");
 
         var destination = GetInstalledPath(localAppData);
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         if (string.Equals(source, destination, comparison)) return destination;
+        if (!overwriteExisting && File.Exists(destination)) return destination;
         if (File.Exists(destination) && Identical(source, destination)) return destination;
 
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -29,13 +30,13 @@ public static class ExplorerApplicationDeployment
         try
         {
             File.Copy(source, staging);
-            // Stage the complete file before replacing an old copy. A failed
-            // update leaves the old menu target in place; registry writes follow.
-            File.Move(staging, destination, overwrite: true);
+            // Stage the complete file before publishing the installation.
+            try { File.Move(staging, destination, overwrite: overwriteExisting); }
+            catch (IOException) when (!overwriteExisting && File.Exists(destination)) { return destination; }
         }
         catch (IOException exception)
         {
-            throw new IOException("Could not update the Explorer application copy. If an app instance launched from Explorer is running, close it and retry. " + exception.Message, exception);
+            throw new IOException("Could not install the application. Close other app instances and retry. " + exception.Message, exception);
         }
         finally
         {

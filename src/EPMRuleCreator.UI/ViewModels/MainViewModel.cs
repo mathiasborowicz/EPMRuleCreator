@@ -119,6 +119,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ClearLogCommand = new RelayCommand(() => { _activityLog.Clear(); Raise(nameof(ActivityLogText)); });
         CheckForUpdatesCommand = new AsyncCommand(CheckForUpdatesAsync, () => !_checkingUpdates && !Busy);
         UpdateNowCommand = new AsyncCommand(InstallUpdateAsync, () => HasVerifiedUpdate && !_checkingUpdates && !Busy);
+        InstallApplicationCommand = new RelayCommand(InstallApplication, () => !Busy && !ApplicationInstallation.IsInstalled);
         OpenReleaseCommand = new RelayCommand(OpenAvailableRelease, () => _availableUpdate is not null);
         ValidateCommand = new RelayCommand(Validate, () => !Busy && _hasAnalyzedFile);
         UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && _hasAnalyzedFile && !_policiesLoading && !_policyCountLoading && GraphConnected && (IsCreatingPolicy || SelectedElevationPolicy is not null));
@@ -157,6 +158,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand CheckForUpdatesCommand { get; }
     public ICommand OpenReleaseCommand { get; }
     public ICommand UpdateNowCommand { get; }
+    public ICommand InstallApplicationCommand { get; }
+    public bool IsPortableApplication => !ApplicationInstallation.IsInstalled;
+    public string ApplicationModeLabel => ApplicationInstallation.IsInstalled ? "Installed for this user" : "Portable";
+    public string ApplicationLocation => Environment.ProcessPath ?? string.Empty;
+    public string InstallApplicationLabel => ApplicationInstallation.Exists ? "Open installed app" : "Install for this user";
+
+    private void InstallApplication()
+    {
+        try
+        {
+            ApplicationInstallation.InstallOrOpen(string.IsNullOrWhiteSpace(FilePath) ? [] : [FilePath]);
+            Application.Current.Shutdown();
+        }
+        catch (Exception exception) { AddLog($"Could not open the installation: {exception.Message}"); }
+    }
     public bool IsUpdatesMenuOpen { get => _isUpdatesMenuOpen; set => Set(ref _isUpdatesMenuOpen, value); }
     public bool CheckForUpdatesAtStartup
     {
@@ -318,10 +334,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string ExplorerMenuToolTip => (_explorerMenuRegistered
         ? "Remove 'Create EPM Rule' from the Explorer context menu."
         : "Add 'Create EPM Rule' to the Explorer context menu for EXE, MSI and PS1 files.") +
-        " Uses a fixed application copy in Local AppData, so the downloaded EXE can be moved or deleted. Current user only; no admin rights required. On Windows 11: Show more options.";
-    public string ExplorerMenuRepairToolTip => "Repair the context menu or update its fixed application copy using this EXE. Target: " +
-        ExplorerApplicationDeployment.GetInstalledPath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)) +
-        ". Close other app instances launched from Explorer before updating.";
+        " Uses this EXE without making another copy. In portable mode, repair the menu after moving the EXE. Current user only; no admin rights required. On Windows 11: Show more options.";
+    public string ExplorerMenuRepairToolTip => "Point the context menu at this EXE without copying it: " + ApplicationLocation;
     public IEnumerable<string> BlockingValidationMessages => ValidationMessages.Where(message => message.StartsWith("Error:", StringComparison.Ordinal));
     public string ValidationWarningsLabel
     {
