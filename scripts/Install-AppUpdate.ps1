@@ -14,7 +14,8 @@ try {
     $replaced = $true
     # ReplaceFile may preserve named streams from the previous EXE.
     # Unblock only this verified replacement, never a directory or unrelated files.
-    [IO.File]::Delete($destination + ':Zone.Identifier')
+    # Windows PowerShell 5.1 uses .NET Framework, whose File.Delete rejects ADS paths.
+    Unblock-File -LiteralPath $destination -ErrorAction Stop
     Start-Process -FilePath $destination -WorkingDirectory ([IO.Path]::GetDirectoryName($destination)) -ErrorAction Stop
     try {
         Remove-Item -LiteralPath $stagedExe -Force

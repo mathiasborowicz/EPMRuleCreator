@@ -47,6 +47,10 @@ jobs:
             if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
           }
 
+      - name: Test verified update unblocking in Windows PowerShell
+        shell: powershell
+        run: .\scripts\Test-UpdateUnblock.ps1
+
       - name: Run tests
         run: dotnet test .\EPMRuleCreator.sln --configuration Release
 

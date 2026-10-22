@@ -87,7 +87,8 @@ public sealed class PresentationLayoutTests
         var root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Source("UpdateInstaller.cs"))!, "../.."));
         var script = File.ReadAllText(Path.Combine(root, "scripts", "Install-AppUpdate.ps1"));
         Assert.True(script.IndexOf("WaitForExit", StringComparison.Ordinal) < script.IndexOf("[IO.File]::Replace", StringComparison.Ordinal));
-        Assert.True(script.IndexOf("[IO.File]::Replace", StringComparison.Ordinal) < script.IndexOf("[IO.File]::Delete($destination + ':Zone.Identifier')", StringComparison.Ordinal));
+        Assert.True(script.IndexOf("[IO.File]::Replace", StringComparison.Ordinal) < script.IndexOf("Unblock-File -LiteralPath $destination -ErrorAction Stop", StringComparison.Ordinal));
+        Assert.DoesNotContain("[IO.File]::Delete($destination + ':Zone.Identifier')", script);
         Assert.Contains("$destination + '.previous'", script);
         Assert.Contains("[IO.File]::Copy($backup, $destination, $true)", script);
         Assert.DoesNotContain("-Recurse", script);
