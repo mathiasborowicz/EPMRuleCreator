@@ -8,15 +8,24 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Grid Grid.Row="0" Margin="0,0,0,20">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="Intune EPM Rule Creator" FontSize="27" FontWeight="SemiBold"/>
-                <TextBlock Text="Build a file-based elevation rule from verified file metadata." Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0"/>
             </StackPanel>
-            <ToggleButton x:Name="AccountButton" Grid.Column="1" Width="44" Height="44" Margin="20,0,0,0"
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="{Binding ExplorerMenuButtonText, Mode=OneWay}" Command="{Binding ToggleExplorerMenuCommand}"
+                        FontSize="12" Padding="10,6" Margin="12,0,0,0">
+                    <Button.ToolTip><ToolTip><TextBlock Text="{Binding ExplorerMenuToolTip}" TextWrapping="Wrap" MaxWidth="400"/></ToolTip></Button.ToolTip>
+                </Button>
+                <Button Content="&#x21BB;" Command="{Binding RepairExplorerMenuCommand}" Padding="8,3" FontSize="18" Margin="4,0,0,0"
+                        Visibility="{Binding HasExplorerMenu, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        AutomationProperties.Name="Repair or update Explorer context menu">
+                    <Button.ToolTip><ToolTip><TextBlock Text="{Binding ExplorerMenuRepairToolTip}" TextWrapping="Wrap" MaxWidth="400"/></ToolTip></Button.ToolTip>
+                </Button>
+            </StackPanel>
+            <ToggleButton x:Name="AccountButton" Grid.Column="2" Width="44" Height="44" Margin="20,0,0,0"
                           VerticalAlignment="Center" Cursor="Hand"
                           Content="{Binding AccountInitials, Mode=OneWay}"
                           IsChecked="{Binding IsAccountMenuOpen, Mode=TwoWay}"
@@ -72,24 +81,25 @@
                     <StackPanel>
                         <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Text="Microsoft Entra" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="Microsoft Entra" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"
+                                       ToolTip="Sign-in is optional. Local file analysis works offline."/>
                             <Button x:Name="CloseAccountButton" Grid.Column="1" Content="&#x2715;" Click="CloseAccount_Click"
                                     ToolTip="Close account panel" AutomationProperties.Name="Close account panel"
                                     Padding="8,3" Margin="8,0,0,0" Background="Transparent" BorderThickness="0"/>
                         </Grid>
-                        <TextBlock Text="Local file analysis works offline. Sign in to load Intune policies." TextWrapping="Wrap"
-                                   Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14"/>
                         <TextBlock Text="{Binding GraphAccount}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Visibility="{Binding GraphConnected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                         <TextBlock Text="Application (client) ID" Foreground="{StaticResource MutedBrush}"/>
-                        <TextBox x:Name="ClientIdInput" Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}"/>
-                        <TextBlock Text="Tenant ID or 'organizations'" Foreground="{StaticResource MutedBrush}"/>
-                        <TextBox Text="{Binding TenantId, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBox x:Name="ClientIdInput" Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}" ToolTip="Application ID from your Entra app registration. Saved only in your local settings."/>
+                        <TextBlock Text="Tenant ID" Foreground="{StaticResource MutedBrush}"/>
+                        <TextBox Text="{Binding TenantId, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter a tenant ID or 'organizations' for organizational accounts."/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button Content="Sign in" Command="{Binding ConnectGraphCommand}" Background="{StaticResource AccentBrush}" Foreground="White"/>
                             <Button Content="Sign out" Command="{Binding DisconnectGraphCommand}"/>
                         </StackPanel>
-                        <TextBlock Text="{Binding GraphConnectionStatus}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
+                        <TextBlock Text="{Binding GraphConnectionLabel}" Style="{StaticResource StatusText}">
+                            <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding GraphConnectionStatus}" TextWrapping="Wrap" MaxWidth="400"/></ToolTip></TextBlock.ToolTip>
+                        </TextBlock>
                     </StackPanel>
                 </Border>
             </Popup>
@@ -103,7 +113,7 @@
                     <TextBox Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True" Margin="0,8,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="16,0,0,0">
-                    <Button Content="Choose file" Click="ChooseFile_Click"/>
+                    <Button Content="Choose file" Click="ChooseFile_Click" IsEnabled="{Binding CanChooseFile, Mode=OneWay}"/>
                     <Button Content="Analyze file" Command="{Binding AnalyzeCommand}" Background="{StaticResource AccentBrush}" Foreground="White"/>
                 </StackPanel>
             </Grid>
@@ -123,28 +133,45 @@
                                 <StackPanel Margin="0,0,10,0"><TextBlock Text="Product name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding ProductName}" IsReadOnly="True"/></StackPanel>
                                 <StackPanel Margin="10,0,0,0"><TextBlock Text="Version" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding Version}" IsReadOnly="True"/></StackPanel>
                                 <StackPanel Margin="0,0,10,0"><TextBlock Text="Company" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding CompanyName}" IsReadOnly="True"/></StackPanel>
-                                <StackPanel Margin="10,0,0,0"><TextBlock Text="Signature" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding SignatureStatus}" IsReadOnly="True" TextWrapping="Wrap"/></StackPanel>
+                                <StackPanel Margin="10,0,0,0">
+                                    <TextBlock Text="Signature" Foreground="{StaticResource MutedBrush}"/>
+                                    <TextBox Text="{Binding SignatureStatus}" IsReadOnly="True">
+                                        <TextBox.ToolTip><ToolTip><StackPanel MaxWidth="440">
+                                            <TextBlock Text="{Binding SignatureDetails}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding AnalyzedCertificateDetails}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                        </StackPanel></ToolTip></TextBox.ToolTip>
+                                    </TextBox>
+                                </StackPanel>
                                 <StackPanel Margin="0,0,10,0"><TextBlock Text="Internal name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding InternalName}" IsReadOnly="True"/></StackPanel>
-                                <StackPanel Margin="10,0,0,0"><TextBlock Text="File description (from analyzed file)" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding FileDescription}" IsReadOnly="True" TextWrapping="Wrap"/></StackPanel>
+                                <StackPanel Margin="10,0,0,0"><TextBlock Text="File description" Foreground="{StaticResource MutedBrush}" ToolTip="Metadata read from the analyzed file."/><TextBox Text="{Binding FileDescription}" IsReadOnly="True" TextWrapping="Wrap"/></StackPanel>
                             </UniformGrid>
-                            <TextBlock Text="{Binding CertificateSummary}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                            <TextBlock Text="{Binding AnalysisWarnings}" Foreground="#8A4B00" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="&#x2139; Analysis notes" FontSize="12" Foreground="#8A4B00" Cursor="Help"
+                                       Visibility="{Binding HasAnalysisWarnings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding AnalysisWarnings}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
-                    <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18">
+                    <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18" Margin="0,0,0,16"
+                            Visibility="{Binding HasAnalyzedPublisherCertificate, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border.ToolTip>
+                            <ToolTip><TextBlock Text="{Binding AnalyzedCertificateDetails}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip>
+                        </Border.ToolTip>
                         <StackPanel>
-                            <TextBlock Text="Elevation Rules policy" FontSize="16" FontWeight="SemiBold"/>
-                            <Button Content="Load policies" Command="{Binding LoadPoliciesCommand}" HorizontalAlignment="Left" Margin="0,8,0,6"/>
-                            <ComboBox ItemsSource="{Binding ElevationPolicies}" SelectedItem="{Binding SelectedElevationPolicy}" DisplayMemberPath="Name"/>
-                            <Button Content="Read rule count" Command="{Binding LoadSelectedPolicyCountCommand}" HorizontalAlignment="Left" Margin="0,6,0,0"/>
-                            <TextBlock Text="{Binding PolicyLoadStatus}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
-                            <TextBlock Text="{Binding SelectedPolicySummary}" TextWrapping="Wrap" Margin="0,8,0,0"/>
-                            <Separator Margin="0,12,0,10"/>
-                            <TextBlock Text="Reusable EPM certificate settings" FontSize="16" FontWeight="SemiBold"/>
-                            <TextBlock Text="Only reusable settings whose definition is the EPM certificate setting are shown; other Intune reusable settings are excluded." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
-                            <Button Content="Load reusable certificate settings" Command="{Binding LoadReusableCertificateSettingsCommand}" HorizontalAlignment="Left" Margin="0,8,0,6"/>
-                            <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" DisplayMemberPath="DisplayName"/>
-                            <TextBlock Text="The app counts groupSettingCollectionValue entries; policy settingCount is different. Upload appends only after confirmation and requires a rule template with the selected elevation type." TextWrapping="Wrap" Foreground="#754C00" Margin="0,8,0,0"/>
+                            <TextBlock Text="Signing certificate" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <TextBlock Text="{Binding AnalyzedPublisherCertificate.Subject, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                       FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <TextBlock Text="{Binding AnalyzedCertificateValidity}" FontSize="12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                        <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AnalyzedPublisherCertificate.IsWithinValidityPeriod}" Value="False">
+                                                <Setter Property="Foreground" Value="#8A4B00"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -153,10 +180,40 @@
                     <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18" Margin="0,0,0,16">
                         <StackPanel>
                             <TextBlock Text="Elevation rule" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <TextBlock Text="Elevation Rules policy" Foreground="{StaticResource MutedBrush}"/>
+                            <ComboBox ItemsSource="{Binding ElevationPolicyOptions}" SelectedItem="{Binding SelectedPolicyOption}"
+                                      IsEnabled="{Binding CanSelectElevationPolicy, Mode=OneWay}" DropDownOpened="ElevationPolicies_DropDownOpened">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsNewPolicy}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <StackPanel Visibility="{Binding IsCreatingPolicy, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="New policy name *" Foreground="{StaticResource MutedBrush}"/>
+                                <TextBox Text="{Binding NewPolicyName, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="Policy description" Foreground="{StaticResource MutedBrush}" ToolTip="Optional. New policies use the default scope tag (0) and have no assignments."/>
+                                <TextBox Text="{Binding NewPolicyDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding PolicyLoadStatus}" Style="{StaticResource StatusText}" Margin="0,0,0,6">
+                                <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding PolicyLoadStatus}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
+                            </TextBlock>
+                            <TextBlock Text="{Binding SelectedPolicySummary}" Style="{StaticResource StatusText}" Margin="0,0,0,12"/>
                             <TextBlock Text="Rule name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Rule description" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="68" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding FileNameLabel}" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileName, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="Minimum file version (optional; exactly four numeric parts, e.g. 1.1.0.0)" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}" MaxLength="30"/>
+                            <TextBlock Text="Minimum version" Foreground="{StaticResource MutedBrush}" ToolTip="Optional. Exactly four numeric parts, e.g. 1.1.0.0; up to 30 characters."/><TextBox Text="{Binding RuleFileVersion, UpdateSourceTrigger=PropertyChanged}" MaxLength="30" ToolTip="Optional. Four numeric parts, e.g. 1.1.0.0."/>
                             <TextBlock Text="{Binding FileHashLabel}" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileHash, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
                             <TextBlock Text="File description" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFileDescription, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="File path" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleFilePath, UpdateSourceTrigger=PropertyChanged}"/>
@@ -166,13 +223,25 @@
                             <StackPanel Visibility="{Binding ShowCertificateSelection, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,8">
                                 <StackPanel Visibility="{Binding ShowCertificateFileSource, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <TextBlock Text="Certificate" FontWeight="SemiBold" Margin="0,4,0,4"/>
-                                    <TextBlock Text="{Binding PublisherCertificateChoiceText}" TextWrapping="Wrap"/>
+                                    <RadioButton Content="Use analyzed file certificate" GroupName="CertificateFileSource"
+                                                 IsChecked="{Binding UseAnalyzedCertificate, Mode=TwoWay}"
+                                                 IsEnabled="{Binding HasAnalyzedPublisherCertificate}" Margin="0,4,0,4">
+                                        <RadioButton.ToolTip><ToolTip><TextBlock Text="{Binding AnalyzedCertificateDetails}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></RadioButton.ToolTip>
+                                    </RadioButton>
+                                    <RadioButton Content="{Binding UploadedCertificateLabel}" GroupName="CertificateFileSource"
+                                                 IsChecked="{Binding UseUploadedCertificate, Mode=TwoWay}"
+                                                 Visibility="{Binding HasUploadedCertificate, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                 ToolTip="{Binding SelectedCertificateFile}" Margin="0,4,0,4"/>
                                     <Button Content="Choose certificate file…" Click="ChooseCertificateFile_Click" HorizontalAlignment="Left" Margin="0,6,0,4"/>
                                 </StackPanel>
                                 <StackPanel Visibility="{Binding ShowReusableCertificateSource, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <TextBlock Text="Certificate" FontWeight="SemiBold" Margin="0,4,0,4"/>
-                                    <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" SelectedItem="{Binding SelectedReusableCertificateSetting}" DisplayMemberPath="DisplayName"/>
-                                    <TextBlock Text="{Binding ReusableCertificateSelectionHint}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
+                                    <ComboBox ItemsSource="{Binding ReusableCertificateSettings}" SelectedItem="{Binding SelectedReusableCertificateSetting}"
+                                              DisplayMemberPath="DisplayName" IsEnabled="{Binding GraphConnected}"
+                                              DropDownOpened="ReusableCertificates_DropDownOpened"/>
+                                    <TextBlock Text="{Binding ReusableCertificateStatusLabel}" Style="{StaticResource StatusText}">
+                                        <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding ReusableCertificateSelectionHint}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
+                                    </TextBlock>
                                 </StackPanel>
                                 <TextBlock Text="Certificate type" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
                                 <ComboBox ItemsSource="{Binding CertificateTypeOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding CertificateType}"/>
@@ -185,15 +254,15 @@
                             </StackPanel>
                             <StackPanel Margin="0,4,0,8" Visibility="{Binding IsCurrentUser, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBlock Text="Validation" FontWeight="SemiBold" Margin="0,2,0,4"/>
-                                <CheckBox Content="Windows authentication (required)" IsChecked="{Binding IsCurrentUser, Mode=OneWay}" IsEnabled="False" Margin="0,3"/>
+                                <CheckBox Content="Windows authentication *" IsChecked="{Binding IsCurrentUser, Mode=OneWay}" IsEnabled="False" ToolTipService.ShowOnDisabled="True" ToolTip="Required when elevating as the current user." Margin="0,3"/>
                                 <TextBlock Text="Additional validation requirement" FontWeight="SemiBold" Margin="0,6,0,4"/>
                                 <CheckBox Content="Business justification" IsChecked="{Binding RequireBusinessJustification}" Margin="0,3"/>
                             </StackPanel>
                             <TextBlock Text="Child process behavior" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding ChildProcessBehaviors}" SelectedItem="{Binding ChildProcessBehavior}"/>
                             <TextBlock Text="Restrict Arguments" Foreground="{StaticResource MutedBrush}"/><ComboBox ItemsSource="{Binding RestrictArgumentsOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding RestrictArguments}"/>
                             <StackPanel Visibility="{Binding ShowArgumentList, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <TextBlock Text="Argument List (one argument per line)" Foreground="{StaticResource MutedBrush}"/>
-                                <TextBox Text="{Binding ArgumentListText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="72" TextWrapping="Wrap"/>
+                                <TextBlock Text="Argument List" Foreground="{StaticResource MutedBrush}"/>
+                                <TextBox Text="{Binding ArgumentListText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="72" TextWrapping="Wrap" ToolTip="One argument per line."/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -201,17 +270,19 @@
                         <StackPanel>
                             <TextBlock Text="Validation" FontSize="18" FontWeight="SemiBold"/>
                             <Button Content="Validate rule" Command="{Binding ValidateCommand}" HorizontalAlignment="Left" Margin="0,12,0,0"/>
-                            <Button Content="Upload rule to selected Intune policy" Command="{Binding UploadRuleCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{StaticResource AccentBrush}" Foreground="White"/>
-                            <TextBlock Text="{Binding ValidationSummary}" TextWrapping="Wrap" Margin="0,8,0,0"/>
-                            <ItemsControl ItemsSource="{Binding ValidationMessages}" Margin="0,8,0,0">
+                            <Button Content="{Binding UploadButtonText, Mode=OneWay}" Command="{Binding UploadRuleCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{StaticResource AccentBrush}" Foreground="White" ToolTip="Writes require confirmation. A new policy is created together with its first rule, without assignments."/>
+                            <TextBlock Text="{Binding ValidationSummary}" Style="{StaticResource StatusText}" Margin="0,8,0,0"/>
+                            <ItemsControl ItemsSource="{Binding BlockingValidationMessages}" Margin="0,6,0,0">
                                 <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="#8A3B12" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <TextBlock Text="{Binding ValidationWarningsLabel}" Style="{StaticResource StatusText}" Foreground="#8A4B00" Cursor="Help">
+                                <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding ValidationWarningsDetails}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                 </StackPanel>
             </Grid>
         </ScrollViewer>
 
-        <TextBlock Grid.Row="3" Text="No changes are automatic. The upload button appends only after a separate confirmation." Foreground="{StaticResource MutedBrush}" Margin="0,14,0,0"/>
     </Grid>
 </Window>

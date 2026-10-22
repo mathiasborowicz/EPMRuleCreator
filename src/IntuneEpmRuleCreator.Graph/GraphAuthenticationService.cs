@@ -222,6 +222,19 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         return new ElevationRuleCollectionInfo(ruleCount, maximumRuleCount);
     }
 
+    public async Task<ElevationRulePolicy> CreateElevationRulePolicyAsync(
+        string name,
+        string? description,
+        ElevationRule rule,
+        CancellationToken cancellationToken = default)
+    {
+        if (_client is null || _account is null)
+            throw new InvalidOperationException("Sign in to Microsoft Graph before creating a policy.");
+
+        var token = await GetAccessTokenAsync(cancellationToken);
+        return await new NewElevationPolicyWriter(_httpClient).CreateAsync(token, name, description, rule, cancellationToken);
+    }
+
     public async Task<int> AppendElevationRuleAsync(
         ElevationRulePolicy policy,
         ElevationRule rule,
@@ -384,7 +397,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         return newRule;
     }
 
-    private static void RemoveTemplateReferences(JsonNode node)
+    internal static void RemoveTemplateReferences(JsonNode node)
     {
         if (node is JsonObject obj)
         {
@@ -458,7 +471,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             RemoveChild(children, "signaturesource");
     }
 
-    private static void SetRestrictArguments(JsonArray children, ElevationRule rule)
+    internal static void SetRestrictArguments(JsonArray children, ElevationRule rule)
     {
         if (rule.RestrictArguments == RestrictArgumentsMode.NotConfigured)
         {
@@ -637,7 +650,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         _ => throw new InvalidOperationException("Unsupported elevation type.")
     };
 
-    private static string GetChildProcessOption(ChildProcessBehavior behavior) => behavior switch
+    internal static string GetChildProcessOption(ChildProcessBehavior behavior) => behavior switch
     {
         ChildProcessBehavior.NotConfigured => throw new InvalidOperationException("Not configured has no child-process choice; its setting must be omitted."),
         ChildProcessBehavior.RequireRuleToElevate => "allowrunelevatedrulerequired",
@@ -646,7 +659,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         _ => throw new InvalidOperationException("Unsupported child-process behavior.")
     };
 
-    private static string GetCertificateTypeOption(CertificateType certificateType) => certificateType switch
+    internal static string GetCertificateTypeOption(CertificateType certificateType) => certificateType switch
     {
         CertificateType.Publisher => "publisher",
         CertificateType.CertificateAuthority => "issuingauthority",

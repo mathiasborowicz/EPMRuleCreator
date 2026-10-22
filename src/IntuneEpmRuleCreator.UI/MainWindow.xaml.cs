@@ -44,6 +44,18 @@ public partial class MainWindow : Window
         AccountButton.Focus();
     }
 
+    private async void ReusableCertificates_DropDownOpened(object sender, EventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+            await viewModel.EnsureReusableCertificateSettingsAsync();
+    }
+
+    private async void ElevationPolicies_DropDownOpened(object sender, EventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+            await viewModel.EnsureElevationPoliciesAsync();
+    }
+
     private void ChooseFile_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog

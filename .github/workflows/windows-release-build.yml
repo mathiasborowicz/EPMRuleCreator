@@ -5,6 +5,9 @@ on:
     branches:
       - work
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -22,8 +25,21 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Validate Explorer script syntax in Windows PowerShell
+        shell: powershell
+        run: |
+          foreach ($explorerScript in Get-ChildItem .\scripts\*.ps1) {
+            $parseTokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($explorerScript.FullName, [ref]$parseTokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
+          }
+
       - name: Run tests
         run: dotnet test .\IntuneEpmRuleCreator.sln --configuration Release
+
+      - name: Test release publishing with mocked GitHub API
+        run: node --test tests/workflows/release-workflow.test.cjs
 
       - name: Publish standalone Windows x64 app
         run: >-
@@ -43,3 +59,68 @@ jobs:
           path: publish/win-x64/IntuneEpmRuleCreator.exe
           if-no-files-found: error
           retention-days: 30
+
+  release:
+    name: Publish standalone EXE release
+    needs: test-and-publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download tested executable
+        uses: actions/download-artifact@v4
+        with:
+          name: IntuneEpmRuleCreator-win-x64
+          path: release
+
+      - name: Create release and upload standalone EXE
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('node:fs');
+            const { owner, repo } = context.repo;
+            const tag = `build-${context.runNumber}`;
+            const assetName = 'IntuneEpmRuleCreator.exe';
+            // Read the complete asset before creating a public release.
+            const data = fs.readFileSync(`release/${assetName}`);
+            // List also includes drafts, allowing retries after a failed asset upload.
+            const releases = await github.paginate(github.rest.repos.listReleases, { owner, repo, per_page: 100 });
+            let release = releases.find(item => item.tag_name === tag);
+            if (!release) {
+              ({ data: release } = await github.rest.repos.createRelease({
+                owner, repo,
+                tag_name: tag,
+                target_commitish: context.sha,
+                name: `Intune EPM Rule Creator — Build ${context.runNumber}`,
+                body: 'Download IntuneEpmRuleCreator.exe below. Standalone Windows x64 application; no .NET installation or compilation required.',
+                generate_release_notes: true,
+                draft: true,
+                prerelease: false
+              }));
+            }
+            // Re-running the same successful workflow must not create duplicates.
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              owner, repo, release_id: release.id, per_page: 100
+            });
+            const existing = assets.find(asset => asset.name === assetName);
+            if (existing) {
+              core.info(`Release already contains ${assetName}; preserving the published asset.`);
+            } else {
+              await github.rest.repos.uploadReleaseAsset({
+                owner, repo,
+                release_id: release.id,
+                name: assetName,
+                data,
+                headers: { 'content-type': 'application/octet-stream' }
+              });
+            }
+            // Publish only once the executable is attached; failed uploads stay drafts.
+            if (release.draft) {
+              ({ data: release } = await github.rest.repos.updateRelease({
+                owner, repo, release_id: release.id, draft: false, make_latest: 'true'
+              }));
+            }
+            await core.summary.addHeading('Standalone Windows release')
+              .addLink('Download IntuneEpmRuleCreator.exe', `${release.html_url.replace('/tag/', '/download/')}/${assetName}`)
+              .write();
