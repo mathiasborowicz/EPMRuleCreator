@@ -70,6 +70,6 @@ Found a bug or have an idea? [Open an issue](https://github.com/mathiasborowicz/
 
 ## License
 
-[GNU GPLv3](LICENSE), like [AppPermissionInfo](https://github.com/mathiasborowicz/AppPermissionInfo). Commercial use is allowed; redistributed changes must remain under GPLv3 with the corresponding source available. No warranty. Third-party dependencies retain their own licenses.
+[GNU GPLv3](LICENSE). Commercial use is allowed; redistributed changes must remain under GPLv3 with the corresponding source available. No warranty. Third-party dependencies retain their own licenses.
 
 Copyright (c) 2026 Mathias Borowicz.
