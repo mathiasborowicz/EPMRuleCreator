@@ -14,7 +14,7 @@ function harness({ existingRelease, existingAsset = false, failUpload = false, f
   const calls = [];
   const listReleases = () => {};
   const listReleaseAssets = () => {};
-  const release = existingRelease || { id: 7, tag_name: 'v0.9.0', draft: true, html_url: 'https://github.com/owner/repo/releases/tag/v0.9.0' };
+  const release = existingRelease || { id: 7, tag_name: `v${version}`, draft: true, html_url: `https://github.com/owner/repo/releases/tag/v${version}` };
   const github = {
     paginate: async method => method === listReleases ? (existingRelease ? [existingRelease] : []) : (existingAsset ? [{ name: 'EPMRuleCreator-win-x64.zip' }, { name: 'LICENSE' }] : []),
     rest: { repos: {
@@ -110,6 +110,20 @@ test('later merges increment the greatest published patch numerically', () => {
 
 test('explicitly raising the project version starts a new version line', () => {
   assert.equal(resolveVersion('0.10.0', ['v0.9.9']), '0.10.0');
+});
+
+test('version 1.0 starts above 0.9 releases and continues with patch updates', () => {
+  assert.equal(resolveVersion('1.0.0', ['v0.9.9', 'v0.9.49']), '1.0.0');
+  assert.equal(resolveVersion('1.0.0', ['v0.9.49', 'v1.0.0']), '1.0.1');
+  assert.equal(resolveVersion('1.0.0', ['v1.0.0'], ['v1.0.0']), '1.0.0');
+});
+
+test('publishes version 1.0 with the matching tag, title, and download link', async () => {
+  const h = harness({ version: '1.0.0' });
+  await h.run();
+  assert.equal(h.calls[0][1].tag_name, 'v1.0.0');
+  assert.equal(h.calls[0][1].name, 'EPMRuleCreator v1.0.0');
+  assert.equal(h.calls.at(-1)[1], 'https://github.com/owner/repo/releases/download/v1.0.0/EPMRuleCreator-win-x64.zip');
 });
 
 test('retrying the same tagged commit reuses its version', () => {
