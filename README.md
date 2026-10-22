@@ -17,7 +17,9 @@ A Windows desktop tool for inspecting local files and preparing Microsoft Intune
 - Optional Graph browsing of EPM Elevation Rules policies and EPM reusable certificate settings (unrelated reusable settings are filtered out by setting definition ID).
 - Elevation Rules policies appear directly in the rule editor's dropdown and load automatically after sign-in. Selecting a policy reads its rule count automatically. There are no separate policy/reusable-settings panels or manual load/count buttons; reopen a dropdown to retry a failed request.
 - **+ Add new** in the policy dropdown opens a policy name and optional description, including when no policies exist. **Create policy and upload rule** validates the form and asks for confirmation before creating the policy with its first rule in one POST. The new policy uses the default scope tag (`0`) and has no assignments; configure those in Intune. No existing rule is needed for this creation flow.
-- Per-user Explorer context menu registration and removal scripts.
+- A compact **Add menu / Remove menu** button registers or removes the current user's Explorer context menu for `.exe`, `.msi`, and `.ps1` files. Administrator rights and extra scripts are not needed; the PowerShell scripts remain available as an alternative. Windows 11 shows the entry under **Show more options**.
+- Selecting a different file clears previous metadata, rule fields, certificate choices, and validation results immediately. The Entra connection and policy selection are retained. Upload and validation are enabled after the new file is analyzed; late results from the previous analysis are ignored.
+- Help text, signature/certificate details, analysis notes, and non-blocking validation warnings are available in tooltips. Short status messages and blocking validation errors remain visible.
 
 ### Offline file analysis
 

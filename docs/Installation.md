@@ -57,7 +57,9 @@ Every push to `work` or `main` runs tests and creates a self-contained, compress
 
 ## Register the Explorer menu
 
-From a normal, non-elevated PowerShell session in the repository root, register the current user's menu:
+Keep the downloaded standalone EXE in its intended location, start it, and click **Add menu** in the top-right header. The button changes to **Remove menu**; click it to remove the registration again. The app uses its actual running EXE path, including for the compressed single-file build, and refreshes Explorer's association cache. No administrator rights or companion files are required.
+
+The PowerShell scripts are an alternative. From a normal, non-elevated PowerShell session in the repository root, register the current user's menu:
 
 ```powershell
 $appPath = Join-Path $PWD 'publish\win-x64\IntuneEpmRuleCreator.exe'
@@ -66,14 +68,14 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Register
 
 The registration is per-user under `HKEY_CURRENT_USER` and does not require administrator privileges. Windows 11 shows this classic registry menu item under **Show more options**; it is not in the primary modern context menu. The menu is registered for `.exe`, `.msi`, and `.ps1` files. Right-click one of those files, choose **Show more options**, then **Create Intune EPM Rule**. The application starts with that path and analyzes it automatically. The selected file is never executed. The path is passed as a quoted argument, including when it contains spaces or Unicode characters.
 
-Keep the published executable at the same path after registration. If you move it, run the registration script again with the new `-ApplicationPath`.
+Keep the executable at the same path after registration. If you move it, click **Remove menu**, then **Add menu** in the moved app, or run the registration script again with the new `-ApplicationPath`. Removal deletes only the three app-owned `CreateIntuneEpmRule` registry subtrees; **Add menu** recreates them.
 
 ## What works offline
 
 - SHA256 is calculated locally by the application.
 - Available Windows version metadata and embedded publisher certificate details are shown where present.
 - If `EpmCmdlets.dll` is installed, `Get-FileAttributes` is called locally through Windows PowerShell 5.1 and its hash is compared with the independent SHA256 result.
-- Without EPM Tools, the basic file details remain available and the app warns that EPM-specific attributes are missing. Nothing is silently installed.
+- Without EPM Tools, the basic file details remain available; hover **Analysis notes** to see missing-tool notices and other analysis warnings. Hover the **Signature** field for certificate details and signature-trust information. Nothing is silently installed.
 
 These local operations do not require Microsoft Entra authentication, Graph permissions, a tenant, or an Internet connection. Certificate extraction alone does not establish that a signature is trusted.
 
@@ -85,4 +87,8 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Unregist
 
 ## Current limitations
 
-Optional Graph authentication can show the signed-in identity; Intune policy operations remain disabled until the EPM setting model is verified. See [Graph authentication](GraphAuthentication.md) and [Graph integration](GraphIntegration.md). Local analysis and validation do not create or modify policies. The solution and self-contained Windows x64 publish build successfully, and the six core unit tests pass. The development runner is Linux, so the WPF app, PowerShell integration, and Explorer registration still need an on-device Windows smoke test.
+Graph authentication and policy selection are optional for offline analysis. Uploading can append to a selected policy or create a new policy with its first rule after confirmation; see [Graph authentication](GraphAuthentication.md) and [Graph integration](GraphIntegration.md). Local analysis and validation do not create or modify policies.
+
+Changing files immediately clears previous metadata and rule fields, including certificates and validation choices. Analyze the new file before validating or uploading. The current Entra account and selected target policy are retained. Explanations are in tooltips; errors and short statuses stay visible.
+
+The development runner is Linux, so the WPF app and Explorer integration still require a Windows smoke test: analyze two different files in sequence, check that no old rule values remain, add the context menu, launch the app from a supported file's right-click menu, and remove it again. Automated tests cover command quoting but do not modify a real Windows registry.
