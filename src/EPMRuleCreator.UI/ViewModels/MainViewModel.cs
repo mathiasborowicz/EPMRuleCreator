@@ -86,7 +86,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly string _settingsPath = AppDataPaths.PrepareSettingsPath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
     private string _clientId = string.Empty;
     private string _tenantId = string.Empty;
-    private string _graphConnectionStatus = "Optional: sign in only if you want to connect to Microsoft Graph. Local file analysis works without sign-in.";
+    private string _graphConnectionStatus = "Sign-in is optional.";
     private string _graphAccount = string.Empty;
     private string _accountInitials = string.Empty;
     private bool _isAccountMenuOpen;
@@ -224,7 +224,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(UpdatesButtonText));
             UpdateStatus = update is null ? "No newer stable release available."
                 : HasVerifiedUpdate ? $"Version {update.Version} is available."
-                : $"Version {update.Version} is available. Open the release page (no verified update package).";
+                : $"Version {update.Version}: no verified package. Open release page.";
             if (update is not null) AddLog(UpdateStatus);
         }
         catch (OperationCanceledException)
@@ -332,11 +332,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
     public string ExplorerMenuButtonText => _explorerMenuRegistered ? "Remove menu" : "Add menu";
     public bool HasExplorerMenu => IsInstalledApplication && _explorerMenuRegistered;
-    public string ExplorerMenuToolTip => (_explorerMenuRegistered
-        ? "Remove 'Create EPM Rule' from the Explorer context menu."
-        : "Add 'Create EPM Rule' to the Explorer context menu for EXE, MSI and PS1 files.") +
-        " Uses the installed EXE without making another copy. Current user only; no admin permissions required. On Windows 11: Show more options.";
-    public string ExplorerMenuRepairToolTip => "Point the context menu at this EXE without copying it: " + ApplicationLocation;
+    public string ExplorerMenuToolTip => _explorerMenuRegistered
+        ? "Remove the context menu entry."
+        : "Add the context menu entry.";
+    public string ExplorerMenuRepairToolTip => "Repair the context menu entry.";
     public IEnumerable<string> BlockingValidationMessages => ValidationMessages.Where(message => message.StartsWith("Error:", StringComparison.Ordinal));
     public string ValidationWarningsLabel
     {
@@ -361,8 +360,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         set => Set(ref _useEpmCmdlets, value && IsEpmCmdletsAvailable);
     }
     public string EpmCmdletsToolTip => IsEpmCmdletsAvailable
-        ? "Optional PowerShell file attributes. The module may require administrator rights. Import errors do not block local analysis. Off by default."
-        : $"Unavailable: {EpmCmdletsReader.ModulePath} was not found. Local analysis does not need it.";
+        ? "Optional file attributes; may need admin permissions."
+        : "EpmCmdlets not found. Local analysis still works.";
     public void RefreshEpmCmdletsAvailability()
     {
         if (!IsEpmCmdletsAvailable) UseEpmCmdlets = false;
@@ -405,16 +404,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string CertificateChainLabel => AnalyzedCertificateChain is { } chain
         ? $"{chain.Certificates.Count} certificate(s) - {(chain.IsComplete ? "Complete chain" : "Incomplete chain")}" : string.Empty;
     public string CertificateChainDetails => AnalyzedCertificateChain is { } chain
-        ? string.Join("\n", chain.Certificates.Select((certificate, index) => $"{index + 1}. {certificate.Subject}"))
-            + "\n\n" + string.Join("\n", chain.Status)
-            + "\n\nBuilt from embedded certificates and local stores. No downloads or revocation checks. Completeness does not establish signature trust. Export contains public certificates only."
+        ? "Offline chain; no revocation check. Trust not verified.\n" + string.Join("\n", chain.Status)
         : string.Empty;
     public string AnalyzedCertificateValidity => AnalyzedPublisherCertificate is { } certificate
         ? $"{certificate.NotBefore.ToLocalTime():d} – {certificate.NotAfter.ToLocalTime():d}" +
             (certificate.IsWithinValidityPeriod ? string.Empty : " · Outside validity period")
         : string.Empty;
     public string AnalyzedCertificateDetails => AnalyzedPublisherCertificate is { } certificate
-        ? $"Publisher: {certificate.Subject}\nIssuer: {certificate.Issuer}\nThumbprint: {certificate.Thumbprint}\nValidity: {AnalyzedCertificateValidity}\n\nExtracted from the analyzed file. Signature trust has not been verified."
+        ? $"Publisher: {certificate.Subject}\nIssuer: {certificate.Issuer}\nThumbprint: {certificate.Thumbprint}\nValidity: {AnalyzedCertificateValidity}\nTrust not verified."
         : string.Empty;
     public CertificateAttributes? PublisherCertificate
     {
@@ -494,8 +491,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string PublisherCertificateChoiceText => UseUploadedCertificate
         ? $"Selected certificate file: {Path.GetFileName(SelectedCertificateFile)}"
         : PublisherCertificate is { } certificate
-            ? $"Using analyzed file's publisher certificate - {certificate.Subject} (thumbprint {certificate.Thumbprint})"
-            : "No certificate selected. Choose a certificate file or analyze a signed file.";
+            ? $"Analyzed file certificate: {certificate.Subject}"
+            : "Choose a certificate or analyze a signed file.";
     public string CertificateSelectionLabel => UseUploadedCertificate ? Path.GetFileName(SelectedCertificateFile)
         : HasPublisherCertificate ? "Analyzed file certificate" : "No certificate selected";
     public string SelectedCertificateFile { get => _selectedCertificateFile; private set { if (Set(ref _selectedCertificateFile, value)) { Raise(nameof(CertificateSelectionLabel)); Raise(nameof(PublisherCertificateChoiceText)); } } }
@@ -523,7 +520,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string GraphAccount { get => _graphAccount; private set { if (Set(ref _graphAccount, value)) Raise(nameof(AccountButtonLabel)); } }
     public string AccountInitials { get => _accountInitials; private set => Set(ref _accountInitials, value); }
     public bool IsAccountMenuOpen { get => _isAccountMenuOpen; set => Set(ref _isAccountMenuOpen, value); }
-    public string AccountButtonLabel => GraphConnected ? $"Microsoft Entra account: {GraphAccount}" : "Sign in to Microsoft Entra (optional)";
+    public string AccountButtonLabel => GraphConnected ? "Microsoft Entra account" : "Sign in (optional)";
     public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(GraphConnectionLabel)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(AccountButtonLabel)); Raise(nameof(ReusableCertificateSelectionHint)); Raise(nameof(ReusableCertificateStatusLabel)); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); } }
     public bool CanSelectElevationPolicy => GraphConnected && !Busy;
     public ElevationPolicyOption? SelectedPolicyOption
@@ -698,7 +695,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             AccountInitials = nameParts.Length == 0 ? "?"
                 : (nameParts[0][..1] + (nameParts.Length > 1 ? nameParts[^1][..1] : string.Empty)).ToUpperInvariant();
-            GraphConnectionStatus = "Connected to Microsoft Graph. Intune is changed only when you explicitly upload a rule.";
+            GraphConnectionStatus = "Connected to Microsoft Graph.";
             TenantId = profile.TenantId;
             IsAccountMenuOpen = false;
             await EnsureElevationPoliciesAsync();
@@ -724,7 +721,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         GraphAccount = string.Empty;
         AccountInitials = string.Empty;
         IsAccountMenuOpen = false;
-        GraphConnectionStatus = "Disconnected. Local file analysis remains available offline.";
+        GraphConnectionStatus = "Signed out. Local analysis still works.";
         PolicyLoadStatus = "Sign in to select a policy.";
     }
 
@@ -909,12 +906,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         : _reusableCertificatesLoaded && ReusableCertificateSettings.Count == 0 ? "No certificates found." : string.Empty;
 
     public string ReusableCertificateSelectionHint => !GraphConnected
-        ? "Sign in using the account button at the top right to choose a reusable certificate."
+        ? "Sign in to choose an EPM certificate."
         : _reusableCertificatesLoading
             ? "Loading EPM certificates…"
-            : _reusableCertificatesLoadError ?? (_reusableCertificatesLoaded && ReusableCertificateSettings.Count == 0
-                ? "No reusable EPM certificates were found in this tenant."
-                : "Choose a reusable EPM certificate from the dropdown.");
+            : _reusableCertificatesLoadError is not null ? "Could not load certificates. See Logs."
+                : _reusableCertificatesLoaded && ReusableCertificateSettings.Count == 0
+                    ? "No reusable EPM certificates found."
+                    : "Choose an EPM certificate.";
 
     public void LoadCertificateFile(string path)
     {

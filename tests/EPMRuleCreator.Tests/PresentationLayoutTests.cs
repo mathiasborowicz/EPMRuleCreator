@@ -210,6 +210,39 @@ public sealed class PresentationLayoutTests
         Assert.Contains("if ($resolvedPath -ine $installedPath)", script);
     }
 
+    [Fact]
+    public void GeneralTooltipsStayShortAndPreserveActionWarnings()
+    {
+        foreach (var file in new[] { "MainWindow.xaml", "LaunchModeWindow.xaml" })
+        {
+            var document = XDocument.Load(Source(file));
+            foreach (var tooltip in document.Descendants().Attributes("ToolTip").Where(attribute => !attribute.Value.StartsWith('{')))
+                Assert.True(tooltip.Value.Length <= 80, $"Tooltip is too long: {tooltip.Value}");
+        }
+        var window = XDocument.Load(Source("MainWindow.xaml"));
+        foreach (var command in new[] { "UpdateNowCommand", "InstallApplicationCommand" })
+        {
+            var button = window.Descendants(Presentation + "Button").Single(element => (string?)element.Attribute("Command") == $"{{Binding {command}}}");
+            Assert.Contains("Unsaved rule edits will be lost.", (string?)button.Attribute("ToolTip"));
+        }
+        var upload = window.Descendants(Presentation + "Button").Single(element => (string?)element.Attribute("Command") == "{Binding UploadRuleCommand}");
+        Assert.Contains("Writes immediately.", (string?)upload.Attribute("ToolTip"));
+        Assert.Contains("no assignments", (string?)upload.Attribute("ToolTip"));
+    }
+
+    [Fact]
+    public void MenuTooltipOnlyDescribesTheAction()
+    {
+        var code = File.ReadAllText(Source("ViewModels/MainViewModel.cs"));
+        var expression = Regex.Match(code, @"public string ExplorerMenuToolTip =>[\s\S]*?;").Value;
+        Assert.Equal(new[] { "Remove the context menu entry.", "Add the context menu entry." },
+            Regex.Matches(expression, "\"([^\"]*)\"").Select(match => match.Groups[1].Value));
+        Assert.DoesNotContain("+", expression);
+        Assert.Contains("ExplorerMenuRepairToolTip => \"Repair the context menu entry.\";", code);
+        Assert.Contains("Trust not verified.", code);
+        Assert.Contains("Could not load certificates. See Logs.", code);
+    }
+
     private static double Contrast(string a, string b)
     {
         static double Luminance(string color)
