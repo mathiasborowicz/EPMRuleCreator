@@ -22,6 +22,16 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Validate Explorer script syntax in Windows PowerShell
+        shell: powershell
+        run: |
+          foreach ($explorerScript in Get-ChildItem .\scripts\*.ps1) {
+            $parseTokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($explorerScript.FullName, [ref]$parseTokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
+          }
+
       - name: Run tests
         run: dotnet test .\IntuneEpmRuleCreator.sln --configuration Release
 

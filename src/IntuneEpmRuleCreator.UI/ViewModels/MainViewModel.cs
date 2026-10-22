@@ -98,6 +98,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ValidateCommand = new RelayCommand(Validate, () => !Busy && _hasAnalyzedFile);
         UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && _hasAnalyzedFile && !_policiesLoading && !_policyCountLoading && GraphConnected && (IsCreatingPolicy || SelectedElevationPolicy is not null));
         ToggleExplorerMenuCommand = new RelayCommand(ToggleExplorerMenu, () => !Busy);
+        RepairExplorerMenuCommand = new RelayCommand(() => SetExplorerMenu(registered: true), () => !Busy && _explorerMenuRegistered);
         ValidationMessages.CollectionChanged += (_, _) =>
         {
             Raise(nameof(BlockingValidationMessages));
@@ -141,6 +142,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand AnalyzeCommand { get; }
     public ICommand ValidateCommand { get; }
     public ICommand ToggleExplorerMenuCommand { get; }
+    public ICommand RepairExplorerMenuCommand { get; }
     public ICommand UploadRuleCommand { get; }
     public ICommand ConnectGraphCommand { get; }
     public ICommand DisconnectGraphCommand { get; }
@@ -161,10 +163,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
     public string ExplorerMenuButtonText => _explorerMenuRegistered ? "Remove menu" : "Add menu";
+    public bool HasExplorerMenu => _explorerMenuRegistered;
     public string ExplorerMenuToolTip => (_explorerMenuRegistered
         ? "Remove 'Create Intune EPM Rule' from the Explorer context menu."
         : "Add 'Create Intune EPM Rule' to the Explorer context menu for EXE, MSI and PS1 files.") +
-        " Current user only; no admin rights required. On Windows 11: Show more options. Keep this EXE at its current location.";
+        " Uses a fixed application copy in Local AppData, so the downloaded EXE can be moved or deleted. Current user only; no admin rights required. On Windows 11: Show more options.";
+    public string ExplorerMenuRepairToolTip => "Repair the context menu or update its fixed application copy using this EXE. Target: " +
+        ExplorerApplicationDeployment.GetInstalledPath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)) +
+        ". Close other app instances launched from Explorer before updating.";
     public IEnumerable<string> BlockingValidationMessages => ValidationMessages.Where(message => message.StartsWith("Error:", StringComparison.Ordinal));
     public string ValidationWarningsLabel
     {
@@ -409,12 +415,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Raise(nameof(UploadRuleCommand));
     }
 
-    private void ToggleExplorerMenu()
+    private void ToggleExplorerMenu() => SetExplorerMenu(registered: !_explorerMenuRegistered);
+
+    private void SetExplorerMenu(bool registered)
     {
         try
         {
-            if (_explorerMenuRegistered) ExplorerContextMenuService.Remove();
-            else ExplorerContextMenuService.Register(Environment.ProcessPath ?? throw new InvalidOperationException("The application path is unavailable."));
+            if (registered) ExplorerContextMenuService.Register(Environment.ProcessPath ?? throw new InvalidOperationException("The application path is unavailable."));
+            else ExplorerContextMenuService.Remove();
         }
         catch (Exception exception)
         {
@@ -426,6 +434,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             catch { }
             Raise(nameof(ExplorerMenuButtonText));
             Raise(nameof(ExplorerMenuToolTip));
+            Raise(nameof(HasExplorerMenu));
         }
     }
 

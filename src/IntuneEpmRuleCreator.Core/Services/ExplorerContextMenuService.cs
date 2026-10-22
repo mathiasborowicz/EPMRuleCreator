@@ -32,10 +32,8 @@ public static class ExplorerContextMenuService
     [SupportedOSPlatform("windows")]
     public static void Register(string executablePath)
     {
-        var fullPath = Path.GetFullPath(executablePath);
-        if (!File.Exists(fullPath) || !fullPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(Path.GetFileName(fullPath), "dotnet.exe", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Run the standalone application EXE to register its context menu.");
+        var fullPath = ExplorerApplicationDeployment.Install(executablePath,
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
         var command = BuildCommand(fullPath);
         foreach (var extension in Extensions)
         {

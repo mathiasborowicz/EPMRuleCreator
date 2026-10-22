@@ -14,10 +14,17 @@
             <StackPanel>
                 <TextBlock Text="Intune EPM Rule Creator" FontSize="27" FontWeight="SemiBold"/>
             </StackPanel>
-            <Button Grid.Column="1" Content="{Binding ExplorerMenuButtonText, Mode=OneWay}" Command="{Binding ToggleExplorerMenuCommand}"
-                    FontSize="12" Padding="10,6" Margin="12,0,0,0" VerticalAlignment="Center">
-                <Button.ToolTip><ToolTip><TextBlock Text="{Binding ExplorerMenuToolTip}" TextWrapping="Wrap" MaxWidth="400"/></ToolTip></Button.ToolTip>
-            </Button>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="{Binding ExplorerMenuButtonText, Mode=OneWay}" Command="{Binding ToggleExplorerMenuCommand}"
+                        FontSize="12" Padding="10,6" Margin="12,0,0,0">
+                    <Button.ToolTip><ToolTip><TextBlock Text="{Binding ExplorerMenuToolTip}" TextWrapping="Wrap" MaxWidth="400"/></ToolTip></Button.ToolTip>
+                </Button>
+                <Button Content="&#x21BB;" Command="{Binding RepairExplorerMenuCommand}" Padding="8,3" FontSize="18" Margin="4,0,0,0"
+                        Visibility="{Binding HasExplorerMenu, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        AutomationProperties.Name="Repair or update Explorer context menu">
+                    <Button.ToolTip><ToolTip><TextBlock Text="{Binding ExplorerMenuRepairToolTip}" TextWrapping="Wrap" MaxWidth="400"/></ToolTip></Button.ToolTip>
+                </Button>
+            </StackPanel>
             <ToggleButton x:Name="AccountButton" Grid.Column="2" Width="44" Height="44" Margin="20,0,0,0"
                           VerticalAlignment="Center" Cursor="Hand"
                           Content="{Binding AccountInitials, Mode=OneWay}"

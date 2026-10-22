@@ -57,7 +57,9 @@ Every push to `work` or `main` runs tests and creates a self-contained, compress
 
 ## Register the Explorer menu
 
-Keep the downloaded standalone EXE in its intended location, start it, and click **Add menu** in the top-right header. The button changes to **Remove menu**; click it to remove the registration again. The app uses its actual running EXE path, including for the compressed single-file build, and refreshes Explorer's association cache. No administrator rights or companion files are required.
+Start the downloaded standalone EXE and click **Add menu** in the top-right header. The app copies the running EXE to `%LOCALAPPDATA%\IntuneEpmRuleCreator\App\IntuneEpmRuleCreator.exe`, registers that fixed path, and refreshes Explorer's association cache. You can then move or delete the downloaded EXE without breaking the menu. The managed copy must remain in Local AppData. No administrator rights or companion files are required.
+
+The button changes to **Remove menu**, with a small **↻** repair/update button beside it. If you registered an earlier version at its download path, open the new EXE and click **↻** once to migrate the registration. To update later, open the newly downloaded EXE and click **↻** again. Close other instances launched from Explorer first. The complete replacement is staged before replacing the managed file, and registration is changed only after deployment succeeds. Identical copies and registration from the managed location do not rewrite the EXE.
 
 The PowerShell scripts are an alternative. From a normal, non-elevated PowerShell session in the repository root, register the current user's menu:
 
@@ -68,7 +70,9 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Register
 
 The registration is per-user under `HKEY_CURRENT_USER` and does not require administrator privileges. Windows 11 shows this classic registry menu item under **Show more options**; it is not in the primary modern context menu. The menu is registered for `.exe`, `.msi`, and `.ps1` files. Right-click one of those files, choose **Show more options**, then **Create Intune EPM Rule**. The application starts with that path and analyzes it automatically. The selected file is never executed. The path is passed as a quoted argument, including when it contains spaces or Unicode characters.
 
-Keep the executable at the same path after registration. If you move it, click **Remove menu**, then **Add menu** in the moved app, or run the registration script again with the new `-ApplicationPath`. Removal deletes only the three app-owned `CreateIntuneEpmRule` registry subtrees; **Add menu** recreates them.
+The registration script also deploys to the fixed Local AppData path before writing the registry. Run it again with a newer `-ApplicationPath` to update or repair the menu.
+
+**Remove menu** and the removal script delete only the three app-owned `CreateIntuneEpmRule` registry subtrees. They retain the managed EXE, `settings.json`, and the token cache. For complete removal of the managed executable, remove the menu, close the app, and delete only `%LOCALAPPDATA%\IntuneEpmRuleCreator\App` in Explorer. Account settings remain in the parent folder.
 
 ## What works offline
 
@@ -91,4 +95,4 @@ Graph authentication and policy selection are optional for offline analysis. Upl
 
 Changing files immediately clears previous metadata and rule fields, including certificates and validation choices. Analyze the new file before validating or uploading. The current Entra account and selected target policy are retained. Explanations are in tooltips; errors and short statuses stay visible.
 
-The development runner is Linux, so the WPF app and Explorer integration still require a Windows smoke test: analyze two different files in sequence, check that no old rule values remain, add the context menu, launch the app from a supported file's right-click menu, and remove it again. Automated tests cover command quoting but do not modify a real Windows registry.
+The development runner is Linux, so WPF and Explorer integration require a Windows smoke test: analyze two different files in sequence, add or repair the menu, move/delete the original downloaded EXE, launch from a supported file's right-click menu, update the managed copy, and remove the menu again. Automated tests cover command quoting, deployment, source deletion, updates, and failed replacement cleanup without modifying a real Windows registry. The Windows build also parses both Explorer scripts using Windows PowerShell.
