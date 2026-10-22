@@ -26,7 +26,7 @@ The POST route, response (`201 Created`), permission (`DeviceManagementConfigura
 
 The policy uses `windows10`, `endpointPrivilegeManagement`, the default scope tag `0`, and no assignments. After creation, the returned policy ID is selected and the app reads the settings back to check for one rule. An interrupted response is not automatically retried. If creation succeeds but verification fails, the UI retains the created policy and its ID so the user can inspect it instead of creating another copy.
 
-The new POST path is covered by local payload and mocked HTTP tests (all five elevation types and three certificate-source modes), but creation acceptance still needs to be confirmed in the test tenant. Microsoft Learn was checked through the Microsoft Graph documentation source:
+On 2026-10-22, the user confirmed that creating a new policy together with its first rule succeeds in the test tenant. The POST path also has local payload and mocked HTTP tests covering all five elevation types and three certificate-source modes. The live confirmation applies to the user's tested scenario; it does not establish live acceptance for every combination or for a completely empty tenant. Microsoft Learn was checked through the Microsoft Graph documentation source:
 
 - [Create configuration policy](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationpolicy-create?view=graph-rest-beta) ([Microsoft source](https://github.com/microsoftgraph/microsoft-graph-docs-contrib/blob/main/api-reference/beta/api/intune-deviceconfigv2-devicemanagementconfigurationpolicy-create.md))
 - [Policy resource and settings relationship](https://learn.microsoft.com/en-us/graph/api/resources/intune-deviceconfigv2-devicemanagementconfigurationpolicy?view=graph-rest-beta)
@@ -48,4 +48,4 @@ Graph consent does not replace Intune licensing or the signed-in user's Intune R
 
 ## Remaining before release
 
-Validate new-policy POST acceptance and readback in the test tenant, including a tenant with no existing EPM policies. Extend the confirmed existing-policy tests to every elevation type and child-process choice. Confirm server-side behavior for simultaneous admin edits; no concurrency token was included in the supplied payload. The mocked HTTP tests do not establish live beta API acceptance for new-policy creation.
+Extend the confirmed new-policy and existing-policy tests to every elevation type, certificate-source mode, and child-process choice, including creation in a tenant with no existing EPM policies. Confirm server-side behavior for simultaneous admin edits; no concurrency token was included in the supplied payload. Automated HTTP tests use mocks; live acceptance for new-policy creation is based on the user's test-tenant confirmation.

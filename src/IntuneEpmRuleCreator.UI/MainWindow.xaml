@@ -131,7 +131,7 @@
                                     <TextBox Text="{Binding SignatureStatus}" IsReadOnly="True">
                                         <TextBox.ToolTip><ToolTip><StackPanel MaxWidth="440">
                                             <TextBlock Text="{Binding SignatureDetails}" TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding CertificateSummary}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                            <TextBlock Text="{Binding AnalyzedCertificateDetails}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                                         </StackPanel></ToolTip></TextBox.ToolTip>
                                     </TextBox>
                                 </StackPanel>
@@ -141,6 +141,29 @@
                             <TextBlock Text="&#x2139; Analysis notes" FontSize="12" Foreground="#8A4B00" Cursor="Help"
                                        Visibility="{Binding HasAnalysisWarnings, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding AnalysisWarnings}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18" Margin="0,0,0,16"
+                            Visibility="{Binding HasAnalyzedPublisherCertificate, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border.ToolTip>
+                            <ToolTip><TextBlock Text="{Binding AnalyzedCertificateDetails}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip>
+                        </Border.ToolTip>
+                        <StackPanel>
+                            <TextBlock Text="Signing certificate" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <TextBlock Text="{Binding AnalyzedPublisherCertificate.Subject, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                       FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <TextBlock Text="{Binding AnalyzedCertificateValidity}" FontSize="12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                        <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AnalyzedPublisherCertificate.IsWithinValidityPeriod}" Value="False">
+                                                <Setter Property="Foreground" Value="#8A4B00"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
                             </TextBlock>
                         </StackPanel>
                     </Border>

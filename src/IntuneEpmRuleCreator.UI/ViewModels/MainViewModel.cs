@@ -35,7 +35,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _epmFileHash = string.Empty;
     private string _internalName = string.Empty;
     private string _fileDescription = string.Empty;
-    private string _certificateSummary = string.Empty;
+    private CertificateAttributes? _analyzedPublisherCertificate;
     private CertificateAttributes? _publisherCertificate;
     private string _signatureStatus = "Not analyzed";
     private string _analysisWarnings = string.Empty;
@@ -182,7 +182,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string EpmFileHash { get => _epmFileHash; set => Set(ref _epmFileHash, value); }
     public string InternalName { get => _internalName; set => Set(ref _internalName, value); }
     public string FileDescription { get => _fileDescription; set => Set(ref _fileDescription, value); }
-    public string CertificateSummary { get => _certificateSummary; set => Set(ref _certificateSummary, value); }
+    public CertificateAttributes? AnalyzedPublisherCertificate
+    {
+        get => _analyzedPublisherCertificate;
+        private set
+        {
+            if (!Set(ref _analyzedPublisherCertificate, value)) return;
+            Raise(nameof(HasAnalyzedPublisherCertificate));
+            Raise(nameof(AnalyzedCertificateValidity));
+            Raise(nameof(AnalyzedCertificateDetails));
+        }
+    }
+    public bool HasAnalyzedPublisherCertificate => AnalyzedPublisherCertificate is not null;
+    public string AnalyzedCertificateValidity => AnalyzedPublisherCertificate is { } certificate
+        ? $"{certificate.NotBefore.ToLocalTime():d} – {certificate.NotAfter.ToLocalTime():d}" +
+            (certificate.IsWithinValidityPeriod ? string.Empty : " · Outside validity period")
+        : string.Empty;
+    public string AnalyzedCertificateDetails => AnalyzedPublisherCertificate is { } certificate
+        ? $"Publisher: {certificate.Subject}\nIssuer: {certificate.Issuer}\nThumbprint: {certificate.Thumbprint}\nValidity: {AnalyzedCertificateValidity}\n\nExtracted from the analyzed file. Signature trust has not been verified."
+        : string.Empty;
     public CertificateAttributes? PublisherCertificate
     {
         get => _publisherCertificate;
@@ -325,6 +343,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var result = await _fileService.AnalyzeAsync(path, cancellation.Token);
             if (revision != _fileRevision || cancellation.IsCancellationRequested) return;
             SelectedCertificateFile = string.Empty;
+            AnalyzedPublisherCertificate = result.PublisherCertificate;
             PublisherCertificate = result.PublisherCertificate;
             Sha256 = result.Sha256;
             ProductName = result.ProductName ?? string.Empty;
@@ -334,9 +353,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             InternalName = result.InternalName ?? string.Empty;
             FileDescription = result.Description ?? string.Empty;
             RuleFileDescription = result.Description ?? string.Empty;
-            CertificateSummary = result.PublisherCertificate is { } certificate
-                ? $"Publisher: {certificate.Subject}{Environment.NewLine}Issuer: {certificate.Issuer}{Environment.NewLine}Thumbprint: {certificate.Thumbprint}{Environment.NewLine}Valid dates: {certificate.NotBefore:g} – {certificate.NotAfter:g} (valid now: {certificate.IsWithinValidityPeriod})"
-                : "Publisher certificate details unavailable.";
             SignatureStatus = result.PublisherCertificate is null ? "No certificate" : "Certificate available";
             SignatureDetails = result.SignatureStatus ?? "Signature information unavailable.";
             AnalysisWarnings = string.Join(Environment.NewLine, result.Warnings);
@@ -372,7 +388,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _hasAnalyzedFile = false;
         Sha256 = EpmFileHash = ProductName = Version = CompanyName = InternalName = FileDescription = string.Empty;
         PublisherCertificate = null;
-        SelectedCertificateFile = CertificateSummary = SignatureDetails = AnalysisWarnings = string.Empty;
+        AnalyzedPublisherCertificate = null;
+        SelectedCertificateFile = SignatureDetails = AnalysisWarnings = string.Empty;
         SignatureStatus = "Not analyzed";
         RuleName = RuleDescription = RuleFileName = RuleFileVersion = RuleFileHash = RuleFileDescription = string.Empty;
         RuleFilePath = RuleProductName = RuleInternalName = ArgumentListText = string.Empty;
@@ -658,7 +675,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             CertificateBase64 = Convert.ToBase64String(certificate.RawData)
         };
         SelectedCertificateFile = path;
-        CertificateSummary = $"Selected certificate: {certificate.Subject}{Environment.NewLine}Issuer: {certificate.Issuer}{Environment.NewLine}Thumbprint: {certificate.Thumbprint}";
         Raise(nameof(PublisherCertificateChoiceText));
     }
 
