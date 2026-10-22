@@ -87,7 +87,8 @@ public sealed class PresentationLayoutTests
         var root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Source("UpdateInstaller.cs"))!, "../.."));
         var script = File.ReadAllText(Path.Combine(root, "scripts", "Install-AppUpdate.ps1"));
         Assert.True(script.IndexOf("WaitForExit", StringComparison.Ordinal) < script.IndexOf("[IO.File]::Replace", StringComparison.Ordinal));
-        Assert.True(script.IndexOf("[IO.File]::Replace", StringComparison.Ordinal) < script.IndexOf("[IO.File]::Delete($destination + ':Zone.Identifier')", StringComparison.Ordinal));
+        Assert.True(script.IndexOf("[IO.File]::Replace", StringComparison.Ordinal) < script.IndexOf("Unblock-File -LiteralPath $destination -ErrorAction Stop", StringComparison.Ordinal));
+        Assert.DoesNotContain("[IO.File]::Delete($destination + ':Zone.Identifier')", script);
         Assert.Contains("$destination + '.previous'", script);
         Assert.Contains("[IO.File]::Copy($backup, $destination, $true)", script);
         Assert.DoesNotContain("-Recurse", script);
@@ -111,6 +112,26 @@ public sealed class PresentationLayoutTests
         var updates = window.Descendants(Presentation + "ToggleButton").Single(element => (string?)element.Attribute(Xaml + "Name") == "UpdatesButton");
         Assert.Equal("{StaticResource HeaderMenuButtonStyle}", (string?)updates.Attribute("Style"));
         Assert.Equal("{Binding IsUpdatesMenuOpen, Mode=TwoWay}", (string?)updates.Attribute("IsChecked"));
+    }
+
+    [Fact]
+    public void ModeChoiceRunsBeforeMainWindowAndMenuRegistrationNeverDeploys()
+    {
+        var app = XDocument.Load(Source("App.xaml"));
+        Assert.Null(app.Root!.Attribute("StartupUri"));
+        Assert.Equal("OnExplicitShutdown", (string?)app.Root.Attribute("ShutdownMode"));
+        var startup = File.ReadAllText(Source("App.xaml.cs"));
+        Assert.True(startup.IndexOf("choice.ShowDialog()", StringComparison.Ordinal) < startup.IndexOf("new MainWindow()", StringComparison.Ordinal));
+        var root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Source("App.xaml.cs"))!, "../.."));
+        var menu = File.ReadAllText(Path.Combine(root, "src", "EPMRuleCreator.Core", "Services", "ExplorerContextMenuService.cs"));
+        Assert.DoesNotContain("ExplorerApplicationDeployment.Install", menu);
+        var script = File.ReadAllText(Path.Combine(root, "scripts", "Register-ExplorerMenu.ps1"));
+        Assert.DoesNotContain("[IO.File]::Copy", script);
+        Assert.DoesNotContain("managedPath", script);
+        var installation = File.ReadAllText(Source("ApplicationInstallation.cs"));
+        Assert.Contains("overwriteExisting: false", installation);
+        Assert.Contains("Environment.SpecialFolder.Programs", installation);
+        Assert.Contains("start.ArgumentList.Add(argument)", installation);
     }
 
     private static double Contrast(string a, string b)

@@ -17,6 +17,7 @@ Just the standalone EXE and license in a ZIP. No compiling, no separate .NET ins
 ## 🚀 Get started
 
 1. Download and extract the ZIP, then open **EPMRuleCreator.exe** on Windows 11 x64.
+   Choose **Use portable** to keep it here, or **Install for this user** for a fixed Local AppData location and Start menu shortcut. Updates and the context menu always use the same EXE. An existing installation is opened, never silently overwritten.
 2. Choose an `.exe`, `.msi`, or `.ps1` file and click **Analyze file**.
 3. Review its details and prepare your elevation rule. That's it for offline use!
 
@@ -36,7 +37,7 @@ Want to send the rule to Intune? Sign in using the account icon at the top right
 - **Choose how to identify it:** file hash, the extracted signing certificate, your own certificate file, or an Intune reusable certificate setting.
 - **Prepare elevation rules:** configure elevation type, validation requirements, child processes, and arguments.
 - **Upload when you're ready:** add a rule to an existing policy or create a new policy with its first rule.
-- **Start from a right-click:** use **Add menu** to enable Explorer integration. **Remove menu** undoes it; **↻** updates the installed copy.
+- **Start from a right-click:** use **Add menu** to enable Explorer integration without creating another EXE copy. **Remove menu** undoes it; **↻** points the menu at the current EXE after moving a portable app.
 
 On Windows 11, the Explorer entry appears under **Show more options**. You can move or delete the original download after adding the menu. [How it works](docs/Installation.md#register-the-explorer-menu).
 

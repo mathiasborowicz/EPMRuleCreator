@@ -108,6 +108,10 @@
                     <StackPanel>
                         <TextBlock Text="Updates" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"/>
+                        <TextBlock Text="{Binding ApplicationModeLabel}" ToolTip="{Binding ApplicationLocation}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"/>
+                        <Button Content="{Binding InstallApplicationLabel}" Command="{Binding InstallApplicationCommand}"
+                                ToolTip="Open the fixed per-user installation. The app restarts; unsaved rule edits will be lost."
+                                Visibility="{Binding IsPortableApplication, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                         <CheckBox Content="Check for updates at startup" IsChecked="{Binding CheckForUpdatesAtStartup, Mode=TwoWay}"
                                   ToolTip="Checks public GitHub releases without sending file details or Entra credentials."/>
                         <TextBlock Text="{Binding UpdateStatus}" TextWrapping="Wrap" Margin="0,12,0,8"/>

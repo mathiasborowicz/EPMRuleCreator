@@ -36,8 +36,7 @@ public static class ExplorerContextMenuService
     [SupportedOSPlatform("windows")]
     public static void Register(string executablePath)
     {
-        var fullPath = ExplorerApplicationDeployment.Install(executablePath,
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+        var fullPath = ResolveExecutablePath(executablePath);
         var command = BuildCommand(fullPath);
         foreach (var extension in Extensions)
         {
@@ -47,7 +46,7 @@ public static class ExplorerContextMenuService
             using var commandKey = key.CreateSubKey("command");
             commandKey.SetValue(string.Empty, command, RegistryValueKind.String);
         }
-        // Only remove legacy entries after the replacement is deployed and registered.
+        // Register only the chosen EXE. Menu registration must never install another copy.
         foreach (var extension in Extensions)
             Registry.CurrentUser.DeleteSubKeyTree(LegacyMenuKey(extension), throwOnMissingSubKey: false);
         NotifyExplorer();
@@ -59,6 +58,17 @@ public static class ExplorerContextMenuService
         foreach (var menuKey in GetOwnedMenuKeys())
             Registry.CurrentUser.DeleteSubKeyTree(menuKey, throwOnMissingSubKey: false);
         NotifyExplorer();
+    }
+
+    public static string ResolveExecutablePath(string executablePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
+        var path = Path.GetFullPath(executablePath);
+        if (!File.Exists(path) || !Path.GetExtension(path).Equals(".exe", StringComparison.OrdinalIgnoreCase)
+            || Path.GetFileName(path).Equals("dotnet.exe", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Run the standalone application EXE to register its context menu.");
+        _ = BuildCommand(path);
+        return path;
     }
 
     [SupportedOSPlatform("windows")]
