@@ -7,9 +7,21 @@ using IntuneEpmRuleCreator.Core.Models;
 namespace IntuneEpmRuleCreator.Core.Services;
 
 public enum CertificateChainExportFormat { Pkcs7, Pem }
+public sealed record CertificateExportFile(string FileName, byte[] Data);
 
 public static class CertificateChainService
 {
+    public static IReadOnlyList<CertificateExportFile> ExportIndividualCertificates(CertificateChainResult chain)
+    {
+        if (chain.Certificates.Count == 0) throw new InvalidOperationException("No certificates are available to export.");
+        return chain.Certificates.Select((item, index) =>
+        {
+            using var certificate = X509CertificateLoader.LoadCertificate(Convert.FromBase64String(item.CertificateBase64));
+            var role = index == 0 ? "signing" : chain.IsComplete && index == chain.Certificates.Count - 1 ? "root" : "intermediate";
+            return new CertificateExportFile($"{index + 1:D2}-{role}-{certificate.Thumbprint}.cer", certificate.RawData);
+        }).ToArray();
+    }
+
     public static CertificateAttributes Describe(X509Certificate2 certificate)
     {
         var now = DateTime.UtcNow;

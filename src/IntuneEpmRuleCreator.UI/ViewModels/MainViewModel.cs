@@ -14,6 +14,11 @@ using System.Security.Cryptography.X509Certificates;
 namespace IntuneEpmRuleCreator.UI.ViewModels;
 
 public sealed record CertificateTypeOption(CertificateType Value, string DisplayName);
+public sealed record CertificateChainEntry(string Role, CertificateAttributes Certificate)
+{
+    public string Validity => $"{Certificate.NotBefore.ToLocalTime():d} - {Certificate.NotAfter.ToLocalTime():d}";
+    public string Details => $"Issuer: {Certificate.Issuer}\nThumbprint: {Certificate.Thumbprint}\nValid: {Validity}\nWithin validity period: {Certificate.IsWithinValidityPeriod}";
+}
 public sealed record SignatureSourceOption(SignatureSource Value, string DisplayName);
 public sealed record RestrictArgumentsOption(RestrictArgumentsMode Value, string DisplayName);
 public sealed record ElevationTypeOption(ElevationType Value, string DisplayName);
@@ -26,6 +31,7 @@ public sealed record ElevationPolicyOption(ElevationRulePolicy? Policy)
 public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly FileAttributeService _fileService = new(new Sha256FileHasher());
+    private readonly ActivityLog _activityLog = new();
     private readonly RuleValidationService _validator = new();
     private string _filePath = string.Empty;
     private string _sha256 = string.Empty;
@@ -99,6 +105,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         ChildProcessBehaviors = Enum.GetValues<ChildProcessBehavior>();
         AnalyzeCommand = new AsyncCommand(AnalyzeAsync, () => !Busy && !string.IsNullOrWhiteSpace(FilePath));
+        ClearLogCommand = new RelayCommand(() => { _activityLog.Clear(); Raise(nameof(ActivityLogText)); });
         ValidateCommand = new RelayCommand(Validate, () => !Busy && _hasAnalyzedFile);
         UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && _hasAnalyzedFile && !_policiesLoading && !_policyCountLoading && GraphConnected && (IsCreatingPolicy || SelectedElevationPolicy is not null));
         ToggleExplorerMenuCommand = new RelayCommand(ToggleExplorerMenu, () => !Busy);
@@ -144,6 +151,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         new(global::IntuneEpmRuleCreator.Core.Models.CertificateType.CertificateAuthority, "Certificate authority")
     ];
     public ICommand AnalyzeCommand { get; }
+    public ICommand ClearLogCommand { get; }
+    public string ActivityLogText => _activityLog.Text;
+    public void AddLog(string message)
+    {
+        _activityLog.Add(message);
+        Raise(nameof(ActivityLogText));
+    }
     public ICommand ValidateCommand { get; }
     public ICommand ToggleExplorerMenuCommand { get; }
     public ICommand RepairExplorerMenuCommand { get; }
@@ -232,9 +246,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(CanExportCertificateChain));
             Raise(nameof(CertificateChainLabel));
             Raise(nameof(CertificateChainDetails));
+            Raise(nameof(CertificateChainEntries));
         }
     }
     public bool CanExportCertificateChain => !Busy && AnalyzedCertificateChain is { Certificates.Count: > 0 };
+    public IReadOnlyList<CertificateChainEntry> CertificateChainEntries => AnalyzedCertificateChain is { } chain
+        ? chain.Certificates.Select((certificate, index) => new CertificateChainEntry(
+            index == 0 ? "Signing certificate" : chain.IsComplete && index == chain.Certificates.Count - 1 ? "Root certificate" : "Intermediate certificate", certificate)).ToArray()
+        : [];
     public string CertificateChainLabel => AnalyzedCertificateChain is { } chain
         ? $"{chain.Certificates.Count} certificate(s) - {(chain.IsComplete ? "Complete chain" : "Incomplete chain")}" : string.Empty;
     public string CertificateChainDetails => AnalyzedCertificateChain is { } chain
@@ -273,7 +292,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string RuleFilePath { get => _ruleFilePath; set => Set(ref _ruleFilePath, value); }
     public string RuleProductName { get => _ruleProductName; set => Set(ref _ruleProductName, value); }
     public string RuleInternalName { get => _ruleInternalName; set => Set(ref _ruleInternalName, value); }
-    public string ValidationSummary { get => _validationSummary; set => Set(ref _validationSummary, value); }
+    public string ValidationSummary { get => _validationSummary; set { if (Set(ref _validationSummary, value)) AddLog(value); } }
     public SignatureSource SignatureSource
     {
         get => _signatureSource;
@@ -350,7 +369,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool CanChooseFile => !Busy;
     public string ClientId { get => _clientId; set { Set(ref _clientId, value); SaveSettings(); } }
     public string TenantId { get => _tenantId; set { Set(ref _tenantId, value); SaveSettings(); } }
-    public string GraphConnectionStatus { get => _graphConnectionStatus; private set { if (Set(ref _graphConnectionStatus, value)) Raise(nameof(GraphConnectionLabel)); } }
+    public string GraphConnectionStatus { get => _graphConnectionStatus; private set { if (Set(ref _graphConnectionStatus, value)) { Raise(nameof(GraphConnectionLabel)); AddLog(value); } } }
     public string GraphConnectionLabel => GraphConnectionStatus.StartsWith("Connection failed:", StringComparison.Ordinal)
         ? "Sign-in failed" : GraphConnected ? "Connected" : "Not signed in";
     public string GraphAccount { get => _graphAccount; private set { if (Set(ref _graphAccount, value)) Raise(nameof(AccountButtonLabel)); } }
@@ -394,7 +413,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 _ = LoadSelectedPolicyCountAsync();
         }
     }
-    public string PolicyLoadStatus { get => _policyLoadStatus; private set => Set(ref _policyLoadStatus, value); }
+    public string PolicyLoadStatus { get => _policyLoadStatus; private set { if (Set(ref _policyLoadStatus, value) && !string.IsNullOrWhiteSpace(value)) AddLog(value); } }
     public string SelectedPolicySummary => SelectedElevationPolicy is null || _selectedPolicyRuleCount is null
         ? string.Empty
         : $"Elevation rules: {_selectedPolicyRuleCount}/{_selectedPolicyRuleLimit ?? 100}.";
@@ -409,6 +428,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _analysisCancellation = cancellation;
         ResetFileFields();
         Busy = true;
+        AddLog($"Analyzing '{Path.GetFileName(path)}'. EpmCmdlets: {(useEpmCmdlets ? "enabled" : "off")}.");
         try
         {
             var result = await _fileService.AnalyzeAsync(path, useEpmCmdlets, cancellation.Token);
@@ -428,6 +448,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SignatureStatus = result.PublisherCertificate is null ? "No certificate" : "Certificate available";
             SignatureDetails = result.SignatureStatus ?? "Signature information unavailable.";
             AnalysisWarnings = string.Join(Environment.NewLine, result.Warnings);
+            foreach (var warning in result.Warnings) AddLog($"Warning: {warning}");
+            if (result.CertificateChain is not null) AddLog(CertificateChainLabel);
             RuleFileName = result.FileName;
             // Preserve detected metadata in the editable rule field; validation reports
             // unsupported version formats instead of silently blanking the prefilled value.
@@ -445,7 +467,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             if (revision != _fileRevision) return;
             ValidationSummary = "File analysis failed.";
-            MessageBox.Show(exception.Message, "File analysis", MessageBoxButton.OK, MessageBoxImage.Error);
+            AddLog($"File analysis failed: {exception.Message}");
         }
         finally
         {
@@ -496,10 +518,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             if (registered) ExplorerContextMenuService.Register(Environment.ProcessPath ?? throw new InvalidOperationException("The application path is unavailable."));
             else ExplorerContextMenuService.Remove();
+            AddLog(registered ? "Explorer context menu installed or updated." : "Explorer context menu removed.");
         }
         catch (Exception exception)
         {
-            MessageBox.Show(exception.Message, "Explorer context menu", MessageBoxButton.OK, MessageBoxImage.Error);
+            AddLog($"Explorer context menu: {exception.Message}");
         }
         finally
         {
@@ -672,11 +695,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
             foreach (var setting in settings.OrderBy(setting => setting.DisplayName, StringComparer.CurrentCultureIgnoreCase))
                 ReusableCertificateSettings.Add(setting);
             _reusableCertificatesLoaded = true;
+            AddLog($"Loaded {ReusableCertificateSettings.Count} reusable EPM certificates.");
         }
         catch (Exception exception)
         {
             if (generation == _reusableCertificatesGeneration)
+            {
                 _reusableCertificatesLoadError = $"Could not load certificates: {exception.Message} Open the dropdown to retry.";
+                AddLog(_reusableCertificatesLoadError);
+            }
         }
         finally
         {
@@ -760,6 +787,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Raise(nameof(HasUploadedCertificate));
         Raise(nameof(UploadedCertificateLabel));
         SelectCertificate(uploaded: true);
+        AddLog($"Selected certificate file '{Path.GetFileName(path)}'.");
     }
 
     private ElevationRule BuildRule() => new()
@@ -790,7 +818,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var result = ValidateRuleForTarget(BuildRule());
         ValidationMessages.Clear();
         foreach (var issue in result.Issues)
+        {
             ValidationMessages.Add($"{(issue.IsBlocking ? "Error" : "Warning")}: {issue.Message}");
+            AddLog($"{(issue.IsBlocking ? "Error" : "Warning")}: {issue.Message}");
+        }
         ValidationSummary = result.CanSubmit ? "Validation passed." : "Validation failed.";
     }
 
@@ -819,21 +850,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var result = _validator.Validate(rule, collection.RuleCount, hasPolicy: true);
             ValidationMessages.Clear();
             foreach (var issue in result.Issues)
+            {
                 ValidationMessages.Add($"{(issue.IsBlocking ? "Error" : "Warning")}: {issue.Message}");
+                AddLog($"{(issue.IsBlocking ? "Error" : "Warning")}: {issue.Message}");
+            }
             if (!result.CanSubmit)
             {
                 ValidationSummary = "Validation failed.";
                 PolicyLoadStatus = "Upload stopped because validation failed.";
-                return;
-            }
-
-            var warningText = result.Issues.Where(issue => !issue.IsBlocking).Select(issue => issue.Message);
-            var details = string.Join(Environment.NewLine, warningText);
-            var confirmMessage = $"Append '{rule.Name}' to policy '{policy.Name}'?\n\nCurrent rules: {collection.RuleCount}/{collection.MaximumRuleCount}. This changes the Intune policy.";
-            if (!string.IsNullOrWhiteSpace(details)) confirmMessage += $"\n\nWarnings:\n{details}";
-            if (MessageBox.Show(confirmMessage, "Confirm Intune upload", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
-            {
-                PolicyLoadStatus = "Upload cancelled; no policy changes were sent.";
                 return;
             }
 
@@ -878,22 +902,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var validation = ValidateRuleForTarget(rule);
             ValidationMessages.Clear();
             foreach (var issue in validation.Issues)
+            {
                 ValidationMessages.Add($"{(issue.IsBlocking ? "Error" : "Warning")}: {issue.Message}");
+                AddLog($"{(issue.IsBlocking ? "Error" : "Warning")}: {issue.Message}");
+            }
             if (!validation.CanSubmit)
             {
                 ValidationSummary = "Validation failed.";
                 return;
             }
 
-            var message = $"Create Elevation Rules policy '{name}' with rule '{rule.Name}'?\n\nThe policy is created without assignments and with the default scope tag (0).";
-            var warnings = string.Join(Environment.NewLine, validation.Issues.Where(issue => !issue.IsBlocking).Select(issue => issue.Message));
-            if (!string.IsNullOrWhiteSpace(warnings)) message += $"\n\nWarnings:\n{warnings}";
-            if (MessageBox.Show(message, "Create policy and upload rule", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
-            {
-                PolicyLoadStatus = "Creation cancelled; no policy was created.";
-                return;
-            }
-
+            AddLog("Creating a policy without assignments and with the default scope tag (0).");
             PolicyLoadStatus = $"Creating '{name}' with its first rule…";
             created = await _graphAuthentication.CreateElevationRulePolicyAsync(name, description, rule);
             var option = new ElevationPolicyOption(created);

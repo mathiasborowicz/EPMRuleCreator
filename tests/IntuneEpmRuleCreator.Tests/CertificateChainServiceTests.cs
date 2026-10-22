@@ -63,6 +63,40 @@ public sealed class CertificateChainServiceTests
     public void EmptyChainCannotBeExported()
         => Assert.Throws<InvalidOperationException>(() => CertificateChainService.Export(new([], false, []), CertificateChainExportFormat.Pkcs7));
 
+    [Fact]
+    public void IndividualExportProducesOnePublicDerCerPerCertificateInChainOrder()
+    {
+        using var certificates = new TestChain();
+        var chain = CertificateChainService.Build(certificates.Signer, [certificates.Intermediate, certificates.Root]);
+        var files = CertificateChainService.ExportIndividualCertificates(chain);
+        Assert.Equal(3, files.Count);
+        Assert.StartsWith("01-signing-", files[0].FileName);
+        Assert.StartsWith("02-intermediate-", files[1].FileName);
+        Assert.StartsWith("03-root-", files[2].FileName);
+        for (var i = 0; i < files.Count; i++)
+        {
+            Assert.Equal(Path.GetFileName(files[i].FileName), files[i].FileName);
+            Assert.EndsWith(".cer", files[i].FileName);
+            using var certificate = X509CertificateLoader.LoadCertificate(files[i].Data);
+            Assert.Equal(chain.Certificates[i].Thumbprint, certificate.Thumbprint);
+            Assert.False(certificate.HasPrivateKey);
+        }
+    }
+
+    [Fact]
+    public void PartialIndividualExportDoesNotInventMissingCertificates()
+    {
+        using var certificates = new TestChain();
+        var chain = CertificateChainService.Build(certificates.Signer);
+        var files = CertificateChainService.ExportIndividualCertificates(chain);
+        Assert.Single(files);
+        Assert.Equal(Convert.FromBase64String(certificates.Signer.CertificateBase64), files[0].Data);
+    }
+
+    [Fact]
+    public void EmptyChainCannotBeExportedAsIndividualFiles()
+        => Assert.Throws<InvalidOperationException>(() => CertificateChainService.ExportIndividualCertificates(new([], false, [])));
+
     private sealed class TestChain : IDisposable
     {
         private readonly RSA _rootKey = RSA.Create(2048);
