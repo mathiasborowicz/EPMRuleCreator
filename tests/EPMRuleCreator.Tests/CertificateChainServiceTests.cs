@@ -1,8 +1,10 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Text.Json.Nodes;
 using EPMRuleCreator.Core.Models;
 using EPMRuleCreator.Core.Services;
+using EPMRuleCreator.Graph;
 using Xunit;
 
 namespace EPMRuleCreator.Tests;
@@ -96,6 +98,93 @@ public sealed class CertificateChainServiceTests
     [Fact]
     public void EmptyChainCannotBeExportedAsIndividualFiles()
         => Assert.Throws<InvalidOperationException>(() => CertificateChainService.ExportIndividualCertificates(new([], false, [])));
+
+    [Fact]
+    public void EveryAvailableChainCertificateCanBeSelectedWithoutChangingItsBytes()
+    {
+        using var certificates = new TestChain();
+        var chain = CertificateChainService.Build(certificates.Signer, [certificates.Root, certificates.Intermediate]);
+        var selection = new AnalyzedCertificateSelection();
+        selection.Load(certificates.Signer, chain);
+        Assert.Equal(3, selection.Certificates.Count);
+        Assert.Equal(certificates.Signer.CertificateBase64, selection.Selected!.CertificateBase64);
+        foreach (var candidate in chain.Certificates)
+        {
+            Assert.True(selection.Select(candidate));
+            Assert.Equal(candidate.CertificateBase64, selection.Selected!.CertificateBase64);
+            Assert.Equal(candidate.Subject, selection.Selected.Subject);
+        }
+        Assert.False(certificates.Signer.IsCertificateAuthority);
+        Assert.True(certificates.Intermediate.IsCertificateAuthority);
+        Assert.True(certificates.Root.IsCertificateAuthority);
+    }
+
+    [Fact]
+    public void SwitchingFilesClearsOldCertificateChoices()
+    {
+        using var certificates = new TestChain();
+        var selection = new AnalyzedCertificateSelection();
+        selection.Load(certificates.Signer, new([certificates.Signer, certificates.Root], false, []));
+        Assert.True(selection.Select(certificates.Root));
+        selection.Load(null, null);
+        Assert.Empty(selection.Certificates);
+        Assert.Null(selection.Selected);
+        selection.Load(certificates.Signer, null);
+        Assert.Single(selection.Certificates);
+        Assert.False(selection.Select(certificates.Root));
+        Assert.Equal(certificates.Signer.CertificateBase64, selection.Selected!.CertificateBase64);
+    }
+
+    [Fact]
+    public void CertificateChoicesDeduplicateBytesButNotDistinguishedNames()
+    {
+        using var certificates = new TestChain();
+        var signer = certificates.Signer with { Subject = "CN=Shared name" };
+        var root = certificates.Root with { Subject = signer.Subject };
+        var selection = new AnalyzedCertificateSelection();
+        selection.Load(signer, new([signer, root, root], true, []));
+        Assert.Equal(2, selection.Certificates.Count);
+        Assert.True(selection.Select(root));
+        Assert.Equal(root.CertificateBase64, selection.Selected!.CertificateBase64);
+    }
+
+    [Fact]
+    public void NewAndAppendedRulesContainTheSelectedChainCertificate()
+    {
+        using var certificates = new TestChain();
+        var selection = new AnalyzedCertificateSelection();
+        selection.Load(certificates.Signer, new([certificates.Signer, certificates.Intermediate, certificates.Root], true, []));
+        foreach (var candidate in selection.Certificates)
+        {
+            Assert.True(selection.Select(candidate));
+            var selected = selection.Selected!;
+            var rule = new ElevationRule
+            {
+                Name = "Selected certificate rule",
+                SignatureSource = SignatureSource.CertificateFile,
+                PublisherCertificate = selected,
+                CertificateType = selected.IsCertificateAuthority ? CertificateType.CertificateAuthority : CertificateType.Publisher
+            };
+            var body = NewElevationPolicyPayload.Build("Test policy", null, rule);
+            var group = body["settings"]![0]!["settingInstance"]!["groupSettingCollectionValue"]![0]!;
+            AssertSelectedCertificate(group, selected);
+            var rules = new JsonArray(group.DeepClone());
+            AssertSelectedCertificate(GraphAuthenticationService.CreateRuleForAppend(rules, rule), selected);
+        }
+    }
+
+    private static void AssertSelectedCertificate(JsonNode group, CertificateAttributes expected)
+    {
+        static JsonNode Setting(JsonArray children, string suffix) => children.First(child =>
+            child!["settingDefinitionId"]!.GetValue<string>().EndsWith("_" + suffix, StringComparison.Ordinal))!;
+        var source = Setting(group["children"]!.AsArray(), "signaturesource")["choiceSettingValue"]!["children"]!.AsArray();
+        var pem = Setting(source, "certificatefileupload")["simpleSettingValue"]!["value"]!.GetValue<string>();
+        using var uploaded = X509Certificate2.CreateFromPem(pem);
+        Assert.Equal(Convert.FromBase64String(expected.CertificateBase64), uploaded.RawData);
+        Assert.Equal(expected.Subject, uploaded.Subject);
+        var type = expected.IsCertificateAuthority ? "issuingauthority" : "publisher";
+        Assert.EndsWith("_" + type, Setting(source, "certificatetype")["choiceSettingValue"]!["value"]!.GetValue<string>());
+    }
 
     private sealed class TestChain : IDisposable
     {

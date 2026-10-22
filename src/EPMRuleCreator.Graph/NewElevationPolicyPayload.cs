@@ -16,6 +16,7 @@ internal static class NewElevationPolicyPayload
     internal static JsonObject Build(string name, string? description, ElevationRule rule)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        rule = rule with { MinimumFileVersion = RuleValidationService.NormalizeMinimumFileVersionToFourParts(rule.MinimumFileVersion) };
         var validation = new RuleValidationService().Validate(rule, existingRuleCount: 0, hasPolicy: true);
         if (!validation.CanSubmit)
             throw new ArgumentException(string.Join(Environment.NewLine,

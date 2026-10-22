@@ -160,6 +160,42 @@ public sealed class RuleValidationServiceTests
         Assert.True(RuleValidationService.IsValidMinimumFileVersion(RuleValidationService.NormalizeMinimumFileVersionToFourParts("1.1.0")));
     }
 
+    [Theory]
+    [InlineData("11", "11.0.0.0")]
+    [InlineData("11.1", "11.1.0.0")]
+    [InlineData("11.1.2", "11.1.2.0")]
+    [InlineData("11.1.2.3", "11.1.2.3")]
+    [InlineData("0", "0.0.0.0")]
+    [InlineData(" 11.1 ", "11.1.0.0")]
+    [InlineData("01.02", "01.02.0.0")]
+    public void NumericVersionsArePaddedToFourParts(string input, string expected)
+    {
+        var normalized = RuleValidationService.NormalizeMinimumFileVersionToFourParts(input);
+        Assert.Equal(expected, normalized);
+        Assert.True(RuleValidationService.IsValidMinimumFileVersion(normalized));
+        Assert.Equal(normalized, RuleValidationService.NormalizeMinimumFileVersionToFourParts(normalized));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("11.")]
+    [InlineData("11..1")]
+    [InlineData("v11.1")]
+    [InlineData("11.1-beta")]
+    [InlineData("11.1.2.3.4")]
+    [InlineData("-11.1")]
+    public void OptionalOrMalformedVersionsAreNotInvented(string? input)
+        => Assert.Equal(input, RuleValidationService.NormalizeMinimumFileVersionToFourParts(input));
+
+    [Fact]
+    public void PaddingStillRespectsTheGraphLengthLimit()
+    {
+        var normalized = RuleValidationService.NormalizeMinimumFileVersionToFourParts(new string('1', 29));
+        Assert.False(RuleValidationService.IsValidMinimumFileVersion(normalized));
+    }
+
     [Fact]
     public async Task Sha256Hasher_CalculatesExpectedDigest()
     {

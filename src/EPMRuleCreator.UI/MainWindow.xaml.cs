@@ -10,6 +10,11 @@ namespace EPMRuleCreator.UI;
 
 public partial class MainWindow : Window
 {
+    private void MinimumVersion_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel) viewModel.NormalizeRuleFileVersion();
+    }
+
     private void AuthorLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
     {
         e.Handled = true;
