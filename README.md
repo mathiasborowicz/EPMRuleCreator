@@ -1,79 +1,75 @@
 # Intune EPM Rule Creator
 
+[![Windows 11 x64](https://img.shields.io/badge/Windows-11_x64-0078D4?logo=windows&logoColor=white)](docs/Installation.md)
+[![Offline first](https://img.shields.io/badge/Offline-first-2ea44f)](#-get-started)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-A Windows desktop tool for inspecting local files and preparing Microsoft Intune Endpoint Privilege Management elevation rules. Local file analysis works offline and does not require signing in to a tenant. Optional Microsoft Graph sign-in can list EPM policies, count their rules, browse reusable EPM certificate settings, append a rule to a selected policy, or create a new policy with its first rule after confirmation.
+**From a file to an Intune EPM rule, without the busywork.**
 
-> **Uploads to existing policies replace the selected Intune policy.** The app refreshes the policy and settings, validates the rule, and asks for confirmation before sending a PUT containing the complete settings collection. This follows the request captured from the Intune admin center; Microsoft's public beta documentation currently describes PATCH instead. Creating a new policy uses the documented POST route with the first rule included. See [the verification record](docs/GraphIntegration.md) for current constraints.
+Inspect file details, check signing certificates, and prepare Microsoft Intune Endpoint Privilege Management rules in one Windows app. File analysis works offline. Connect to Intune only when you want to upload a rule.
 
-## Current features
+### [⬇ Download the latest EXE](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator.exe)
 
-- Windows WPF desktop UI targeting .NET 10 and x64.
-- File picker for `.exe`, `.msi`, and `.ps1` files.
-- Independent SHA256 calculation and version resource metadata.
-- Detection of Microsoft EPM Tools and invocation of `Get-FileAttributes` through Windows PowerShell 5.1 using JSON input, without placing the file path in PowerShell source code.
-- Embedded publisher certificate extraction with subject, issuer, thumbprint, and validity dates. When available, a compact **Signing certificate** card below **File information** shows the extracted certificate's publisher and validity period; hover for the issuer, thumbprint, and trust notice. Selecting a separate certificate for the rule does not replace this analyzed-file display. Certificate extraction is not an Authenticode trust check.
-- Certificate-based rule selection between the analyzed file's extracted publisher certificate and a reusable EPM certificate setting. Selecting **Use a certificate file in reusable settings** loads EPM certificates automatically into the rule's **Certificate** dropdown after sign-in; there is no separate reusable-settings section. Loading errors and empty results appear directly below that dropdown; open it again to retry a failed load.
-- Explicit Graph upload that appends to an existing EPM rule collection, preserves its other entries, rechecks the 100-rule limit, requests confirmation, and verifies the updated count.
-- Local validation for rule name, conditional file-name/SHA256 requirements, optional three- or four-part numeric minimum file version (1–30 characters when set), selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
-- Optional Graph browsing of EPM Elevation Rules policies and EPM reusable certificate settings (unrelated reusable settings are filtered out by setting definition ID).
-- Elevation Rules policies appear directly in the rule editor's dropdown and load automatically after sign-in. Selecting a policy reads its rule count automatically. There are no separate policy/reusable-settings panels or manual load/count buttons; reopen a dropdown to retry a failed request.
-- **+ Add new** in the policy dropdown opens a policy name and optional description, including when no policies exist. **Create policy and upload rule** validates the form and asks for confirmation before creating the policy with its first rule in one POST. The new policy uses the default scope tag (`0`) and has no assignments; configure those in Intune. No existing rule is needed for this creation flow.
-- **Add menu** copies the standalone EXE to `%LOCALAPPDATA%\IntuneEpmRuleCreator\App\IntuneEpmRuleCreator.exe` and registers the current user's Explorer context menu for `.exe`, `.msi`, and `.ps1` files. The downloaded EXE can then be moved or deleted. The small **↻** button repairs old registrations and updates the fixed copy from the currently running EXE. **Remove menu** removes the menu entries but retains the app copy and settings. No administrator rights or extra scripts are needed; the PowerShell scripts remain an alternative. Windows 11 shows the entry under **Show more options**.
-- Selecting a different file clears previous metadata, rule fields, certificate choices, and validation results immediately. The Entra connection and policy selection are retained. Upload and validation are enabled after the new file is analyzed; late results from the previous analysis are ignored.
-- Help text, signature/certificate details, analysis notes, and non-blocking validation warnings are available in tooltips. Short status messages and blocking validation errors remain visible.
+Just the EXE. No compiling, no separate .NET installation, no account needed to get started.
 
-### Offline file analysis
+## 🚀 Get started
 
-No Intune tenant, Graph connection, or network access is needed to inspect a file. The app calculates SHA256 locally, reads available Windows version metadata, and attempts to extract the embedded publisher certificate. Certificate extraction does not verify Authenticode trust.
+1. Download and open **IntuneEpmRuleCreator.exe** on Windows 11 x64.
+2. Choose an `.exe`, `.msi`, or `.ps1` file and click **Analyze file**.
+3. Review its details and prepare your elevation rule. That's it for offline use!
 
-Without a certificate, file name and SHA256 are required to identify the file. With a publisher or reusable certificate selected, file name and hash are optional constraints and are omitted from the Graph payload if blank.
+Want to send the rule to Intune? Sign in using the account icon at the top right, select an **Elevation Rules policy**, and confirm the upload. Choose **+ Add new** to create a policy with its first rule instead.
 
-The elevation rule's **Minimum file version** field is prefilled from the analyzed file's version metadata when available and can be edited. It is optional. When supplied, Intune validates it against the format `number.number.number.number` and limits it to 30 characters; clear it if no matching version value is available.
+*📸 Screenshot coming soon.*
 
-Microsoft EPM Tools (`EpmCmdlets.dll`) are optional for the basic offline view. When they are installed, the app also calls `Get-FileAttributes` locally through Windows PowerShell 5.1. If they are absent, the app shows the locally available information and warns that EPM-specific attributes were not collected. It never installs the EPM agent or changes device configuration.
+<!-- Screenshot slot: replace the line above with the supplied app screenshot when available. Do not add a broken image link. -->
 
-## Project structure
+## 🔎 What you can do
 
-```text
-src/IntuneEpmRuleCreator.Core/    Domain models, file analysis, validation
-src/IntuneEpmRuleCreator.UI/      Windows WPF application and view model
-tests/IntuneEpmRuleCreator.Tests/ Core unit tests
-scripts/                          Per-user Explorer menu registration
-docs/                             Graph verification and installation notes
-```
+- **See what's in a file:** SHA256, version, product details, and its signing certificate, where available.
+- **Choose how to identify it:** file hash, the extracted signing certificate, your own certificate file, or an Intune reusable certificate setting.
+- **Prepare elevation rules:** configure elevation type, validation requirements, child processes, and arguments.
+- **Upload when you're ready:** add a rule to an existing policy or create a new policy with its first rule.
+- **Start from a right-click:** use **Add menu** to enable Explorer integration. **Remove menu** undoes it; **↻** updates the installed copy.
 
-## Build, test, and install
+On Windows 11, the Explorer entry appears under **Show more options**. You can move or delete the original download after adding the menu. [How it works](docs/Installation.md#register-the-explorer-menu).
 
-Download only [**IntuneEpmRuleCreator.exe from the latest release**](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator.exe). No source checkout, compilation, or separate .NET installation is required. Each push to `main` (including a merged pull request) automatically publishes a versioned release after tests and the Windows build succeed, starting at **v0.9.0**. Subsequent merges increment the patch version automatically (v0.9.1, v0.9.2, etc.); the EXE and release use the same version. Raising `<Version>` in the UI project starts a new version line. The latest successful release remains available if a subsequent build fails. Development builds on `work` remain available as Actions artifacts and do not create releases.
+## 🔐 Intune connection is optional
 
-See [Installation](docs/Installation.md) for obtaining the `work` branch in `C:\Git\EPMRuleCreator`, installing the .NET SDK, building the self-contained app, and registering the Explorer menu.
+No tenant, Entra app registration, or EPM Tools installation is needed for basic file analysis. If Microsoft EPM Tools are already installed, the app also reads their additional file attributes. It never installs an agent or runs the file you analyze.
 
-## Graph, authentication, and security
+<details>
+<summary><strong>Connecting to Intune: permissions and local settings</strong></summary>
 
-Graph authentication is optional and uses MSAL as a native public client. Click the circular account button with the person icon at the top right to enter the Application (client) ID and tenant, then choose **Sign in**. After signing in, the button shows the account's initials and a green connection indicator; click it again to see the account or sign out. The panel closes when you click outside it or press Escape. EPM policies load automatically after sign-in. The app requests delegated `User.Read` to display the signed-in identity and `DeviceManagementConfiguration.ReadWrite.All` to list EPM policies/read and update their settings. Admin consent is required. No client secret is used.
+For Intune uploads, configure your own Entra public-client app registration with the `http://localhost` redirect URI. No client secret is needed.
 
-The app saves the entered client ID and tenant ID in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` so they are prefilled next time. This is a normal, unencrypted per-user settings file; these IDs are identifiers, not credentials. They are not written to the executable or Git repository. MSAL stores sign-in tokens separately in its cache under the same per-user app-data directory, protected with Windows DPAPI. Signing out removes the account's MSAL cache entries; it does not remove the saved IDs.
+Required delegated Graph permissions:
 
-### Permissions for EPM policy browsing and writes
+- `User.Read`
+- `DeviceManagementConfiguration.ReadWrite.All` with admin consent
 
-The app requests **delegated `DeviceManagementConfiguration.ReadWrite.All`**. Microsoft Graph documents it for configuration-policy settings updates and lists it as an accepted scope for policy, settings, and reusable policy setting reads. Admin consent is required. The current policy-level PUT follows a request captured from the Intune admin center; its permission requirements are not separately documented or live-validated yet.
+Your account also needs the appropriate Intune license, RBAC permissions, and scope-tag access. Follow the [sign-in setup guide](docs/GraphAuthentication.md).
 
-- [Create a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-create?view=graph-rest-beta)
-- [Update a configuration-policy setting](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementconfigurationsetting-update?view=graph-rest-beta)
-- [List reusable policy settings](https://learn.microsoft.com/en-us/graph/api/intune-deviceconfigv2-devicemanagementreusablepolicysetting-list?view=graph-rest-beta)
-- [Permission reference: `DeviceManagementConfiguration.ReadWrite.All`](https://learn.microsoft.com/en-us/graph/permissions-reference#devicemanagementconfigurationreadwriteall)
+The app remembers your client ID and tenant in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json`. This file is unencrypted; the IDs are identifiers, not secrets, and are **not embedded in the EXE or repository**. Sign-in tokens are stored separately using Windows DPAPI. Signing out clears the account's token-cache entries, not the saved IDs.
 
-Add `DeviceManagementConfiguration.ReadWrite.All` as a **delegated Microsoft Graph permission** to the Entra app registration and grant admin consent. Graph permission does not replace the Intune license or the signed-in user's Intune RBAC role and scope-tag access. The policy-setting API is currently Graph **beta**. See [optional Graph authentication](docs/GraphAuthentication.md) and [Graph integration research](docs/GraphIntegration.md).
+</details>
 
-Writes require explicit confirmation. Appending to an existing policy currently requires an Elevation Rules collection with an existing rule; its elevation type need not match. For certificate rules, the existing-policy path uses a matching certificate-source schema from that policy. Creating a new policy uses a separate payload builder and requires no existing policy or rule. Certificate rules expose the `Publisher` and `Certificate authority` types. User-confirmed rules expose optional Windows authentication and business justification validations; current-user rules require Windows authentication and optionally support business justification. Child-process behavior supports allow, require a matching rule, deny, and not configured. Empty optional text fields and unselected optional validation collections are omitted. The UI requires exactly four numeric version parts. Analyzed three-part versions such as `1.1.0` are prefilled as `1.1.0.0`; the field remains optional. Both appending to an existing policy and creating a new policy with its first rule have been confirmed by the user in the test tenant. This confirms the tested scenarios, not every combination of settings.
+> Test uploads in a test tenant first. Updates require confirmation and send the full policy settings collection, preserving other rules. Graph beta has [limitations](docs/GraphIntegration.md). New policies need assignments in Intune. Certificate extraction is not a signature-trust check.
 
-See [Graph integration research](docs/GraphIntegration.md) for the endpoints supplied by the brief, research links, and unresolved verification items.
+## 📚 Need more detail?
 
-## Test status
+- [Installation, updates, and Explorer menu](docs/Installation.md)
+- [Entra sign-in and Graph permissions](docs/GraphAuthentication.md)
+- [Graph behavior and current limitations](docs/GraphIntegration.md)
 
-Automated tests cover rule validation, supported file extensions, the rule count boundary, Graph payload construction, and mocked new-policy HTTP requests and error handling. They do not authenticate against Microsoft Entra or make live Graph writes. Windows EPM Tools, Explorer registration, sign-in, and new-policy creation require integration testing on Windows with an authorized test tenant.
+Building it yourself? The [installation guide](docs/Installation.md#build-and-publish) covers the .NET 10 SDK and build commands. Merges to `main` automatically publish a tested, versioned EXE; development builds are available in Actions.
+
+## 🤝 Feedback welcome
+
+Found a bug or have an idea? [Open an issue](https://github.com/mathiasborowicz/EPMRuleCreator/issues) or send a pull request. Include your app version and steps to reproduce. Please redact tokens and personal or tenant-specific details.
 
 ## License
 
-Copyright (c) 2026 Mathias Borowicz. This project is licensed under the [GNU General Public License version 3](LICENSE) (GPL-3.0-only), matching AppPermissionInfo. Redistribution and modification are permitted under those terms, including commercial use. Distributed modifications must remain under GPLv3 and include access to the corresponding source code. The software comes without warranty, to the extent permitted by law. Third-party dependencies retain their own licenses. The license text is embedded in the EXE and attached separately to each release, which also links to its tagged source code. Running the tool still requires only the EXE.
+[GNU GPLv3](LICENSE), like [AppPermissionInfo](https://github.com/mathiasborowicz/AppPermissionInfo). Commercial use is allowed; redistributed changes must remain under GPLv3 with the corresponding source available. No warranty. Third-party dependencies retain their own licenses.
+
+Copyright (c) 2026 Mathias Borowicz.
