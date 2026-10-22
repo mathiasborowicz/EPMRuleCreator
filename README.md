@@ -10,13 +10,13 @@
 
 Inspect file details, check signing certificates, and prepare Microsoft Intune Endpoint Privilege Management rules in one Windows app. File analysis works offline. Connect to Intune only when you want to upload a rule.
 
-### [⬇ Download the latest EXE](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator.exe)
+### [⬇ Download the latest ZIP](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator-win-x64.zip)
 
-Just the EXE. No compiling, no separate .NET installation, no account needed to get started.
+Just the standalone EXE and license in a ZIP. No compiling, no separate .NET installation, no account needed to get started.
 
 ## 🚀 Get started
 
-1. Download and open **IntuneEpmRuleCreator.exe** on Windows 11 x64.
+1. Download and extract the ZIP, then open **IntuneEpmRuleCreator.exe** on Windows 11 x64.
 2. Choose an `.exe`, `.msi`, or `.ps1` file and click **Analyze file**.
 3. Review its details and prepare your elevation rule. That's it for offline use!
 
@@ -65,7 +65,7 @@ The app remembers your client ID and tenant in `%LOCALAPPDATA%\IntuneEpmRuleCrea
 - [Entra sign-in and Graph permissions](docs/GraphAuthentication.md)
 - [Graph behavior and current limitations](docs/GraphIntegration.md)
 
-Building it yourself? The [installation guide](docs/Installation.md#build-and-publish) covers the .NET 10 SDK and build commands. Merges to `main` automatically publish a tested, versioned EXE; development builds are available in Actions.
+Building it yourself? The [installation guide](docs/Installation.md#build-and-publish) covers the .NET 10 SDK and build commands. Merges to `main` automatically publish a tested, versioned ZIP containing the EXE; development builds are available in Actions. ZIP packaging does not disable Defender, SmartScreen, or ASR checks.
 
 ## 🤝 Feedback welcome
 
