@@ -54,7 +54,7 @@ Required delegated Graph permissions:
 
 Your account also needs the appropriate Intune license, RBAC permissions, and scope-tag access. Follow the [sign-in setup guide](docs/GraphAuthentication.md).
 
-The app remembers your client ID, tenant, and theme choice in `%LOCALAPPDATA%\EPMRuleCreator\settings.json`. This file is unencrypted; the IDs are identifiers, not secrets, and are **not embedded in the EXE or repository**. Tokens are stored separately in `msal.cache`, encrypted with Windows DPAPI for the current user, not in plaintext. Signing out clears the account's token-cache entries, not the saved IDs.
+The app remembers your client ID, tenant, and theme choice in `%LOCALAPPDATA%\EPMRuleCreator\settings.json`. This file is unencrypted; the IDs are identifiers, not secrets, and are **not embedded in the EXE or repository**. Tokens stay in memory for the app session: no new `msal.cache` is written. After closing the app, sign in again; your browser's existing Microsoft session may still provide SSO. Signing out clears the app's in-memory session, not the saved IDs or browser cookies. [Cache details and cleanup of older files](docs/GraphAuthentication.md#runtime-and-token-handling).
 
 </details>
 

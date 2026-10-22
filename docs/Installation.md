@@ -63,7 +63,7 @@ Every push to `work` or `main` runs tests and creates a self-contained, compress
 
 ### Updating from the previous application name
 
-The app, solution, projects, and release assets are now named **EPMRuleCreator**. On first launch, the renamed app copies an existing `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` to `%LOCALAPPDATA%\EPMRuleCreator\settings.json` only if no settings exist at the new path. The original file is retained, and newer settings are never overwritten. Token caches are not copied or decrypted; you may need to sign in again. The previous directory and its encrypted cache remain untouched.
+The app, solution, projects, and release assets are now named **EPMRuleCreator**. On first launch, the renamed app copies an existing `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` to `%LOCALAPPDATA%\EPMRuleCreator\settings.json` only if no settings exist at the new path. The original file is retained, and newer settings are never overwritten. Tokens now stay in memory only, so sign in again after starting the app. Old token caches are not read, copied, decrypted, or removed; the previous directory and its encrypted cache remain untouched. See [token handling and old-cache cleanup](GraphAuthentication.md#runtime-and-token-handling).
 
 For an existing Explorer menu, start the new EXE and click **↻**. This deploys the renamed EXE to the new fixed path and removes only the app's legacy menu entries after the new entries are registered. **Remove menu** recognizes both names. Existing old application copies are not deleted automatically.
 
@@ -84,7 +84,7 @@ The registration is per-user under `HKEY_CURRENT_USER` and does not require admi
 
 The registration script also deploys to the fixed Local AppData path before writing the registry. Run it again with a newer `-ApplicationPath` to update or repair the menu.
 
-**Remove menu** and the removal script delete only the app-owned `CreateEPMRule` registry subtrees and their legacy `CreateIntuneEpmRule` equivalents for the three supported file types. They retain the managed EXE, `settings.json`, and the token cache. For complete removal of the managed executable, remove the menu, close the app, and delete only `%LOCALAPPDATA%\EPMRuleCreator\App` in Explorer. Account settings remain in the parent folder.
+**Remove menu** and the removal script delete only the app-owned `CreateEPMRule` registry subtrees and their legacy `CreateIntuneEpmRule` equivalents for the three supported file types. They retain the managed EXE, `settings.json`, and any cache files left by old versions. The current version has no on-disk token cache. For complete removal of the managed executable, remove the menu, close the app, and delete only `%LOCALAPPDATA%\EPMRuleCreator\App` in Explorer. Account settings remain in the parent folder.
 
 ## What works offline
 

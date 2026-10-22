@@ -4,7 +4,6 @@ using System.Text.Json.Nodes;
 using EPMRuleCreator.Core.Models;
 using EPMRuleCreator.Core.Services;
 using Microsoft.Identity.Client;
-using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace EPMRuleCreator.Graph;
 
@@ -30,7 +29,6 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
     private const int DefaultMaximumRuleCount = 100;
     private readonly HttpClient _httpClient = new();
     private IPublicClientApplication? _client;
-    private MsalCacheHelper? _cacheHelper;
     private IAccount? _account;
     private IntPtr _parentWindow;
 
@@ -43,27 +41,32 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             throw new ArgumentException("Tenant must be 'organizations' or a tenant ID (GUID).", nameof(tenantId));
 
         await DisposeClientAsync();
-        _client = PublicClientApplicationBuilder.Create(clientId.Trim())
-            .WithAuthority($"https://login.microsoftonline.com/{authorityTenant}")
+        _client = CreateClient(clientId.Trim(), authorityTenant);
+        try
+        {
+            var authResult = await _client.AcquireTokenInteractive(Scopes)
+                .WithPrompt(Prompt.SelectAccount)
+                .WithUseEmbeddedWebView(false)
+                .WithParentActivityOrWindow(parentWindow)
+                .ExecuteAsync(cancellationToken);
+            _account = authResult.Account;
+            _parentWindow = parentWindow;
+            return await GetUserProfileAsync(authResult.AccessToken, authResult.TenantId, cancellationToken);
+        }
+        catch
+        {
+            await DisposeClientAsync();
+            throw;
+        }
+    }
+
+    // MSAL's default cache belongs to this client instance and lives only in RAM.
+    // Do not register file-persistence callbacks or a shared cache.
+    internal static IPublicClientApplication CreateClient(string clientId, string tenantId) =>
+        PublicClientApplicationBuilder.Create(clientId)
+            .WithAuthority($"https://login.microsoftonline.com/{tenantId}")
             .WithRedirectUri("http://localhost")
             .Build();
-
-        var cacheDirectory = AppDataPaths.GetRoot(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
-        Directory.CreateDirectory(cacheDirectory);
-        var storageProperties = new StorageCreationPropertiesBuilder("msal.cache", cacheDirectory).Build();
-        _cacheHelper = await MsalCacheHelper.CreateAsync(storageProperties);
-        _cacheHelper.VerifyPersistence();
-        _cacheHelper.RegisterCache(_client.UserTokenCache);
-
-        var authResult = await _client.AcquireTokenInteractive(Scopes)
-            .WithPrompt(Prompt.SelectAccount)
-            .WithUseEmbeddedWebView(false)
-            .WithParentActivityOrWindow(parentWindow)
-            .ExecuteAsync(cancellationToken);
-        _account = authResult.Account;
-        _parentWindow = parentWindow;
-        return await GetUserProfileAsync(authResult.AccessToken, authResult.TenantId, cancellationToken);
-    }
 
     public async Task<IReadOnlyList<ElevationRulePolicy>> GetElevationRulePoliciesAsync(CancellationToken cancellationToken = default)
     {
@@ -759,9 +762,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
     public async Task RemoveAccountAsync()
     {
-        if (_client is not null && _account is not null)
-            await _client.RemoveAsync(_account);
-        _account = null;
+        await DisposeClientAsync();
     }
 
     private async Task<GraphUserProfile> GetUserProfileAsync(string accessToken, string tenantId, CancellationToken cancellationToken)
@@ -779,14 +780,15 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             tenantId);
     }
 
-    private Task DisposeClientAsync()
+    private async Task DisposeClientAsync()
     {
-        if (_cacheHelper is not null && _client is not null)
-            _cacheHelper.UnregisterCache(_client.UserTokenCache);
-        _cacheHelper = null;
+        var client = _client;
         _client = null;
         _account = null;
-        return Task.CompletedTask;
+        _parentWindow = IntPtr.Zero;
+        if (client is not null)
+            foreach (var account in await client.GetAccountsAsync())
+                await client.RemoveAsync(account);
     }
 
     public async ValueTask DisposeAsync()
