@@ -63,6 +63,7 @@ public sealed class PresentationLayoutTests
         Assert.Contains("PART_ContentHost", app);
         Assert.Contains("PART_Popup", app);
         Assert.Contains("SelectionBoxItemTemplate", app);
+        Assert.Contains("ContentTemplateSelector=\"{TemplateBinding ItemTemplateSelector}\"", app);
         Assert.Contains("IsKeyboardFocused", app);
         var window = File.ReadAllText(Source("MainWindow.xaml"));
         Assert.Contains("{Binding IsDarkTheme, Mode=TwoWay}", window);
@@ -273,6 +274,29 @@ public sealed class PresentationLayoutTests
         var build = code[code.IndexOf("private ElevationRule BuildRule()", StringComparison.Ordinal)..code.IndexOf("private void Validate()", StringComparison.Ordinal)];
         Assert.True(build.IndexOf("NormalizeRuleFileVersion();", StringComparison.Ordinal) < build.IndexOf("MinimumFileVersion = RuleFileVersion", StringComparison.Ordinal));
         Assert.Contains("NormalizeMinimumFileVersionToFourParts(result.Version?.Trim())", code);
+    }
+
+    [Fact]
+    public void SourceDisplaysSelectedDnAndAllAnalyzedCertificatesAreSelectable()
+    {
+        var window = XDocument.Load(Source("MainWindow.xaml"));
+        XNamespace local = "clr-namespace:EPMRuleCreator.UI";
+        var source = window.Descendants(Presentation + "ComboBox").Single(element => (string?)element.Attribute("ItemsSource") == "{Binding SignatureSourceOptions}");
+        Assert.Equal("{Binding SignatureSourceSelectionText}", (string?)source.Attribute(local + "ComboBoxDisplay.SelectionText"));
+        var certificates = window.Descendants(Presentation + "ComboBox").Single(element => (string?)element.Attribute("ItemsSource") == "{Binding AnalyzedCertificateOptions}");
+        Assert.Equal("Subject", (string?)certificates.Attribute("DisplayMemberPath"));
+        Assert.Equal("{Binding SelectedAnalyzedCertificate, Mode=TwoWay}", (string?)certificates.Attribute("SelectedItem"));
+        foreach (var items in new[] { "CertificateTypeOptions", "ElevationTypes" })
+        {
+            var control = window.Descendants(Presentation + "ComboBox").Single(element => (string?)element.Attribute("ItemsSource") == $"{{Binding {items}}}");
+            Assert.Equal("DisplayName", (string?)control.Attribute("DisplayMemberPath"));
+            Assert.Null(control.Attribute(local + "ComboBoxDisplay.SelectionText"));
+        }
+        var code = File.ReadAllText(Source("ViewModels/MainViewModel.cs"));
+        Assert.Contains("SignatureSource.CertificateFile => PublisherCertificate?.Subject", code);
+        Assert.Contains("PublisherCertificate = uploaded ? _uploadedCertificate : SelectedAnalyzedCertificate;", code);
+        Assert.Contains("PublisherCertificate = SignatureSource == global::EPMRuleCreator.Core.Models.SignatureSource.CertificateFile ? PublisherCertificate : null", code);
+        Assert.Contains("selected.IsCertificateAuthority", code);
     }
 
     private static double Contrast(string a, string b)

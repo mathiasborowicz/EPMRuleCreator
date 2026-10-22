@@ -32,6 +32,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly FileAttributeService _fileService = new(new Sha256FileHasher());
     private readonly ActivityLog _activityLog = new();
+    private readonly AnalyzedCertificateSelection _analyzedCertificateSelection = new();
     private readonly RuleValidationService _validator = new();
     private string _filePath = string.Empty;
     private string _sha256 = string.Empty;
@@ -422,6 +423,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(HasPublisherCertificate));
             Raise(nameof(PublisherCertificateChoiceText));
             Raise(nameof(CertificateSelectionLabel));
+            Raise(nameof(SignatureSourceSelectionText));
         }
     }
     public string SignatureStatus { get => _signatureStatus; set => Set(ref _signatureStatus, value); }
@@ -447,6 +449,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             if (!Set(ref _signatureSource, value)) return;
             Raise(nameof(ShowCertificateSelection));
+            Raise(nameof(SignatureSourceSelectionText));
             Raise(nameof(ShowCertificateFileSource));
             Raise(nameof(ShowReusableCertificateSource));
             Raise(nameof(FileNameLabel));
@@ -458,6 +461,24 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
     public bool ShowCertificateSelection => SignatureSource != global::EPMRuleCreator.Core.Models.SignatureSource.NotConfigured;
+    public string SignatureSourceSelectionText => SignatureSource switch
+    {
+        global::EPMRuleCreator.Core.Models.SignatureSource.CertificateFile => PublisherCertificate?.Subject ?? "Upload a certificate file",
+        global::EPMRuleCreator.Core.Models.SignatureSource.ReusableSettings => SelectedReusableCertificateSetting?.DisplayName ?? "Use a certificate file in reusable settings",
+        _ => "Not configured"
+    };
+    public IReadOnlyList<CertificateAttributes> AnalyzedCertificateOptions => _analyzedCertificateSelection.Certificates;
+    public bool HasAnalyzedCertificates => AnalyzedCertificateOptions.Count > 0;
+    public CertificateAttributes? SelectedAnalyzedCertificate
+    {
+        get => _analyzedCertificateSelection.Selected;
+        set
+        {
+            if (value is null || !_analyzedCertificateSelection.Select(value)) return;
+            Raise(nameof(SelectedAnalyzedCertificate));
+            SelectCertificate(uploaded: false);
+        }
+    }
     public bool ShowCertificateFileSource => SignatureSource == global::EPMRuleCreator.Core.Models.SignatureSource.CertificateFile;
     public bool ShowReusableCertificateSource => SignatureSource == global::EPMRuleCreator.Core.Models.SignatureSource.ReusableSettings;
     private CertificateType _certificateType = global::EPMRuleCreator.Core.Models.CertificateType.Publisher;
@@ -472,19 +493,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool HasUploadedCertificate => _uploadedCertificate is not null;
     public bool UseAnalyzedCertificate
     {
-        get => !_useUploadedCertificate && HasAnalyzedPublisherCertificate;
-        set { if (value && HasAnalyzedPublisherCertificate) SelectCertificate(uploaded: false); }
+        get => !_useUploadedCertificate && HasAnalyzedCertificates;
+        set { if (value && HasAnalyzedCertificates) SelectCertificate(uploaded: false); }
     }
     public bool UseUploadedCertificate
     {
         get => _useUploadedCertificate && HasUploadedCertificate;
         set { if (value && HasUploadedCertificate) SelectCertificate(uploaded: true); }
     }
-    public string UploadedCertificateLabel => HasUploadedCertificate ? Path.GetFileName(SelectedCertificateFile) : "Uploaded certificate";
+    public string UploadedCertificateLabel => _uploadedCertificate?.Subject ?? "Uploaded certificate";
     private void SelectCertificate(bool uploaded)
     {
         _useUploadedCertificate = uploaded;
-        PublisherCertificate = uploaded ? _uploadedCertificate : AnalyzedPublisherCertificate;
+        PublisherCertificate = uploaded ? _uploadedCertificate : SelectedAnalyzedCertificate;
+        if (PublisherCertificate is { } selected)
+            CertificateType = selected.IsCertificateAuthority ? global::EPMRuleCreator.Core.Models.CertificateType.CertificateAuthority : global::EPMRuleCreator.Core.Models.CertificateType.Publisher;
         Raise(nameof(UseAnalyzedCertificate));
         Raise(nameof(UseUploadedCertificate));
         Raise(nameof(PublisherCertificateChoiceText));
@@ -495,8 +518,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         : PublisherCertificate is { } certificate
             ? $"Analyzed file certificate: {certificate.Subject}"
             : "Choose a certificate or analyze a signed file.";
-    public string CertificateSelectionLabel => UseUploadedCertificate ? Path.GetFileName(SelectedCertificateFile)
-        : HasPublisherCertificate ? "Analyzed file certificate" : "No certificate selected";
+    public string CertificateSelectionLabel => PublisherCertificate?.Subject ?? "No certificate selected";
     public string SelectedCertificateFile { get => _selectedCertificateFile; private set { if (Set(ref _selectedCertificateFile, value)) { Raise(nameof(CertificateSelectionLabel)); Raise(nameof(PublisherCertificateChoiceText)); } } }
     public RestrictArgumentsMode RestrictArguments { get => _restrictArguments; set { if (Set(ref _restrictArguments, value)) Raise(nameof(ShowArgumentList)); } }
     public bool ShowArgumentList => RestrictArguments == RestrictArgumentsMode.Allow;
@@ -504,7 +526,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public EpmReusableCertificateSetting? SelectedReusableCertificateSetting
     {
         get => _selectedReusableCertificateSetting;
-        set => Set(ref _selectedReusableCertificateSetting, value);
+        set { if (Set(ref _selectedReusableCertificateSetting, value)) Raise(nameof(SignatureSourceSelectionText)); }
     }
     public ElevationType ElevationType { get => _elevationType; set { if (Set(ref _elevationType, value)) { Raise(nameof(IsUserConfirmed)); Raise(nameof(IsCurrentUser)); } } }
     public bool IsUserConfirmed => ElevationType == global::EPMRuleCreator.Core.Models.ElevationType.UserConfirmed;
@@ -583,7 +605,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SelectedCertificateFile = string.Empty;
             AnalyzedPublisherCertificate = result.PublisherCertificate;
             AnalyzedCertificateChain = result.CertificateChain;
-            PublisherCertificate = result.PublisherCertificate;
+            _analyzedCertificateSelection.Load(result.PublisherCertificate, result.CertificateChain);
+            Raise(nameof(AnalyzedCertificateOptions));
+            Raise(nameof(HasAnalyzedCertificates));
+            Raise(nameof(SelectedAnalyzedCertificate));
+            SelectCertificate(uploaded: false);
             Sha256 = result.Sha256;
             ProductName = result.ProductName ?? string.Empty;
             Version = result.Version ?? string.Empty;
@@ -627,6 +653,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void ResetFileFields(bool resetPolicyDraft = false)
     {
         _hasAnalyzedFile = false;
+        _analyzedCertificateSelection.Load(null, null);
+        Raise(nameof(AnalyzedCertificateOptions));
+        Raise(nameof(HasAnalyzedCertificates));
+        Raise(nameof(SelectedAnalyzedCertificate));
         Sha256 = EpmFileHash = ProductName = Version = CompanyName = InternalName = FileDescription = string.Empty;
         PublisherCertificate = null;
         AnalyzedPublisherCertificate = null;
@@ -922,16 +952,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         using var certificate = bytes.Length > 0 && Encoding.UTF8.GetString(bytes).Contains("-----BEGIN CERTIFICATE-----", StringComparison.Ordinal)
             ? X509Certificate2.CreateFromPem(Encoding.UTF8.GetString(bytes))
             : X509CertificateLoader.LoadCertificate(bytes);
-        _uploadedCertificate = new CertificateAttributes(
-            certificate.Subject,
-            certificate.Issuer,
-            certificate.Thumbprint ?? string.Empty,
-            new DateTimeOffset(certificate.NotBefore.ToUniversalTime()),
-            new DateTimeOffset(certificate.NotAfter.ToUniversalTime()),
-            DateTime.UtcNow >= certificate.NotBefore.ToUniversalTime() && DateTime.UtcNow <= certificate.NotAfter.ToUniversalTime())
-        {
-            CertificateBase64 = Convert.ToBase64String(certificate.RawData)
-        };
+        _uploadedCertificate = CertificateChainService.Describe(certificate);
         SelectedCertificateFile = path;
         Raise(nameof(HasUploadedCertificate));
         Raise(nameof(UploadedCertificateLabel));

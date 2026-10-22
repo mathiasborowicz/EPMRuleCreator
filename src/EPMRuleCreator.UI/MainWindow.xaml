@@ -1,6 +1,7 @@
 <Window x:Class="EPMRuleCreator.UI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:EPMRuleCreator.UI"
         Title="EPMRuleCreator" Icon="Assets/epm-rule-creator.ico" Height="900" Width="1180" MinHeight="720" MinWidth="980"
         Background="{DynamicResource CanvasBrush}" Style="{StaticResource {x:Type Window}}" WindowStartupLocation="CenterScreen" Activated="Window_Activated">
     <Grid Margin="24">
@@ -311,15 +312,17 @@
                             <TextBlock Text="File path" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleFilePath, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Product name" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleProductName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Internal name" Foreground="{DynamicResource MutedBrush}"/><TextBox Text="{Binding RuleInternalName, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="Signature source" Foreground="{DynamicResource MutedBrush}"/><ComboBox ItemsSource="{Binding SignatureSourceOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding SignatureSource}"/>
+                            <TextBlock Text="Signature source" Foreground="{DynamicResource MutedBrush}"/><ComboBox ItemsSource="{Binding SignatureSourceOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Value" SelectedValue="{Binding SignatureSource}"
+                                      local:ComboBoxDisplay.SelectionText="{Binding SignatureSourceSelectionText}" ToolTip="{Binding SignatureSourceSelectionText}"/>
                             <StackPanel Visibility="{Binding ShowCertificateSelection, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,8">
                                 <StackPanel Visibility="{Binding ShowCertificateFileSource, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <TextBlock Text="Certificate" FontWeight="SemiBold" Margin="0,4,0,4"/>
-                                    <RadioButton Content="Use analyzed file certificate" GroupName="CertificateFileSource"
+                                    <RadioButton Content="Use analyzed certificate" GroupName="CertificateFileSource"
                                                  IsChecked="{Binding UseAnalyzedCertificate, Mode=TwoWay}"
-                                                 IsEnabled="{Binding HasAnalyzedPublisherCertificate}" Margin="0,4,0,4">
-                                        <RadioButton.ToolTip><ToolTip><TextBlock Text="{Binding AnalyzedCertificateDetails}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></RadioButton.ToolTip>
-                                    </RadioButton>
+                                                 IsEnabled="{Binding HasAnalyzedCertificates}" Margin="0,4,0,4"/>
+                                    <ComboBox ItemsSource="{Binding AnalyzedCertificateOptions}" DisplayMemberPath="Subject"
+                                              SelectedItem="{Binding SelectedAnalyzedCertificate, Mode=TwoWay}" IsEnabled="{Binding UseAnalyzedCertificate}"
+                                              ToolTip="{Binding SelectedAnalyzedCertificate.Thumbprint}"/>
                                     <RadioButton Content="{Binding UploadedCertificateLabel}" GroupName="CertificateFileSource"
                                                  IsChecked="{Binding UseUploadedCertificate, Mode=TwoWay}"
                                                  Visibility="{Binding HasUploadedCertificate, Converter={StaticResource BooleanToVisibilityConverter}}"

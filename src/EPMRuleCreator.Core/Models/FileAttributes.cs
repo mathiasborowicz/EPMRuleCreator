@@ -35,4 +35,5 @@ public sealed record CertificateAttributes(
 {
     /// <summary>Public X.509 certificate only; kept in memory for a future EPM payload.</summary>
     public string CertificateBase64 { get; init; } = string.Empty;
+    public bool IsCertificateAuthority { get; init; }
 }

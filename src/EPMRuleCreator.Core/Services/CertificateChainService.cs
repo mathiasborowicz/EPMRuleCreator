@@ -28,7 +28,8 @@ public static class CertificateChainService
         return new(certificate.Subject, certificate.Issuer, certificate.Thumbprint,
             certificate.NotBefore, certificate.NotAfter, certificate.NotBefore.ToUniversalTime() <= now && certificate.NotAfter.ToUniversalTime() >= now)
         {
-            CertificateBase64 = Convert.ToBase64String(certificate.RawData)
+            CertificateBase64 = Convert.ToBase64String(certificate.RawData),
+            IsCertificateAuthority = certificate.Extensions.OfType<X509BasicConstraintsExtension>().Any(extension => extension.CertificateAuthority)
         };
     }
 

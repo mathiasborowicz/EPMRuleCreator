@@ -44,10 +44,10 @@ Review the **Rule name**, optional **Rule description**, and file attributes. Ru
 Use **Signature source**:
 
 - **Not configured:** no certificate is used. **File name** and **File hash** become required. The hash is SHA256.
-- **Upload a certificate file:** use **Use analyzed file certificate** if available, or **Choose certificate file…** to provide your own. The radio options show which one is selected.
+- **Upload a certificate file:** use **Use analyzed certificate** and choose from the available signing certificate, intermediates, and root, or use **Choose certificate file…** for your own. The closed Signature source dropdown shows the selected certificate's DN. The selected certificate is the one included in the rule upload.
 - **Use a certificate file in reusable settings:** sign in and choose an EPM certificate from the dropdown. Unrelated Intune reusable settings are excluded.
 
-With a certificate selected, **Certificate type** offers **Publisher** or **Certificate authority**. File name and hash are then optional, but think carefully about how broadly a certificate-only rule can match. A restricted file path that standard users cannot modify can reduce risk.
+With a certificate selected, **Certificate type** offers **Publisher** or **Certificate authority**. The app selects the initial type from the certificate's CA flag; you can review it in the dropdown. File name and hash are then optional, but think carefully about how broadly a certificate-only rule can match. A restricted file path that standard users cannot modify can reduce risk. Choosing an issuer or root can cover many applications.
 
 **Minimum version** is optional. Missing numeric parts are filled with zeros: `11.1` becomes `11.1.0.0`, and `1.1.0` becomes `1.1.0.0`. This happens for analyzed versions and when you leave the input field, and is also applied before validation or upload. Review the other optional matching attributes and leave them empty if they should not constrain the rule. Do not fill every field just to pass validation.
 

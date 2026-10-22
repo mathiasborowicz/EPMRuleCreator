@@ -46,7 +46,7 @@ public sealed class RuleValidationService
             issues.Add(new("file.sha256.invalid", "A supplied file hash must be a 64-character SHA256 value.", true));
 
         if (rule.SignatureSource == SignatureSource.CertificateFile && rule.PublisherCertificate is null)
-            issues.Add(new("certificate.required", "Select the publisher certificate extracted from the analyzed file or choose a certificate file.", true));
+            issues.Add(new("certificate.required", "Select a certificate.", true));
         if (rule.SignatureSource == SignatureSource.ReusableSettings && string.IsNullOrWhiteSpace(rule.ReusableCertificateSettingId))
             issues.Add(new("certificate.reusable.required", "Select an EPM reusable certificate setting.", true));
         if (rule.RestrictArguments == RestrictArgumentsMode.Allow)
