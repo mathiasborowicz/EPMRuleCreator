@@ -43,7 +43,7 @@ See [Installation](docs/Installation.md) for obtaining the `work` branch in `C:\
 
 ## Graph, authentication, and security
 
-Graph authentication is optional and uses MSAL as a native public client. The current development build accepts a client ID and tenant in the optional connection panel. It requests delegated `User.Read` to display the signed-in identity and `DeviceManagementConfiguration.ReadWrite.All` to list EPM policies/read and update their settings. Admin consent is required. No client secret is used.
+Graph authentication is optional and uses MSAL as a native public client. Click the circular **EN** account button at the top right to enter the Application (client) ID and tenant, then choose **Sign in**. After signing in, the button shows the account's initials and a green connection indicator; click it again to see the account or sign out. The panel closes when you click outside it or press Escape. EPM policies load automatically after sign-in. The app requests delegated `User.Read` to display the signed-in identity and `DeviceManagementConfiguration.ReadWrite.All` to list EPM policies/read and update their settings. Admin consent is required. No client secret is used.
 
 The app saves the entered client ID and tenant ID in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` so they are prefilled next time. This is a normal, unencrypted per-user settings file; these IDs are identifiers, not credentials. They are not written to the executable or Git repository. MSAL stores sign-in tokens separately in its cache under the same per-user app-data directory, protected with Windows DPAPI. Signing out removes the account's MSAL cache entries; it does not remove the saved IDs.
 

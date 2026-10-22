@@ -10,9 +10,9 @@ The project publisher must create an app registration before distributing a comm
 2. Choose **Accounts in any organizational directory** if the community release should support multiple customer tenants. Personal Microsoft accounts are not needed for Intune.
 3. Under **Authentication**, add the **Mobile and desktop applications** platform and the redirect URI `http://localhost`. This is a public native client; do not create or ship a client secret.
 4. Add the delegated Microsoft Graph permissions `User.Read` and `DeviceManagementConfiguration.ReadWrite.All`. `User.Read` displays the signed-in user's name and UPN. `DeviceManagementConfiguration.ReadWrite.All` is used to list policies/read settings and append a rule to a selected policy. Admin consent is required.
-5. Keep the Application (client) ID out of the executable and source repository. Enter it in the app's optional Graph connection panel when needed. The app stores it in the current user's local settings file alongside the tenant ID; neither value is a credential, and no secret is stored there.
+5. Keep the Application (client) ID out of the executable and source repository. Click the circular **EN** account button at the top right to open the optional sign-in panel and enter the client ID and tenant. Choose **Sign in** to connect. The app stores these values in the current user's local settings file; neither value is a credential, and no secret is stored there.
 
-The tenant field accepts `organizations` for organizational accounts across tenants, or a tenant GUID to restrict sign-in to one tenant. Entering a different tenant and signing in again switches the authority; **Sign in / switch account** asks MSAL to show account selection.
+The tenant field accepts `organizations` for organizational accounts across tenants, or a tenant GUID to restrict sign-in to one tenant. After signing in, the account button shows your initials with a green connection indicator. Click it again to view the connected account or choose **Sign out**. To switch accounts or tenants, sign out, adjust the values if needed, and sign in again; MSAL shows account selection. Policies load automatically after sign-in. Click outside the panel or press Escape to close it.
 
 ## Runtime and token handling
 

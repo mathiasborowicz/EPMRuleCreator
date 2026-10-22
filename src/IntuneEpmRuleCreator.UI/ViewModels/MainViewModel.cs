@@ -57,9 +57,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _tenantId = "organizations";
     private string _graphConnectionStatus = "Optional: sign in only if you want to connect to Microsoft Graph. Local file analysis works without sign-in.";
     private string _graphAccount = string.Empty;
+    private string _accountInitials = "EN";
+    private bool _isAccountMenuOpen;
     private bool _graphConnected;
     private ElevationRulePolicy? _selectedElevationPolicy;
-    private string _policyLoadStatus = "Sign in to load EPM policies from this tenant.";
+    private string _policyLoadStatus = "Use the account button at the top right to sign in and load EPM policies.";
     private int? _selectedPolicyRuleCount;
     private int? _selectedPolicyRuleLimit;
     private bool _requireBusinessJustification;
@@ -198,8 +200,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string ClientId { get => _clientId; set { Set(ref _clientId, value); SaveSettings(); } }
     public string TenantId { get => _tenantId; set { Set(ref _tenantId, value); SaveSettings(); } }
     public string GraphConnectionStatus { get => _graphConnectionStatus; private set => Set(ref _graphConnectionStatus, value); }
-    public string GraphAccount { get => _graphAccount; private set => Set(ref _graphAccount, value); }
-    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); } }
+    public string GraphAccount { get => _graphAccount; private set { if (Set(ref _graphAccount, value)) Raise(nameof(AccountButtonLabel)); } }
+    public string AccountInitials { get => _accountInitials; private set => Set(ref _accountInitials, value); }
+    public bool IsAccountMenuOpen { get => _isAccountMenuOpen; set => Set(ref _isAccountMenuOpen, value); }
+    public string AccountButtonLabel => GraphConnected ? $"Microsoft Entra account: {GraphAccount}" : "Sign in to Microsoft Entra (optional)";
+    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(AccountButtonLabel)); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); } }
     public ElevationRulePolicy? SelectedElevationPolicy
     {
         get => _selectedElevationPolicy;
@@ -274,13 +279,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var profile = await _graphAuthentication.SignInAsync(ClientId, TenantId, window is null ? IntPtr.Zero : new System.Windows.Interop.WindowInteropHelper(window).Handle);
             GraphConnected = true;
             GraphAccount = $"{profile.DisplayName} ({profile.UserPrincipalName})\nTenant ID: {profile.TenantId}";
+            var nameParts = (string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.UserPrincipalName : profile.DisplayName)
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            AccountInitials = nameParts.Length == 0 ? "EN"
+                : (nameParts[0][..1] + (nameParts.Length > 1 ? nameParts[^1][..1] : string.Empty)).ToUpperInvariant();
             GraphConnectionStatus = "Connected to Microsoft Graph. Intune is changed only when you explicitly upload a rule.";
             TenantId = profile.TenantId;
+            IsAccountMenuOpen = false;
             await LoadPoliciesAsync();
         }
         catch (Exception exception)
         {
             GraphConnectionStatus = $"Connection failed: {exception.Message}";
+            IsAccountMenuOpen = true;
         }
         finally { Busy = false; }
     }
@@ -297,7 +308,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _selectedPolicyRuleCount = null;
         _selectedPolicyRuleLimit = null;
         GraphAccount = string.Empty;
+        AccountInitials = "EN";
+        IsAccountMenuOpen = false;
         GraphConnectionStatus = "Disconnected. Local file analysis remains available offline.";
+        PolicyLoadStatus = "Use the account button at the top right to sign in and load EPM policies.";
     }
 
     private async Task LoadPoliciesAsync()

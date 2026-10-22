@@ -10,15 +10,84 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <DockPanel Grid.Row="0" Margin="0,0,0,20">
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="Intune EPM Rule Creator" FontSize="27" FontWeight="SemiBold"/>
                 <TextBlock Text="Build a file-based elevation rule from verified file metadata." Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0"/>
             </StackPanel>
-            <Border DockPanel.Dock="Right" Background="#FFF3D9" CornerRadius="7" Padding="12,8" VerticalAlignment="Center">
-                <TextBlock Text="Intune writes require explicit confirmation" Foreground="#754C00" FontSize="12"/>
-            </Border>
-        </DockPanel>
+            <ToggleButton x:Name="AccountButton" Grid.Column="1" Width="44" Height="44" Margin="20,0,0,0"
+                          VerticalAlignment="Center" Cursor="Hand"
+                          Content="{Binding AccountInitials, Mode=OneWay}"
+                          IsChecked="{Binding IsAccountMenuOpen, Mode=TwoWay}"
+                          ToolTip="{Binding AccountButtonLabel, Mode=OneWay}"
+                          AutomationProperties.Name="{Binding AccountButtonLabel, Mode=OneWay}">
+                <ToggleButton.Style>
+                    <Style TargetType="ToggleButton">
+                        <Setter Property="Background" Value="#E6EDF7"/>
+                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                        <Setter Property="FontSize" Value="14"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="BorderBrush" Value="Transparent"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Grid>
+                                        <Border x:Name="Avatar" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="2" CornerRadius="22">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <Ellipse x:Name="ConnectedIndicator" Width="11" Height="11" Fill="#168350" Stroke="White" StrokeThickness="2"
+                                                 HorizontalAlignment="Right" VerticalAlignment="Bottom" Visibility="Collapsed"/>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Avatar" Property="Opacity" Value="0.8"/></Trigger>
+                                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="#90B4ED"/></Trigger>
+                                        <Trigger Property="IsChecked" Value="True"><Setter Property="BorderBrush" Value="#90B4ED"/></Trigger>
+                                        <DataTrigger Binding="{Binding GraphConnected}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                            <Setter TargetName="ConnectedIndicator" Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ToggleButton.Style>
+            </ToggleButton>
+            <Popup x:Name="AccountPopup" PlacementTarget="{Binding ElementName=AccountButton}" Placement="Bottom"
+                   HorizontalOffset="-356" VerticalOffset="8" Width="400" AllowsTransparency="True" StaysOpen="False"
+                   DataContext="{Binding DataContext, ElementName=AccountButton}"
+                   IsOpen="{Binding IsAccountMenuOpen, Mode=TwoWay}" Opened="AccountPopup_Opened"
+                   PreviewKeyDown="AccountPopup_PreviewKeyDown">
+                <Border Background="{StaticResource CardBrush}" BorderBrush="#D4DCE6" BorderThickness="1" CornerRadius="12" Padding="20" Margin="4">
+                    <Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.14"/></Border.Effect>
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="Microsoft Entra" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button x:Name="CloseAccountButton" Grid.Column="1" Content="&#x2715;" Click="CloseAccount_Click"
+                                    ToolTip="Close account panel" AutomationProperties.Name="Close account panel"
+                                    Padding="8,3" Margin="8,0,0,0" Background="Transparent" BorderThickness="0"/>
+                        </Grid>
+                        <TextBlock Text="Local file analysis works offline. Sign in to load Intune policies." TextWrapping="Wrap"
+                                   Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14"/>
+                        <TextBlock Text="{Binding GraphAccount}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Visibility="{Binding GraphConnected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        <TextBlock Text="Application (client) ID" Foreground="{StaticResource MutedBrush}"/>
+                        <TextBox x:Name="ClientIdInput" Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Text="Tenant ID or 'organizations'" Foreground="{StaticResource MutedBrush}"/>
+                        <TextBox Text="{Binding TenantId, UpdateSourceTrigger=PropertyChanged}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="Sign in" Command="{Binding ConnectGraphCommand}" Background="{StaticResource AccentBrush}" Foreground="White"/>
+                            <Button Content="Sign out" Command="{Binding DisconnectGraphCommand}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding GraphConnectionStatus}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
 
         <Border Grid.Row="1" Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16" Margin="0,0,0,16">
             <Grid>
@@ -58,19 +127,6 @@
                     </Border>
                     <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18">
                         <StackPanel>
-                            <TextBlock Text="Optional Microsoft Graph connection" FontSize="18" FontWeight="SemiBold"/>
-                            <TextBlock Text="Local file analysis works without sign-in, network access, or a tenant. Connect only when you want to load EPM policies." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,10"/>
-                            <TextBlock Text="Application (client) ID" Foreground="{StaticResource MutedBrush}"/>
-                            <TextBox Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="Tenant ID or 'organizations'" Foreground="{StaticResource MutedBrush}"/>
-                            <TextBox Text="{Binding TenantId, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,4">
-                                <Button Content="Sign in / switch account" Command="{Binding ConnectGraphCommand}"/>
-                                <Button Content="Sign out" Command="{Binding DisconnectGraphCommand}"/>
-                            </StackPanel>
-                            <TextBlock Text="{Binding GraphConnectionStatus}" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            <TextBlock Text="{Binding GraphAccount}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
-                            <Separator Margin="0,12,0,10"/>
                             <TextBlock Text="Elevation Rules policy" FontSize="16" FontWeight="SemiBold"/>
                             <Button Content="Load policies" Command="{Binding LoadPoliciesCommand}" HorizontalAlignment="Left" Margin="0,8,0,6"/>
                             <ComboBox ItemsSource="{Binding ElevationPolicies}" SelectedItem="{Binding SelectedElevationPolicy}" DisplayMemberPath="Name"/>
