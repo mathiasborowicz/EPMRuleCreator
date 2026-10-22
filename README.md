@@ -41,11 +41,17 @@ That's it. You can also use the tool just to inspect files or export certificate
 - [Connecting to Intune](docs/GraphAuthentication.md)
 
 <details>
-<summary>Intune permissions and local settings</summary>
+<summary>Connect to Intune: one-time setup</summary>
 
-For uploads, use your own Entra app registration with delegated `User.Read` and `DeviceManagementConfiguration.ReadWrite.All` permissions. The latter requires admin consent. [Sign-in setup](docs/GraphAuthentication.md).
+1. Open the [Entra admin center](https://entra.microsoft.com/) and go to **App registrations > New registration**. Name it **EPMRuleCreator**, select **Accounts in this organizational directory only**, and register it.
+2. Under **Authentication > Add a platform > Mobile and desktop applications**, add `http://localhost` and save.
+3. Under **API permissions > Add a permission > Microsoft Graph > Delegated permissions**, add `User.Read` and `DeviceManagementConfiguration.ReadWrite.All`.
+4. Select **Grant admin consent** for your organization.
+5. From **Overview**, copy **Application (client) ID** and **Directory (tenant) ID** into the tool's account panel, then click **Sign in**.
 
-Your client ID, tenant, and preferences are saved in `%LOCALAPPDATA%\EPMRuleCreator\settings.json`. This file is unencrypted and contains no tokens. Tokens stay in RAM; no new `msal.cache` is written. No client or tenant ID is embedded in the app. [Details](docs/GraphAuthentication.md#runtime-and-token-handling).
+Your sign-in settings and preferences are saved in `%LOCALAPPDATA%\EPMRuleCreator\settings.json`.
+
+[More help with sign-in](docs/GraphAuthentication.md).
 
 </details>
 
