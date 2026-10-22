@@ -63,6 +63,37 @@ public sealed class PresentationLayoutTests
         Assert.Contains("{Binding IsDarkTheme, Mode=TwoWay}", window);
     }
 
+    [Fact]
+    public void UpdateSettingsAreAvailableWithoutEntraAndStartupCheckIsOptional()
+    {
+        var window = XDocument.Load(Source("MainWindow.xaml"));
+        Assert.Single(window.Descendants(Presentation + "CheckBox"), element =>
+            (string?)element.Attribute("IsChecked") == "{Binding CheckForUpdatesAtStartup, Mode=TwoWay}");
+        Assert.Single(window.Descendants(Presentation + "Button"), element =>
+            (string?)element.Attribute("Command") == "{Binding UpdateNowCommand}");
+        var viewModel = File.ReadAllText(Source("ViewModels/MainViewModel.cs"));
+        Assert.Contains("return CheckForUpdatesAtStartup ? CheckForUpdatesAsync() : Task.CompletedTask;", viewModel);
+        Assert.Contains("_startupUpdateChecked", viewModel);
+    }
+
+    [Fact]
+    public void UpdaterVerifiesBeforeUnblockingAndWaitsForExitBeforeReplacing()
+    {
+        var installer = File.ReadAllText(Source("UpdateInstaller.cs"));
+        Assert.True(installer.IndexOf("UpdatePackageService.DownloadAsync", StringComparison.Ordinal)
+            < installer.IndexOf("File.Delete(executable + \":Zone.Identifier\")", StringComparison.Ordinal));
+        Assert.Contains("fileVersion.ProductName != \"EPMRuleCreator\"", installer);
+        Assert.DoesNotContain("runas", installer, StringComparison.OrdinalIgnoreCase);
+        var root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Source("UpdateInstaller.cs"))!, "../.."));
+        var script = File.ReadAllText(Path.Combine(root, "scripts", "Install-AppUpdate.ps1"));
+        Assert.True(script.IndexOf("WaitForExit", StringComparison.Ordinal) < script.IndexOf("[IO.File]::Replace", StringComparison.Ordinal));
+        Assert.True(script.IndexOf("[IO.File]::Replace", StringComparison.Ordinal) < script.IndexOf("[IO.File]::Delete($destination + ':Zone.Identifier')", StringComparison.Ordinal));
+        Assert.Contains("$destination + '.previous'", script);
+        Assert.Contains("[IO.File]::Copy($backup, $destination, $true)", script);
+        Assert.DoesNotContain("-Recurse", script);
+        Assert.DoesNotContain("ExecutionPolicy", installer);
+    }
+
     private static double Contrast(string a, string b)
     {
         static double Luminance(string color)

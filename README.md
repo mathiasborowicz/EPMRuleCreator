@@ -28,6 +28,8 @@ Want to send the rule to Intune? Sign in using the account icon at the top right
 
 ## 🔎 What you can do
 
+- **Stay up to date:** open **Updates** to turn startup checks on/off or **Check now**. Click **Update** to download the release ZIP, verify its GitHub SHA256 checksum, replace the EXE in place and restart. Save your work first. The previous EXE stays beside it as `EPMRuleCreator.exe.previous`. No admin prompt or separate installer; if the folder is not writable, choose a writable location. Without a GitHub checksum, use **Open release page** instead. Checks never block offline analysis and send no file details, Entra IDs, or tokens to GitHub. Your preference is saved as `CheckForUpdatesAtStartup` in local `settings.json`.
+  The updater removes any Internet zone marker from the verified update EXE only (equivalent to `Unblock-File`). Defender and ASR policies are not changed. For your first manual download, use the file's **Properties > Unblock** if Windows requires it.
 - **Make it yours:** the app starts with your Windows app theme until you choose light or dark using the switch. Your manual choice is remembered locally.
 - **See what's in a file:** SHA256, version, product details, and its signing certificate, where available.
 - **Export its certificate chain:** save each public certificate as its own CER file, or the chain together as P7B/PEM. Missing issuers are clearly marked.

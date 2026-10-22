@@ -16,6 +16,8 @@
                 <TextBlock Text="EPMRuleCreator" FontSize="27" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <ToggleButton x:Name="UpdatesButton" Content="{Binding UpdatesButtonText}" Padding="10,6" FontSize="12"
+                              IsChecked="{Binding IsUpdatesMenuOpen, Mode=TwoWay}" ToolTip="Updates and startup check settings"/>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                     <ToggleButton x:Name="ThemeSwitch" IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" Width="44" Height="26"
                                   Cursor="Hand" ToolTip="{Binding ThemeToggleToolTip}" AutomationProperties.Name="Dark theme">
@@ -96,6 +98,27 @@
                     </Style>
                 </ToggleButton.Style>
             </ToggleButton>
+            <Popup PlacementTarget="{Binding ElementName=UpdatesButton}" Placement="Bottom" VerticalOffset="8"
+                   Width="320" AllowsTransparency="True" StaysOpen="False"
+                   DataContext="{Binding DataContext, ElementName=UpdatesButton}" IsOpen="{Binding IsUpdatesMenuOpen, Mode=TwoWay}">
+                <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="12" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Updates" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"/>
+                        <CheckBox Content="Check for updates at startup" IsChecked="{Binding CheckForUpdatesAtStartup, Mode=TwoWay}"
+                                  ToolTip="Checks public GitHub releases without sending file details or Entra credentials."/>
+                        <TextBlock Text="{Binding UpdateStatus}" TextWrapping="Wrap" Margin="0,12,0,8"/>
+                        <Button Content="Check now" Command="{Binding CheckForUpdatesCommand}"/>
+                        <Button Content="Update" Command="{Binding UpdateNowCommand}"
+                                Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}"
+                                ToolTip="Download, verify, replace this EXE and restart. Unsaved rule edits will be lost."
+                                Visibility="{Binding HasAvailableUpdate, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        <Button Content="Open release page" Command="{Binding OpenReleaseCommand}"
+                                Visibility="{Binding HasAvailableUpdate, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
             <Popup x:Name="AccountPopup" PlacementTarget="{Binding ElementName=AccountButton}" Placement="Bottom"
                    HorizontalOffset="-356" VerticalOffset="8" Width="400" AllowsTransparency="True" StaysOpen="False"
                    DataContext="{Binding DataContext, ElementName=AccountButton}"

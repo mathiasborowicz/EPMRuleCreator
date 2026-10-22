@@ -37,7 +37,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Validate Explorer script syntax in Windows PowerShell
+      - name: Validate Explorer and update script syntax in Windows PowerShell
         shell: powershell
         run: |
           foreach ($explorerScript in Get-ChildItem .\scripts\*.ps1) {

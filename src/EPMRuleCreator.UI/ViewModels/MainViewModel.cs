@@ -46,6 +46,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _useEpmCmdlets;
     private bool _isDarkTheme;
     private bool? _themeOverride;
+    private readonly System.Net.Http.HttpClient _updateClient = new() { Timeout = TimeSpan.FromSeconds(8) };
+    private CancellationTokenSource? _updateCancellation;
+    private CancellationTokenSource? _installationCancellation;
+    private bool _checkForUpdatesAtStartup = true;
+    private bool _checkingUpdates;
+    private bool _startupUpdateChecked;
+    private bool _isUpdatesMenuOpen;
+    private string _updateStatus = "Check GitHub for a newer release.";
+    private ReleaseUpdate? _availableUpdate;
     private CertificateAttributes? _publisherCertificate;
     private CertificateAttributes? _uploadedCertificate;
     private bool _useUploadedCertificate;
@@ -108,6 +117,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ChildProcessBehaviors = Enum.GetValues<ChildProcessBehavior>();
         AnalyzeCommand = new AsyncCommand(AnalyzeAsync, () => !Busy && !string.IsNullOrWhiteSpace(FilePath));
         ClearLogCommand = new RelayCommand(() => { _activityLog.Clear(); Raise(nameof(ActivityLogText)); });
+        CheckForUpdatesCommand = new AsyncCommand(CheckForUpdatesAsync, () => !_checkingUpdates && !Busy);
+        UpdateNowCommand = new AsyncCommand(InstallUpdateAsync, () => HasVerifiedUpdate && !_checkingUpdates && !Busy);
+        OpenReleaseCommand = new RelayCommand(OpenAvailableRelease, () => _availableUpdate is not null);
         ValidateCommand = new RelayCommand(Validate, () => !Busy && _hasAnalyzedFile);
         UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && _hasAnalyzedFile && !_policiesLoading && !_policyCountLoading && GraphConnected && (IsCreatingPolicy || SelectedElevationPolicy is not null));
         ToggleExplorerMenuCommand = new RelayCommand(ToggleExplorerMenu, () => !Busy);
@@ -142,6 +154,110 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
     public string ThemeToggleToolTip => IsDarkTheme ? "Switch to light theme" : "Switch to dark theme";
+    public ICommand CheckForUpdatesCommand { get; }
+    public ICommand OpenReleaseCommand { get; }
+    public ICommand UpdateNowCommand { get; }
+    public bool IsUpdatesMenuOpen { get => _isUpdatesMenuOpen; set => Set(ref _isUpdatesMenuOpen, value); }
+    public bool CheckForUpdatesAtStartup
+    {
+        get => _checkForUpdatesAtStartup;
+        set
+        {
+            if (!Set(ref _checkForUpdatesAtStartup, value)) return;
+            if (!value) _updateCancellation?.Cancel();
+            SaveSettings();
+        }
+    }
+    public string UpdateStatus { get => _updateStatus; private set => Set(ref _updateStatus, value); }
+    public bool HasAvailableUpdate => _availableUpdate is not null;
+    public bool HasVerifiedUpdate => _availableUpdate?.DownloadUrl is not null && _availableUpdate.Sha256 is not null;
+    public string UpdatesButtonText => _availableUpdate is null ? "Updates" : $"Update v{_availableUpdate.Version}";
+    public string CurrentVersionLabel => $"Installed: v{CurrentAppVersion.ToString(3)}";
+    private static Version CurrentAppVersion => typeof(MainViewModel).Assembly.GetName().Version ?? new Version(0, 0, 0);
+
+    public Task CheckForUpdatesOnStartupAsync()
+    {
+        if (_startupUpdateChecked) return Task.CompletedTask;
+        _startupUpdateChecked = true;
+        return CheckForUpdatesAtStartup ? CheckForUpdatesAsync() : Task.CompletedTask;
+    }
+
+    public void StopUpdateCheck()
+    {
+        _updateCancellation?.Cancel();
+        _installationCancellation?.Cancel();
+        _updateClient.Dispose();
+    }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_checkingUpdates) return;
+        _checkingUpdates = true;
+        using var cancellation = new CancellationTokenSource();
+        _updateCancellation = cancellation;
+        CommandManager.InvalidateRequerySuggested();
+        UpdateStatus = "Checking GitHub…";
+        try
+        {
+            var update = await new ReleaseUpdateService(_updateClient).CheckAsync(CurrentAppVersion, cancellation.Token);
+            cancellation.Token.ThrowIfCancellationRequested();
+            _availableUpdate = update;
+            Raise(nameof(HasAvailableUpdate));
+            Raise(nameof(HasVerifiedUpdate));
+            Raise(nameof(UpdatesButtonText));
+            UpdateStatus = update is null ? "No newer stable release available."
+                : HasVerifiedUpdate ? $"Version {update.Version} is available."
+                : $"Version {update.Version} is available. Open the release page (no verified update package).";
+            if (update is not null) AddLog(UpdateStatus);
+        }
+        catch (OperationCanceledException)
+        {
+            UpdateStatus = cancellation.IsCancellationRequested ? "Update check cancelled." : "Update check timed out. Try again later.";
+        }
+        catch (Exception)
+        {
+            UpdateStatus = "Could not check GitHub. Try again later.";
+        }
+        finally
+        {
+            _updateCancellation = null;
+            _checkingUpdates = false;
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    private void OpenAvailableRelease()
+    {
+        if (_availableUpdate is null) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_availableUpdate.ReleaseUrl.AbsoluteUri) { UseShellExecute = true }); }
+        catch { AddLog("Could not open the release page in your browser."); }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_availableUpdate is null || Busy) return;
+        Busy = true;
+        using var cancellation = new CancellationTokenSource();
+        _installationCancellation = cancellation;
+        UpdateStatus = "Downloading and verifying update…";
+        AddLog(UpdateStatus);
+        try
+        {
+            await UpdateInstaller.StartAsync(_availableUpdate, cancellation.Token);
+            Application.Current.Shutdown();
+        }
+        catch (OperationCanceledException) { UpdateStatus = "Update cancelled. Nothing was installed."; }
+        catch (Exception exception)
+        {
+            UpdateStatus = $"Update not installed: {exception.Message}";
+            AddLog(UpdateStatus);
+        }
+        finally
+        {
+            _installationCancellation = null;
+            Busy = false;
+        }
+    }
     public IReadOnlyList<ElevationTypeOption> ElevationTypes { get; } =
     [
         new(ElevationType.UserConfirmed, "User confirmed"),
@@ -756,6 +872,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 _clientId = settings.ClientId;
             _tenantId = string.IsNullOrWhiteSpace(settings.TenantId) ? "organizations" : settings.TenantId;
             _themeOverride = settings.IsDarkTheme;
+            _checkForUpdatesAtStartup = settings.CheckForUpdatesAtStartup;
         }
         catch { /* Invalid or inaccessible optional settings must not block offline use. */ }
     }
@@ -765,7 +882,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-            File.WriteAllText(_settingsPath, JsonSerializer.Serialize(new LocalAppSettings(ClientId, TenantId, _themeOverride)));
+            File.WriteAllText(_settingsPath, JsonSerializer.Serialize(new LocalAppSettings(ClientId, TenantId, _themeOverride, CheckForUpdatesAtStartup)));
         }
         catch { /* Settings are optional and never block local functionality. */ }
     }
