@@ -13,12 +13,24 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test-and-publish:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve application and release version
+        id: version
+        run: node scripts/resolve-release-version.cjs
 
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
@@ -50,6 +62,7 @@ jobs:
           -p:PublishSingleFile=true
           -p:EnableCompressionInSingleFile=true
           -p:IncludeAllContentForSelfExtract=true
+          -p:Version=${{ steps.version.outputs.version }}
           --output .\publish\win-x64
 
       - name: Upload executable package
@@ -57,6 +70,14 @@ jobs:
         with:
           name: IntuneEpmRuleCreator-win-x64
           path: publish/win-x64/IntuneEpmRuleCreator.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload license for release publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: IntuneEpmRuleCreator-license
+          path: LICENSE
           if-no-files-found: error
           retention-days: 30
 
@@ -74,16 +95,27 @@ jobs:
           name: IntuneEpmRuleCreator-win-x64
           path: release
 
+      - name: Download GPL license
+        uses: actions/download-artifact@v4
+        with:
+          name: IntuneEpmRuleCreator-license
+          path: release
+
       - name: Create release and upload standalone EXE
         uses: actions/github-script@v8
+        env:
+          RELEASE_VERSION: ${{ needs.test-and-publish.outputs.version }}
         with:
           script: |
             const fs = require('node:fs');
             const { owner, repo } = context.repo;
-            const tag = `build-${context.runNumber}`;
+            const version = process.env.RELEASE_VERSION;
+            if (!/^\d+\.\d+\.\d+$/.test(version || '')) throw new Error('Missing or invalid release version');
+            const tag = `v${version}`;
             const assetName = 'IntuneEpmRuleCreator.exe';
             // Read the complete asset before creating a public release.
             const data = fs.readFileSync(`release/${assetName}`);
+            const licenseData = fs.readFileSync('release/LICENSE');
             // List also includes drafts, allowing retries after a failed asset upload.
             const releases = await github.paginate(github.rest.repos.listReleases, { owner, repo, per_page: 100 });
             let release = releases.find(item => item.tag_name === tag);
@@ -92,8 +124,8 @@ jobs:
                 owner, repo,
                 tag_name: tag,
                 target_commitish: context.sha,
-                name: `Intune EPM Rule Creator — Build ${context.runNumber}`,
-                body: 'Download IntuneEpmRuleCreator.exe below. Standalone Windows x64 application; no .NET installation or compilation required.',
+                name: `Intune EPM Rule Creator v${version}`,
+                body: `Download IntuneEpmRuleCreator.exe below. Standalone Windows x64 application; no .NET installation or compilation required.\n\nLicense: GNU GPLv3. License text and corresponding source code are available in this release's tagged source: https://github.com/${owner}/${repo}/tree/${tag}`,
                 generate_release_notes: true,
                 draft: true,
                 prerelease: false
@@ -103,17 +135,21 @@ jobs:
             const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
               owner, repo, release_id: release.id, per_page: 100
             });
-            const existing = assets.find(asset => asset.name === assetName);
-            if (existing) {
-              core.info(`Release already contains ${assetName}; preserving the published asset.`);
-            } else {
-              await github.rest.repos.uploadReleaseAsset({
-                owner, repo,
-                release_id: release.id,
-                name: assetName,
-                data,
-                headers: { 'content-type': 'application/octet-stream' }
-              });
+            for (const attachment of [
+              { name: assetName, data, contentType: 'application/octet-stream' },
+              { name: 'LICENSE', data: licenseData, contentType: 'text/plain' }
+            ]) {
+              if (assets.some(asset => asset.name === attachment.name)) {
+                core.info(`Release already contains ${attachment.name}; preserving the published asset.`);
+              } else {
+                await github.rest.repos.uploadReleaseAsset({
+                  owner, repo,
+                  release_id: release.id,
+                  name: attachment.name,
+                  data: attachment.data,
+                  headers: { 'content-type': attachment.contentType }
+                });
+              }
             }
             // Publish only once the executable is attached; failed uploads stay drafts.
             if (release.draft) {

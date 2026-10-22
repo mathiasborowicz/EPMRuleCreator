@@ -288,7 +288,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string PublisherCertificateChoiceText => UseUploadedCertificate
         ? $"Selected certificate file: {Path.GetFileName(SelectedCertificateFile)}"
         : PublisherCertificate is { } certificate
-            ? $"Using analyzed file's publisher certificate — {certificate.Subject} (thumbprint {certificate.Thumbprint})"
+            ? $"Using analyzed file's publisher certificate - {certificate.Subject} (thumbprint {certificate.Thumbprint})"
             : "No certificate selected. Choose a certificate file or analyze a signed file.";
     public string CertificateSelectionLabel => UseUploadedCertificate ? Path.GetFileName(SelectedCertificateFile)
         : HasPublisherCertificate ? "Analyzed file certificate" : "No certificate selected";
@@ -539,7 +539,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ElevationPolicyOptions.Add(_newPolicyOption);
             _policiesLoaded = true;
             PolicyLoadStatus = policies.Count == 0
-                ? "No policies yet — choose + Add new."
+                ? "No policies yet - choose + Add new."
                 : string.Empty;
             SelectedPolicyOption = creatingPolicy ? _newPolicyOption
                 : ElevationPolicyOptions.FirstOrDefault(option => option.Policy?.Id == selectedId && option.Policy is not null);

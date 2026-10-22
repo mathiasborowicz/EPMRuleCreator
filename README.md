@@ -1,5 +1,7 @@
 # Intune EPM Rule Creator
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
 A Windows desktop tool for inspecting local files and preparing Microsoft Intune Endpoint Privilege Management elevation rules. Local file analysis works offline and does not require signing in to a tenant. Optional Microsoft Graph sign-in can list EPM policies, count their rules, browse reusable EPM certificate settings, append a rule to a selected policy, or create a new policy with its first rule after confirmation.
 
 > **Uploads to existing policies replace the selected Intune policy.** The app refreshes the policy and settings, validates the rule, and asks for confirmation before sending a PUT containing the complete settings collection. This follows the request captured from the Intune admin center; Microsoft's public beta documentation currently describes PATCH instead. Creating a new policy uses the documented POST route with the first rule included. See [the verification record](docs/GraphIntegration.md) for current constraints.
@@ -43,7 +45,7 @@ docs/                             Graph verification and installation notes
 
 ## Build, test, and install
 
-Download only [**IntuneEpmRuleCreator.exe from the latest release**](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator.exe). No source checkout, compilation, or separate .NET installation is required. Each push to `main` (including a merged pull request) automatically publishes a new `build-<workflow run number>` release after tests and the Windows build succeed. The latest successful release remains available if a subsequent build fails. Development builds on `work` remain available as Actions artifacts and do not create releases.
+Download only [**IntuneEpmRuleCreator.exe from the latest release**](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator.exe). No source checkout, compilation, or separate .NET installation is required. Each push to `main` (including a merged pull request) automatically publishes a versioned release after tests and the Windows build succeed, starting at **v0.9.0**. Subsequent merges increment the patch version automatically (v0.9.1, v0.9.2, etc.); the EXE and release use the same version. Raising `<Version>` in the UI project starts a new version line. The latest successful release remains available if a subsequent build fails. Development builds on `work` remain available as Actions artifacts and do not create releases.
 
 See [Installation](docs/Installation.md) for obtaining the `work` branch in `C:\Git\EPMRuleCreator`, installing the .NET SDK, building the self-contained app, and registering the Explorer menu.
 
@@ -71,3 +73,7 @@ See [Graph integration research](docs/GraphIntegration.md) for the endpoints sup
 ## Test status
 
 Automated tests cover rule validation, supported file extensions, the rule count boundary, Graph payload construction, and mocked new-policy HTTP requests and error handling. They do not authenticate against Microsoft Entra or make live Graph writes. Windows EPM Tools, Explorer registration, sign-in, and new-policy creation require integration testing on Windows with an authorized test tenant.
+
+## License
+
+Copyright (c) 2026 Mathias Borowicz. This project is licensed under the [GNU General Public License version 3](LICENSE) (GPL-3.0-only), matching AppPermissionInfo. Redistribution and modification are permitted under those terms, including commercial use. Distributed modifications must remain under GPLv3 and include access to the corresponding source code. The software comes without warranty, to the extent permitted by law. Third-party dependencies retain their own licenses. The license text is embedded in the EXE and attached separately to each release, which also links to its tagged source code. Running the tool still requires only the EXE.
