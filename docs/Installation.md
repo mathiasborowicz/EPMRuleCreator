@@ -82,7 +82,9 @@ The registration script also deploys to the fixed Local AppData path before writ
 
 ### Appearance
 
-The **Dark** switch in the header changes the theme immediately, including input fields, dropdowns, certificate cards, logs, and the sign-in panel. The choice is stored as `IsDarkTheme` in the existing local `settings.json`, alongside the client/tenant identifiers. Existing settings without this field default to the light theme; switching themes preserves the saved sign-in configuration. No Graph connection is needed. The file path and its Choose/Analyze buttons share a dedicated row and the same height; the optional EpmCmdlets checkbox sits on the next row.
+The **Dark** switch in the header changes the theme immediately, including input fields, dropdowns, certificate cards, logs, and the sign-in panel. Until a manual choice is saved, the app reads the current user's Windows **app** color mode at each startup (`HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme`: 0 means dark). Missing or inaccessible Windows settings fall back to light. This reads the setting only; it does not change Windows preferences. Live Windows theme changes while the app is open are not tracked.
+
+Using the switch saves your explicit choice as `IsDarkTheme: true` or `false` in the existing local `settings.json`, alongside the client/tenant identifiers. A saved choice takes precedence over Windows. Missing or `null` theme values follow Windows; saving sign-in settings does not convert that automatic mode into a manual choice. Existing explicit values from earlier versions are retained. To restore startup-based Windows detection, remove only `IsDarkTheme` from the settings file or set it to `null` while the app is closed. Switching themes preserves the saved sign-in configuration. No Graph connection is needed. The file path and its Choose/Analyze buttons share a dedicated row and the same height; the optional EpmCmdlets checkbox sits on the next row.
 
 ### File details
 

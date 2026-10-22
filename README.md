@@ -28,7 +28,7 @@ Want to send the rule to Intune? Sign in using the account icon at the top right
 
 ## 🔎 What you can do
 
-- **Make it yours:** switch between light and dark themes at the top. Your choice is remembered locally.
+- **Make it yours:** the app starts with your Windows app theme until you choose light or dark using the switch. Your manual choice is remembered locally.
 - **See what's in a file:** SHA256, version, product details, and its signing certificate, where available.
 - **Export its certificate chain:** save each public certificate as its own CER file, or the chain together as P7B/PEM. Missing issuers are clearly marked.
 - **Choose how to identify it:** file hash, the extracted signing certificate, your own certificate file, or an Intune reusable certificate setting.

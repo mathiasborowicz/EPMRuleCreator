@@ -3,11 +3,20 @@ using System.Windows.Media;
 using System.Windows.Interop;
 using System.Runtime.InteropServices;
 using IntuneEpmRuleCreator.Core.Models;
+using IntuneEpmRuleCreator.Core.Services;
+using Microsoft.Win32;
 
 namespace IntuneEpmRuleCreator.UI;
 
 public static class ThemeService
 {
+    public static bool ResolveStartupTheme(bool? manualChoice) => ThemePreference.Resolve(manualChoice, () =>
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", writable: false);
+        return key?.GetValue("AppsUseLightTheme");
+    });
+
     public static void Apply(bool dark)
     {
         if (Application.Current is not { } app) return;
