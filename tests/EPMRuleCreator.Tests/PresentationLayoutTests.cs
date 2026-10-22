@@ -243,6 +243,25 @@ public sealed class PresentationLayoutTests
         Assert.Contains("Could not load certificates. See Logs.", code);
     }
 
+    [Fact]
+    public void TextBoxPaddingIsNotAppliedTwiceToTheContentHost()
+    {
+        var app = XDocument.Load(Source("App.xaml"));
+        var style = app.Descendants(Presentation + "Style").Single(element => (string?)element.Attribute("TargetType") == "TextBox");
+        var padding = style.Elements(Presentation + "Setter").Single(element => (string?)element.Attribute("Property") == "Padding");
+        Assert.Equal("10,8", (string?)padding.Attribute("Value"));
+        var host = style.Descendants(Presentation + "ScrollViewer").Single(element => (string?)element.Attribute(Xaml + "Name") == "PART_ContentHost");
+        Assert.Null(host.Attribute("Margin"));
+        Assert.Null(host.Parent!.Attribute("Padding"));
+        Assert.Equal("False", (string?)host.Attribute("Focusable"));
+        Assert.Equal("{TemplateBinding HorizontalScrollBarVisibility}", (string?)host.Attribute("HorizontalScrollBarVisibility"));
+        Assert.Equal("{TemplateBinding VerticalScrollBarVisibility}", (string?)host.Attribute("VerticalScrollBarVisibility"));
+        var window = XDocument.Load(Source("MainWindow.xaml"));
+        var file = window.Descendants(Presentation + "TextBox").Single(element => (string?)element.Attribute(Xaml + "Name") == "SelectedFileInput");
+        Assert.Equal("Center", (string?)file.Attribute("VerticalContentAlignment"));
+        Assert.Equal("True", (string?)file.Attribute("IsReadOnly"));
+    }
+
     private static double Contrast(string a, string b)
     {
         static double Luminance(string color)
