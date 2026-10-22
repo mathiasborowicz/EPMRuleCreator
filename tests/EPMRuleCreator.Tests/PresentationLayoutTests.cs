@@ -94,6 +94,25 @@ public sealed class PresentationLayoutTests
         Assert.DoesNotContain("ExecutionPolicy", installer);
     }
 
+    [Fact]
+    public void UpdatesButtonSharesTheStandardButtonTemplateAndThemeStates()
+    {
+        var app = XDocument.Load(Source("App.xaml"));
+        var button = app.Descendants(Presentation + "Style").Single(style => (string?)style.Attribute("TargetType") == "Button");
+        var toggle = app.Descendants(Presentation + "Style").Single(style => (string?)style.Attribute(Xaml + "Key") == "HeaderMenuButtonStyle");
+        Assert.Equal("{StaticResource ActionButtonStyle}", (string?)button.Attribute("BasedOn"));
+        Assert.Equal((string?)button.Attribute("BasedOn"), (string?)toggle.Attribute("BasedOn"));
+        var shared = app.Descendants(Presentation + "Style").Single(style => (string?)style.Attribute(Xaml + "Key") == "ActionButtonStyle");
+        Assert.Equal("ButtonBase", (string?)shared.Attribute("TargetType"));
+        Assert.Contains(shared.Descendants(Presentation + "Trigger"), trigger => (string?)trigger.Attribute("Property") == "IsKeyboardFocused");
+        Assert.Contains(shared.Descendants(Presentation + "Trigger"), trigger => (string?)trigger.Attribute("Property") == "IsMouseOver");
+        Assert.Contains(toggle.Descendants(Presentation + "Trigger"), trigger => (string?)trigger.Attribute("Property") == "IsChecked");
+        var window = XDocument.Load(Source("MainWindow.xaml"));
+        var updates = window.Descendants(Presentation + "ToggleButton").Single(element => (string?)element.Attribute(Xaml + "Name") == "UpdatesButton");
+        Assert.Equal("{StaticResource HeaderMenuButtonStyle}", (string?)updates.Attribute("Style"));
+        Assert.Equal("{Binding IsUpdatesMenuOpen, Mode=TwoWay}", (string?)updates.Attribute("IsChecked"));
+    }
+
     private static double Contrast(string a, string b)
     {
         static double Luminance(string color)

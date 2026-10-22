@@ -16,7 +16,8 @@
                 <TextBlock Text="EPMRuleCreator" FontSize="27" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <ToggleButton x:Name="UpdatesButton" Content="{Binding UpdatesButtonText}" Padding="10,6" FontSize="12"
+                <ToggleButton x:Name="UpdatesButton" Content="{Binding UpdatesButtonText}" Padding="10,6" FontSize="12" Margin="0"
+                              Style="{StaticResource HeaderMenuButtonStyle}" AutomationProperties.Name="Updates and startup check settings"
                               IsChecked="{Binding IsUpdatesMenuOpen, Mode=TwoWay}" ToolTip="Updates and startup check settings"/>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                     <ToggleButton x:Name="ThemeSwitch" IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" Width="44" Height="26"
@@ -102,7 +103,8 @@
                    Width="320" AllowsTransparency="True" StaysOpen="False"
                    DataContext="{Binding DataContext, ElementName=UpdatesButton}" IsOpen="{Binding IsUpdatesMenuOpen, Mode=TwoWay}">
                 <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}"
-                        BorderThickness="1" CornerRadius="12" Padding="16">
+                        BorderThickness="1" CornerRadius="12" Padding="16" Margin="4">
+                    <Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.14"/></Border.Effect>
                     <StackPanel>
                         <TextBlock Text="Updates" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"/>
