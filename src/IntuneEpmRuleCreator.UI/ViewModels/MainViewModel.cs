@@ -57,7 +57,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _tenantId = "organizations";
     private string _graphConnectionStatus = "Optional: sign in only if you want to connect to Microsoft Graph. Local file analysis works without sign-in.";
     private string _graphAccount = string.Empty;
-    private string _accountInitials = "EN";
+    private string _accountInitials = string.Empty;
     private bool _isAccountMenuOpen;
     private bool _graphConnected;
     private ElevationRulePolicy? _selectedElevationPolicy;
@@ -281,7 +281,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             GraphAccount = $"{profile.DisplayName} ({profile.UserPrincipalName})\nTenant ID: {profile.TenantId}";
             var nameParts = (string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.UserPrincipalName : profile.DisplayName)
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            AccountInitials = nameParts.Length == 0 ? "EN"
+            AccountInitials = nameParts.Length == 0 ? "?"
                 : (nameParts[0][..1] + (nameParts.Length > 1 ? nameParts[^1][..1] : string.Empty)).ToUpperInvariant();
             GraphConnectionStatus = "Connected to Microsoft Graph. Intune is changed only when you explicitly upload a rule.";
             TenantId = profile.TenantId;
@@ -308,7 +308,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _selectedPolicyRuleCount = null;
         _selectedPolicyRuleLimit = null;
         GraphAccount = string.Empty;
-        AccountInitials = "EN";
+        AccountInitials = string.Empty;
         IsAccountMenuOpen = false;
         GraphConnectionStatus = "Disconnected. Local file analysis remains available offline.";
         PolicyLoadStatus = "Use the account button at the top right to sign in and load EPM policies.";

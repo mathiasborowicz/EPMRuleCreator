@@ -35,7 +35,11 @@
                                     <Grid>
                                         <Border x:Name="Avatar" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                                 BorderThickness="2" CornerRadius="22">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Grid>
+                                                <TextBlock x:Name="AccountPlaceholder" Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="22"
+                                                           Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <ContentPresenter x:Name="AccountInitialsPresenter" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                                            </Grid>
                                         </Border>
                                         <Ellipse x:Name="ConnectedIndicator" Width="11" Height="11" Fill="#168350" Stroke="White" StrokeThickness="2"
                                                  HorizontalAlignment="Right" VerticalAlignment="Bottom" Visibility="Collapsed"/>
@@ -47,6 +51,8 @@
                                         <DataTrigger Binding="{Binding GraphConnected}" Value="True">
                                             <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
                                             <Setter Property="Foreground" Value="White"/>
+                                            <Setter TargetName="AccountPlaceholder" Property="Visibility" Value="Collapsed"/>
+                                            <Setter TargetName="AccountInitialsPresenter" Property="Visibility" Value="Visible"/>
                                             <Setter TargetName="ConnectedIndicator" Property="Visibility" Value="Visible"/>
                                         </DataTrigger>
                                     </ControlTemplate.Triggers>
