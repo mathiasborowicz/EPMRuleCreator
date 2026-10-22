@@ -138,8 +138,33 @@
                         <StackPanel>
                             <TextBlock Text="Elevation rule" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                             <TextBlock Text="Elevation Rules policy" Foreground="{StaticResource MutedBrush}"/>
-                            <ComboBox ItemsSource="{Binding ElevationPolicies}" SelectedItem="{Binding SelectedElevationPolicy}" DisplayMemberPath="Name"
-                                      IsEnabled="{Binding CanSelectElevationPolicy, Mode=OneWay}" DropDownOpened="ElevationPolicies_DropDownOpened"/>
+                            <ComboBox ItemsSource="{Binding ElevationPolicyOptions}" SelectedItem="{Binding SelectedPolicyOption}"
+                                      IsEnabled="{Binding CanSelectElevationPolicy, Mode=OneWay}" DropDownOpened="ElevationPolicies_DropDownOpened">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsNewPolicy}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <StackPanel Visibility="{Binding IsCreatingPolicy, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="New policy name *" Foreground="{StaticResource MutedBrush}"/>
+                                <TextBox Text="{Binding NewPolicyName, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="Policy description (optional)" Foreground="{StaticResource MutedBrush}"/>
+                                <TextBox Text="{Binding NewPolicyDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap"/>
+                                <TextBlock Text="The new policy and this rule are created together when you upload. No assignments are added."
+                                           TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,8"/>
+                            </StackPanel>
                             <TextBlock Text="{Binding PolicyLoadStatus}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6"/>
                             <TextBlock Text="{Binding SelectedPolicySummary}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12"/>
                             <TextBlock Text="Rule name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}"/>
@@ -192,7 +217,7 @@
                         <StackPanel>
                             <TextBlock Text="Validation" FontSize="18" FontWeight="SemiBold"/>
                             <Button Content="Validate rule" Command="{Binding ValidateCommand}" HorizontalAlignment="Left" Margin="0,12,0,0"/>
-                            <Button Content="Upload rule to selected Intune policy" Command="{Binding UploadRuleCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{StaticResource AccentBrush}" Foreground="White"/>
+                            <Button Content="{Binding UploadButtonText, Mode=OneWay}" Command="{Binding UploadRuleCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{StaticResource AccentBrush}" Foreground="White"/>
                             <TextBlock Text="{Binding ValidationSummary}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                             <ItemsControl ItemsSource="{Binding ValidationMessages}" Margin="0,8,0,0">
                                 <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="#8A3B12" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate>
