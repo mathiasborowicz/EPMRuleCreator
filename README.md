@@ -43,6 +43,8 @@ docs/                             Graph verification and installation notes
 
 ## Build, test, and install
 
+Download only [**IntuneEpmRuleCreator.exe from the latest release**](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/IntuneEpmRuleCreator.exe). No source checkout, compilation, or separate .NET installation is required. Each push to `main` (including a merged pull request) automatically publishes a new `build-<workflow run number>` release after tests and the Windows build succeed. The latest successful release remains available if a subsequent build fails. Development builds on `work` remain available as Actions artifacts and do not create releases.
+
 See [Installation](docs/Installation.md) for obtaining the `work` branch in `C:\Git\EPMRuleCreator`, installing the .NET SDK, building the self-contained app, and registering the Explorer menu.
 
 ## Graph, authentication, and security
