@@ -253,9 +253,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
                 string.Equals(GetSimpleValue(existing, "name"), rule.Name, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException($"A rule named '{rule.Name}' already exists in this policy.");
 
-        var template = FindRuleTemplate(rules, rule);
-        var newRule = (JsonObject)template.DeepClone();
-        PopulateRule(newRule, rule, rules);
+        var newRule = CreateRuleForAppend(rules, rule);
         rules.Add(newRule);
 
         var settingId = setting["id"]?.GetValue<string>();
@@ -372,6 +370,34 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
                     int.TryParse(definition["maximumCount"]?.ToString(), out var maximum))
                     return maximum;
         return fallback;
+    }
+
+    internal static JsonObject CreateRuleForAppend(JsonArray rules, ElevationRule rule)
+    {
+        var template = FindRuleTemplate(rules, rule);
+        var newRule = (JsonObject)template.DeepClone();
+        PopulateRule(newRule, rule, rules);
+        // The captured Intune PUT keeps template references on the original rule
+        // only. Reusing them in an appended rule produces DuplicateReferenceId.
+        // Clean after populating, which may copy certificate settings or add refs.
+        RemoveTemplateReferences(newRule);
+        return newRule;
+    }
+
+    private static void RemoveTemplateReferences(JsonNode node)
+    {
+        if (node is JsonObject obj)
+        {
+            obj.Remove("settingInstanceTemplateReference");
+            obj.Remove("settingValueTemplateReference");
+            foreach (var property in obj)
+                if (property.Value is not null)
+                    RemoveTemplateReferences(property.Value);
+        }
+        else if (node is JsonArray array)
+            foreach (var item in array)
+                if (item is not null)
+                    RemoveTemplateReferences(item);
     }
 
     private static JsonObject FindRuleTemplate(JsonArray rules, ElevationRule rule)
