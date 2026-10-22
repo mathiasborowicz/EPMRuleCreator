@@ -476,7 +476,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         else children[children.IndexOf(existing)] = copy;
     }
 
-    private static void SetElevationType(JsonArray ruleChildren, ElevationRule rule)
+    internal static void SetElevationType(JsonArray ruleChildren, ElevationRule rule)
     {
         var ruleType = FindChild(ruleChildren, "ruletype")
             ?? throw new InvalidOperationException("The selected rule template is missing its elevation type setting.");
@@ -485,7 +485,9 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         var option = GetRuleTypeOption(rule.ElevationType);
         var choice = ruleType["choiceSettingValue"] as JsonObject
             ?? throw new InvalidOperationException("The elevation type setting has an unexpected format.");
-        choice["value"] = definitionId + "_" + option;
+        // Graph's rule-type option itemIds are rooted at the rule group, not at
+        // the _ruletype setting. Validation children still use definitionId below.
+        choice["value"] = ElevationRulesSettingDefinitionId + "_" + option;
         choice["settingValueTemplateReference"] = rule.ElevationType == ElevationType.UserConfirmed
             ? new JsonObject
             {
