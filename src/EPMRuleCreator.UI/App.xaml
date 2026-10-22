@@ -155,7 +155,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
             <Setter Property="Padding" Value="10"/>
         </Style>
-        <Style TargetType="Button">
+        <Style x:Key="ActionButtonStyle" TargetType="ButtonBase">
             <Setter Property="Padding" Value="14,8"/>
             <Setter Property="Margin" Value="0,4,8,4"/>
             <Setter Property="FontSize" Value="14"/>
@@ -169,7 +169,7 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                    <ControlTemplate TargetType="ButtonBase">
                         <Grid x:Name="ButtonRoot">
                             <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8"/>
@@ -189,6 +189,20 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}"/>
+        <Style x:Key="HeaderMenuButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource ActionButtonStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding HasAvailableUpdate}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
     </Application.Resources>
 </Application>
