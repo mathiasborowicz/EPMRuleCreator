@@ -15,6 +15,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         var viewModel = new MainViewModel();
         DataContext = viewModel;
+        SourceInitialized += (_, _) => ThemeService.ApplyWindowFrame(this, viewModel.IsDarkTheme);
         var selectedPath = Environment.GetCommandLineArgs().Skip(1).FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(selectedPath))
         {

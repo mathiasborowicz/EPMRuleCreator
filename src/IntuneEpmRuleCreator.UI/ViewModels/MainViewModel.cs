@@ -44,6 +44,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private CertificateAttributes? _analyzedPublisherCertificate;
     private CertificateChainResult? _analyzedCertificateChain;
     private bool _useEpmCmdlets;
+    private bool _isDarkTheme;
     private CertificateAttributes? _publisherCertificate;
     private CertificateAttributes? _uploadedCertificate;
     private bool _useUploadedCertificate;
@@ -122,9 +123,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
         DisconnectGraphCommand = new AsyncCommand(DisconnectGraphAsync, () => !Busy && GraphConnected);
         ElevationPolicyOptions.Add(_newPolicyOption);
         LoadSettings();
+        ThemeService.Apply(IsDarkTheme);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public bool IsDarkTheme
+    {
+        get => _isDarkTheme;
+        set
+        {
+            if (!Set(ref _isDarkTheme, value)) return;
+            ThemeService.Apply(value);
+            Raise(nameof(ThemeToggleToolTip));
+            SaveSettings();
+        }
+    }
+    public string ThemeToggleToolTip => IsDarkTheme ? "Switch to light theme" : "Switch to dark theme";
     public IReadOnlyList<ElevationTypeOption> ElevationTypes { get; } =
     [
         new(ElevationType.UserConfirmed, "User confirmed"),
@@ -738,6 +752,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (!string.IsNullOrWhiteSpace(settings.ClientId))
                 _clientId = settings.ClientId;
             _tenantId = string.IsNullOrWhiteSpace(settings.TenantId) ? "organizations" : settings.TenantId;
+            _isDarkTheme = settings.IsDarkTheme;
         }
         catch { /* Invalid or inaccessible optional settings must not block offline use. */ }
     }
@@ -747,12 +762,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-            File.WriteAllText(_settingsPath, JsonSerializer.Serialize(new AppSettings(ClientId, TenantId)));
+            File.WriteAllText(_settingsPath, JsonSerializer.Serialize(new AppSettings(ClientId, TenantId, IsDarkTheme)));
         }
         catch { /* Settings are optional and never block local functionality. */ }
     }
 
-    private sealed record AppSettings(string? ClientId, string? TenantId);
+    private sealed record AppSettings(string? ClientId, string? TenantId, bool IsDarkTheme = false);
 
     public string ReusableCertificateStatusLabel => !GraphConnected ? "Sign in to load certificates."
         : _reusableCertificatesLoading ? "Loading certificates…"

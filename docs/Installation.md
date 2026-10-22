@@ -80,6 +80,12 @@ The registration script also deploys to the fixed Local AppData path before writ
 
 ## What works offline
 
+### Appearance
+
+The **Dark** switch in the header changes the theme immediately, including input fields, dropdowns, certificate cards, logs, and the sign-in panel. The choice is stored as `IsDarkTheme` in the existing local `settings.json`, alongside the client/tenant identifiers. Existing settings without this field default to the light theme; switching themes preserves the saved sign-in configuration. No Graph connection is needed. The file path and its Choose/Analyze buttons share a dedicated row and the same height; the optional EpmCmdlets checkbox sits on the next row.
+
+### File details
+
 - SHA256 is calculated locally by the application.
 - Available Windows version metadata and embedded publisher certificate details are shown where present.
 - **Use EpmCmdlets** is unchecked on each app start. It is enabled only if `C:\Program Files\Microsoft EPM Agent\EpmTools\EpmCmdlets.dll` exists, and availability is refreshed when the app regains focus and before analysis. The checkbox is disabled during analysis and grayed out when the DLL is missing; hover it for the path. No module is loaded unless you explicitly select it.

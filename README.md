@@ -28,6 +28,7 @@ Want to send the rule to Intune? Sign in using the account icon at the top right
 
 ## 🔎 What you can do
 
+- **Make it yours:** switch between light and dark themes at the top. Your choice is remembered locally.
 - **See what's in a file:** SHA256, version, product details, and its signing certificate, where available.
 - **Export its certificate chain:** save each public certificate as its own CER file, or the chain together as P7B/PEM. Missing issuers are clearly marked.
 - **Choose how to identify it:** file hash, the extracted signing certificate, your own certificate file, or an Intune reusable certificate setting.
@@ -53,7 +54,7 @@ Required delegated Graph permissions:
 
 Your account also needs the appropriate Intune license, RBAC permissions, and scope-tag access. Follow the [sign-in setup guide](docs/GraphAuthentication.md).
 
-The app remembers your client ID and tenant in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json`. This file is unencrypted; the IDs are identifiers, not secrets, and are **not embedded in the EXE or repository**. Sign-in tokens are stored separately using Windows DPAPI. Signing out clears the account's token-cache entries, not the saved IDs.
+The app remembers your client ID, tenant, and theme choice in `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json`. This file is unencrypted; the IDs are identifiers, not secrets, and are **not embedded in the EXE or repository**. Sign-in tokens are stored separately using Windows DPAPI. Signing out clears the account's token-cache entries, not the saved IDs.
 
 </details>
 
