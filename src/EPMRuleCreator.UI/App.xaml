@@ -4,22 +4,28 @@
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <SolidColorBrush x:Key="CanvasBrush" Color="#F4F7FB"/>
+        <SolidColorBrush x:Key="CanvasBrush" Color="#F3F6FB"/>
         <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="InkBrush" Color="#182230"/>
-        <SolidColorBrush x:Key="MutedBrush" Color="#58677A"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="#0F766E"/>
-        <SolidColorBrush x:Key="AccentSoftBrush" Color="#E8F5F2"/>
-        <SolidColorBrush x:Key="BorderBrush" Color="#DCE4ED"/>
-        <SolidColorBrush x:Key="SurfaceBrush" Color="#F8FAFC"/>
-        <SolidColorBrush x:Key="PrimaryBrush" Color="#0F766E"/>
+        <SolidColorBrush x:Key="HeaderStartBrush" Color="#EAF1FB"/>
+        <SolidColorBrush x:Key="HeaderEndBrush" Color="#FFFFFF"/>
+        <LinearGradientBrush x:Key="HeaderBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#EAF1FB" Offset="0"/>
+            <GradientStop Color="#FFFFFF" Offset="1"/>
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="InkBrush" Color="#19283C"/>
+        <SolidColorBrush x:Key="MutedBrush" Color="#52657E"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#275BA1"/>
+        <SolidColorBrush x:Key="AccentSoftBrush" Color="#E7EFFB"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#D4DFED"/>
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#F6F8FC"/>
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#245EAA"/>
         <SolidColorBrush x:Key="OnPrimaryBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="InputHoverBrush" Color="#AABBCB"/>
+        <SolidColorBrush x:Key="InputHoverBrush" Color="#8DA8CA"/>
         <SolidColorBrush x:Key="WarningBrush" Color="#8A4B00"/>
         <SolidColorBrush x:Key="ErrorBrush" Color="#B42318"/>
         <SolidColorBrush x:Key="HoverOverlayBrush" Color="#182230"/>
         <Style TargetType="Window">
-            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
             <Setter Property="UseLayoutRounding" Value="True"/>
@@ -29,7 +35,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="20"/>
         </Style>
         <Style TargetType="TextBlock">

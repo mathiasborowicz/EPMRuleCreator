@@ -20,8 +20,12 @@ public static class ThemeService
     public static void Apply(bool dark)
     {
         if (Application.Current is not { } app) return;
-        foreach (var (key, value) in ThemePalette.GetColors(dark))
+        var colors = ThemePalette.GetColors(dark);
+        foreach (var (key, value) in colors)
             app.Resources[key] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
+        app.Resources["HeaderBackgroundBrush"] = new LinearGradientBrush(
+            (Color)ColorConverter.ConvertFromString(colors["HeaderStartBrush"]),
+            (Color)ColorConverter.ConvertFromString(colors["HeaderEndBrush"]), 45);
         foreach (Window window in app.Windows) ApplyWindowFrame(window, dark);
     }
 

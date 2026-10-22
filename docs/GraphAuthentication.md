@@ -4,7 +4,7 @@ The app uses MSAL as a native public client. Microsoft Graph PowerShell and the 
 
 ## One-time Entra app registration
 
-The project publisher must create an app registration before distributing a community release. End users do not need to create their own registration once the publisher's application ID is configured in the release.
+For optional Intune access, use an Entra app registration managed by you or your organization. The release contains no preconfigured publisher client ID or tenant ID. Enter the identifiers locally in the account panel; no registration is needed for offline file analysis.
 
 1. In the Microsoft Entra admin center, create an app registration for the application.
 2. Choose **Accounts in any organizational directory** if the community release should support multiple customer tenants. Personal Microsoft accounts are not needed for Intune.
