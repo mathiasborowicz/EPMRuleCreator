@@ -10,6 +10,18 @@ namespace EPMRuleCreator.UI;
 
 public partial class MainWindow : Window
 {
+    private void AuthorLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        e.Handled = true;
+        var url = e.Uri.AbsoluteUri;
+        if (url is not ("https://github.com/mathiasborowicz/EPMRuleCreator" or "https://zerotruststories.com/")) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception)
+        {
+            if (DataContext is MainViewModel viewModel) viewModel.AddLog("Could not open the link in your browser.");
+        }
+    }
+
     public MainWindow()
     {
         InitializeComponent();

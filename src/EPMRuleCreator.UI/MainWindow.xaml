@@ -8,6 +8,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Border x:Name="AppHeader" Grid.Row="0" Margin="0,0,0,20" Padding="18,14"
                 CornerRadius="16" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
@@ -15,11 +16,9 @@
         <Grid>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Image Source="Assets/epm-rule-creator.ico" Width="40" Height="40" Margin="0,0,12,0"/>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="ZERO TRUST STORIES" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,2"/>
-                    <TextBlock Text="EPMRuleCreator" FontSize="25" FontWeight="SemiBold"/>
-                </StackPanel>
+                <Image x:Name="HeaderLogo" Source="Assets/epm-rule-creator.png" Width="40" Height="40" Margin="0,0,12,0"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <TextBlock Text="EPMRuleCreator" FontSize="25" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <ToggleButton x:Name="UpdatesButton" Content="{Binding UpdatesButtonText}" Padding="10,6" FontSize="12" Margin="0"
@@ -375,6 +374,17 @@
                 </StackPanel>
             </Grid>
         </ScrollViewer>
+
+        <TextBlock x:Name="AuthorFooter" Grid.Row="3" FontSize="11" Foreground="{DynamicResource MutedBrush}"
+                   HorizontalAlignment="Right" TextWrapping="Wrap" Margin="0,12,0,0">
+            <Run Text="Built by Mathias Borowicz"/>
+            <Run Text=" · "/>
+            <Hyperlink NavigateUri="https://github.com/mathiasborowicz/EPMRuleCreator" RequestNavigate="AuthorLink_RequestNavigate"
+                       Foreground="{DynamicResource AccentBrush}">Repository</Hyperlink>
+            <Run Text=" · "/>
+            <Hyperlink NavigateUri="https://zerotruststories.com/" RequestNavigate="AuthorLink_RequestNavigate"
+                       Foreground="{DynamicResource AccentBrush}">Blog</Hyperlink>
+        </TextBlock>
 
     </Grid>
 </Window>
