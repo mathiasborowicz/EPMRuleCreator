@@ -54,6 +54,10 @@ jobs:
       - name: Run tests
         run: dotnet test .\EPMRuleCreator.sln --configuration Release
 
+      - name: Test file field layout in Windows WPF
+        shell: powershell
+        run: .\scripts\Test-TextBoxLayout.ps1
+
       - name: Test release publishing with mocked GitHub API
         run: node --test tests/workflows/release-workflow.test.cjs
 

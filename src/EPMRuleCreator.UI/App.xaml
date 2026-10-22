@@ -65,7 +65,8 @@
                     <ControlTemplate TargetType="TextBox">
                         <Border x:Name="InputBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" Focusable="False"
+                            <!-- TextBoxBase forwards Padding to this host. A matching Margin would apply it twice. -->
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False"
                                           HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
                                           VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>
                         </Border>
