@@ -20,13 +20,15 @@ If Windows marks a trusted manual download as blocked, open its **Properties** a
 
 The EXE runs in the folder where you extracted it. There is no additional EXE copy in AppData. An empty `EPMRuleCreator.portable` marker next to it remembers your choice; keep that marker when moving the app. On read-only media, the choice applies to this session only.
 
-Updates replace this same EXE. If you move it after adding the Explorer menu, open it at the new location and click **↻** to repair the menu.
+Updates replace this same EXE. Explorer context-menu integration is not available in portable mode, and its controls are hidden. Selecting portable mode does not register or repoint any existing menu.
 
 Portable refers to the executable, not all user data: preferences still use `%LOCALAPPDATA%\EPMRuleCreator\settings.json`, and tokens remain in RAM.
 
 ### Install for this user
 
-This explicitly copies the EXE to `%LOCALAPPDATA%\EPMRuleCreator\App\EPMRuleCreator.exe`, creates a Start menu shortcut, and opens that installation. No admin rights are required. You can then delete the original downloaded EXE; it is not automatically removed.
+This explicitly copies the EXE to `%LOCALAPPDATA%\EPMRuleCreator\App\EPMRuleCreator.exe`, creates a Start menu shortcut, and opens that installation. No admin permissions are required. You can then delete the original downloaded EXE; it is not automatically removed.
+
+Check **Add to Explorer context menu** in the installation card to register the installed EXE. The checkbox reflects an existing registration; leaving it unchecked removes app-owned menu entries when you install/open the installation. Later, **Add menu** or **Remove menu** can change this choice in the installed app. The same installation choices are shown when switching from portable mode through **Updates**.
 
 The shortcut, context menu, and updater use the same installed EXE. If an installation already exists, the startup choice becomes **Open installed app**. It opens that copy without overwriting it with a potentially older download. Use **Updates** in the installed app for newer versions.
 
@@ -49,19 +51,19 @@ Without a usable GitHub checksum, automatic installation is unavailable; **Open 
 
 ## Register the Explorer menu
 
-Click **Add menu** in the header. The app registers the exact running EXE for `.exe`, `.msi`, and `.ps1` files. This does not install or copy another executable.
+In installed mode, check **Add to Explorer context menu** during setup or click **Add menu** in the header later. The app registers the fixed installed EXE for `.exe`, `.msi`, and `.ps1` files. This does not install or copy another executable. Portable mode does not offer these controls.
 
 On Windows 11, right-click a file, choose **Show more options**, then **Create EPM Rule**. The app opens with that file and analyzes it. The selected file is never executed, and its path is passed as a quoted argument.
 
 - **Remove menu** removes the app-owned menu entries.
-- **↻** points the menu to the current EXE, for example after moving a portable copy. It does not update an application binary.
+- **↻** repairs the menu to the installed EXE. It does not update an application binary.
 
-Registration is per-user under `HKEY_CURRENT_USER`; no admin rights are needed. Existing registrations are repointed when you select a mode. Legacy `CreateIntuneEpmRule` entries are removed only after new entries are registered; removal recognizes both names.
+Registration is per-user under `HKEY_CURRENT_USER`; no admin permissions are needed. Setup applies the checkbox choice only when opening/installing installed mode. Legacy `CreateIntuneEpmRule` entries are removed only after new entries are registered; removal recognizes both names. Old portable registrations are not automatically changed when selecting portable mode; use the removal script below to remove leftover entries if needed.
 
-If you use the source repository, the PowerShell alternative also registers the exact supplied path without deploying a copy:
+If you use the source repository, the PowerShell alternative registers only the installed path, without deploying a copy. It rejects portable paths:
 
 ```powershell
-$appPath = Join-Path $PWD 'publish\win-x64\EPMRuleCreator.exe'
+$appPath = Join-Path $env:LOCALAPPDATA 'EPMRuleCreator\App\EPMRuleCreator.exe'
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Register-ExplorerMenu.ps1 -ApplicationPath $appPath
 ```
 
@@ -87,7 +89,7 @@ The file is unencrypted and contains no tokens. Change preferences in the app wh
 
 ## Remove the app
 
-First click **Remove menu** and close the app. For portable mode, remove the portable EXE and marker. For installed mode, remove the EPMRuleCreator Start menu shortcut and only `%LOCALAPPDATA%\EPMRuleCreator\App` in Explorer. Preferences remain in the parent folder unless you remove them separately. Menu removal never deletes your EXE or settings.
+In installed mode, first click **Remove menu** and close the app. Remove the EPMRuleCreator Start menu shortcut and only `%LOCALAPPDATA%\EPMRuleCreator\App` in Explorer. For portable mode, close the app and remove the portable EXE and marker; legacy portable menu entries can be removed with the removal script above. Preferences remain in the parent folder unless you remove them separately. Menu removal never deletes your EXE or settings.
 
 ## Build and publish
 

@@ -37,6 +37,8 @@ public static class ExplorerContextMenuService
     public static void Register(string executablePath)
     {
         var fullPath = ResolveExecutablePath(executablePath);
+        if (!ApplicationModeService.IsInstalled(fullPath, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)))
+            throw new InvalidOperationException("Explorer integration is available only for the per-user installation.");
         var command = BuildCommand(fullPath);
         foreach (var extension in Extensions)
         {

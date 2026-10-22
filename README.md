@@ -21,7 +21,7 @@ Extract the ZIP and open `EPMRuleCreator.exe`. No compiling, no Git, no separate
 
 ## 🚀 From file to rule
 
-1. **Choose how to run it.** Choose **Use portable** to keep the EXE in your folder, or **Install for this user** for a fixed AppData location and Start menu shortcut.
+1. **Choose how to run it.** Choose **Use portable** to keep the EXE in your folder, or **Install for this user** for a fixed AppData location and Start menu shortcut. In the installation card, optionally check **Add to Explorer context menu**.
 2. **Analyze a file.** Choose an `.exe`, `.msi`, or `.ps1` file and click **Analyze file**. Review SHA256, available version information, and signing certificates. The selected file is never executed.
 3. **Prepare your rule.** Review the prefilled fields, choose file-hash or certificate identification, and set the elevation behavior. **Validate rule** checks the local inputs.
 4. **Upload only if you want to.** Sign in through the account icon, select an **Elevation Rules policy**, or choose **+ Add new**. Review the rule, then click the upload button. Results appear in **Logs**.
@@ -35,10 +35,10 @@ New to the workflow? The [step-by-step walkthrough](docs/UserGuide.md) explains 
 - **Choose the right match:** use a file hash, the file's signing certificate, your own certificate file, or an EPM reusable certificate setting.
 - **Prepare EPM rules:** configure elevation type, user validation, child processes, and argument restrictions.
 - **Write to Intune:** append a rule to an existing policy or create a policy with its first rule.
-- **Work from Explorer:** **Add menu** registers the current EXE. **Remove menu** removes the entry; **↻** repairs its path. No hidden EXE copy is created.
+- **Work from Explorer:** installed mode optionally adds a right-click entry. **Add menu**, **Remove menu**, and **↻** manage it later. Context-menu integration is not available in portable mode; no hidden EXE copy is created.
 - **Keep it comfortable:** light/dark themes inspired by Zero Trust Stories, optional startup update checks, and an **Update** button that installs a verified release and restarts the app.
 
-Portable means the EXE stays where you put it. If you move it, repair its context-menu entry. Installed mode uses one fixed EXE in AppData; the original download can be deleted after installation. [Installation and updates](docs/Installation.md).
+Portable means the EXE stays where you put it, without context-menu integration. Installed mode uses one fixed EXE in AppData; the original download can be deleted after installation. [Installation and updates](docs/Installation.md).
 
 ## 🔐 Local first. Intune when you need it.
 

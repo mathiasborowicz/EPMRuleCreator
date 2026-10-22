@@ -6,18 +6,22 @@ namespace EPMRuleCreator.UI;
 
 public partial class LaunchModeWindow : Window
 {
+    private readonly string[] _arguments;
     public bool UseInstallation { get; private set; }
 
-    public LaunchModeWindow()
+    public LaunchModeWindow() : this(Environment.GetCommandLineArgs().Skip(1)) { }
+
+    public LaunchModeWindow(IEnumerable<string> arguments)
     {
+        _arguments = arguments.ToArray();
         InitializeComponent();
         InstallButton.ToolTip = ApplicationInstallation.InstalledPath;
-        ExistingInstallationHint.Text = "After installation, you can delete the downloaded source EXE. Start the app from the Start menu.";
+        try { AddContextMenuCheckBox.IsChecked = ExplorerContextMenuService.IsRegistered(); }
+        catch { /* Optional integration must not prevent choosing a mode. */ }
         SourceInitialized += (_, _) => ThemeService.ApplyWindowFrame(this, ThemeService.ResolveStartupTheme(null));
         if (ApplicationInstallation.Exists)
         {
             InstallButton.Content = "Open installed app";
-            ExistingInstallationHint.Text = "An installation already exists. It will be opened, not overwritten. Use Updates there for a newer release.";
         }
     }
 
@@ -31,8 +35,6 @@ public partial class LaunchModeWindow : Window
         {
             // Read-only media still support portable use, but the choice cannot be remembered.
         }
-        try { ApplicationInstallation.AlignExistingMenu(Environment.ProcessPath!); }
-        catch (Exception exception) { Status.Text = exception.Message; return; }
         DialogResult = true;
     }
 
@@ -40,7 +42,7 @@ public partial class LaunchModeWindow : Window
     {
         try
         {
-            ApplicationInstallation.InstallOrOpen(Environment.GetCommandLineArgs().Skip(1));
+            ApplicationInstallation.InstallOrOpen(_arguments, AddContextMenuCheckBox.IsChecked == true);
             UseInstallation = true;
             DialogResult = true;
         }

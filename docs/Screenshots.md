@@ -5,7 +5,7 @@ The README and guides contain visible, labeled screenshot placeholders, not brok
 ## Shots to supply
 
 1. **`overview.png`**: the main window after analyzing a signed sample application. Show File information, the certificate chain, and a prepared rule. Used in the README and user guide.
-2. **`startup-modes.png`**: the first-start choice between portable and per-user installation. Used in the installation guide.
+2. **`startup-modes.png`**: the first-start choice between portable and per-user installation, including the installed-only **Add to Explorer context menu** checkbox. Used in the installation guide.
 3. **`certificate-chain.png`**: the signer/intermediate/root list with completeness status and export buttons. Used in the user guide.
 4. **`certificate-selection.png`**: Upload a certificate file, analyzed/uploaded certificate selection, and Publisher/Certificate authority choice. Used in the user guide.
 5. **`intune-policy.png`**: a sanitized optional sign-in panel and Elevation Rules policy dropdown, including + Add new. Two separate screenshots are fine if clearer. Used in the user guide.

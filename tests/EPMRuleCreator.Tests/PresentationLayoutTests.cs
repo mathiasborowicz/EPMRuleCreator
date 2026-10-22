@@ -169,6 +169,47 @@ public sealed class PresentationLayoutTests
         Assert.All(footer.Descendants(Presentation + "Hyperlink"), link => Assert.Equal("AuthorLink_RequestNavigate", (string?)link.Attribute("RequestNavigate")));
     }
 
+    [Fact]
+    public void SetupOffersInstalledOnlyMenuCheckboxWithoutExtraHint()
+    {
+        var setup = XDocument.Load(Source("LaunchModeWindow.xaml"));
+        var installed = setup.Descendants(Presentation + "StackPanel").Single(element => (string?)element.Attribute(Xaml + "Name") == "InstalledModePanel");
+        var checkbox = Assert.Single(setup.Descendants(Presentation + "CheckBox"));
+        Assert.Equal("AddContextMenuCheckBox", (string?)checkbox.Attribute(Xaml + "Name"));
+        Assert.Contains(installed, checkbox.Ancestors());
+        Assert.Equal("False", (string?)checkbox.Attribute("IsChecked"));
+        Assert.DoesNotContain(setup.Descendants(), element => (string?)element.Attribute(Xaml + "Name") == "ExistingInstallationHint");
+        var text = File.ReadAllText(Source("LaunchModeWindow.xaml"));
+        Assert.Contains("No admin permissions required.", text);
+        Assert.DoesNotContain("admin rights", text);
+        var code = File.ReadAllText(Source("LaunchModeWindow.xaml.cs"));
+        Assert.Contains("InstallOrOpen(_arguments, AddContextMenuCheckBox.IsChecked == true)", code);
+        var portable = code[code.IndexOf("private void Portable_Click", StringComparison.Ordinal)..code.IndexOf("private void Install_Click", StringComparison.Ordinal)];
+        Assert.DoesNotContain("ExplorerContextMenuService", portable);
+        Assert.DoesNotContain("AlignExistingMenu", portable);
+        var installation = File.ReadAllText(Source("ApplicationInstallation.cs"));
+        Assert.Contains("if (registerContextMenu) ExplorerContextMenuService.Register(installed);", installation);
+        Assert.Contains("else ExplorerContextMenuService.Remove();", installation);
+    }
+
+    [Fact]
+    public void PortableMenuCommandsAreHiddenAndTenantStartsEmpty()
+    {
+        var window = XDocument.Load(Source("MainWindow.xaml"));
+        var menu = window.Descendants(Presentation + "Button").Single(element => (string?)element.Attribute("Command") == "{Binding ToggleExplorerMenuCommand}");
+        Assert.Equal("{Binding IsInstalledApplication, Converter={StaticResource BooleanToVisibilityConverter}}", (string?)menu.Attribute("Visibility"));
+        var code = File.ReadAllText(Source("ViewModels/MainViewModel.cs"));
+        Assert.Contains("private string _tenantId = string.Empty;", code);
+        Assert.Contains("_tenantId = TenantIdPreference.ForDisplay(settings.TenantId);", code);
+        Assert.Contains("if (!IsInstalledApplication) return;", code);
+        Assert.Contains("HasExplorerMenu => IsInstalledApplication && _explorerMenuRegistered", code);
+        var root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Source("App.xaml.cs"))!, "../.."));
+        var registration = File.ReadAllText(Path.Combine(root, "src", "EPMRuleCreator.Core", "Services", "ExplorerContextMenuService.cs"));
+        Assert.Contains("if (!ApplicationModeService.IsInstalled(fullPath", registration);
+        var script = File.ReadAllText(Path.Combine(root, "scripts", "Register-ExplorerMenu.ps1"));
+        Assert.Contains("if ($resolvedPath -ine $installedPath)", script);
+    }
+
     private static double Contrast(string a, string b)
     {
         static double Luminance(string color)

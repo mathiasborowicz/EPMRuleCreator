@@ -13,6 +13,10 @@ if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
 if ([IO.Path]::GetExtension($resolvedPath) -ine '.exe' -or [IO.Path]::GetFileName($resolvedPath) -ieq 'dotnet.exe') {
     throw 'Use the published standalone application EXE.'
 }
+$installedPath = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'EPMRuleCreator\App\EPMRuleCreator.exe'
+if ($resolvedPath -ine $installedPath) {
+    throw 'Explorer integration is available only for the per-user installation, not portable mode.'
+}
 
 $extensions = @('.exe', '.msi', '.ps1')
 foreach ($extension in $extensions) {

@@ -49,7 +49,8 @@
                     <TextBlock Text="Dark" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0"/>
                 </StackPanel>
                 <Button Content="{Binding ExplorerMenuButtonText, Mode=OneWay}" Command="{Binding ToggleExplorerMenuCommand}"
-                        FontSize="12" Padding="10,6" Margin="12,0,0,0">
+                        FontSize="12" Padding="10,6" Margin="12,0,0,0"
+                        Visibility="{Binding IsInstalledApplication, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Button.ToolTip><ToolTip><TextBlock Text="{Binding ExplorerMenuToolTip}" TextWrapping="Wrap" MaxWidth="400"/></ToolTip></Button.ToolTip>
                 </Button>
                 <Button Content="&#x21BB;" Command="{Binding RepairExplorerMenuCommand}" Padding="8,3" FontSize="18" Margin="4,0,0,0"
@@ -151,7 +152,7 @@
                         <TextBlock Text="Application (client) ID" Foreground="{DynamicResource MutedBrush}"/>
                         <TextBox x:Name="ClientIdInput" Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}" ToolTip="Application ID from your Entra app registration. Saved only in your local settings."/>
                         <TextBlock Text="Tenant ID" Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBox Text="{Binding TenantId, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter a tenant ID or 'organizations' for organizational accounts."/>
+                        <TextBox Text="{Binding TenantId, UpdateSourceTrigger=PropertyChanged}" ToolTip="Optional. Enter a tenant ID to restrict sign-in, or leave blank for organizational accounts."/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button Content="Sign in" Command="{Binding ConnectGraphCommand}" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}"/>
                             <Button Content="Sign out" Command="{Binding DisconnectGraphCommand}"/>
