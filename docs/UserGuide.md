@@ -86,7 +86,7 @@ Progress, warnings, and success/errors appear in **Logs** below the certificate 
 
 ## 5. Use it again
 
-Use **Add menu** for a right-click entry under Windows 11 **Show more options > Create EPM Rule**. It registers the current EXE, not a second copy. Move a portable EXE? Open it at the new path and click **↻**. **Remove menu** removes the integration.
+In installed mode, optionally check **Add to Explorer context menu** in setup, or use **Add menu** later for a right-click entry under Windows 11 **Show more options > Create EPM Rule**. It registers the installed EXE, not a second copy. **↻** repairs the installed registration, and **Remove menu** removes it. Portable mode has no context-menu integration.
 
 Use the **Dark** switch for appearance and **Updates** for version checks or updating in place. The startup check can be disabled. [Modes, updates, and local preferences](Installation.md).
 

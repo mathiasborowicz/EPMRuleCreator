@@ -11,18 +11,14 @@ internal static class ApplicationInstallation
     internal static bool Exists => File.Exists(InstalledPath);
     internal static bool IsInstalled => Environment.ProcessPath is { } path && ApplicationModeService.IsInstalled(path, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
 
-    internal static void AlignExistingMenu(string target)
-    {
-        if (ExplorerContextMenuService.IsRegistered()) ExplorerContextMenuService.Register(target);
-    }
-
-    internal static void InstallOrOpen(IEnumerable<string> arguments)
+    internal static void InstallOrOpen(IEnumerable<string> arguments, bool registerContextMenu)
     {
         var source = Environment.ProcessPath ?? throw new InvalidOperationException("The application path is unavailable.");
         // A downloaded or old portable copy must never silently replace an existing installation.
         var installed = ExplorerApplicationDeployment.Install(source, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), overwriteExisting: false);
         CreateShortcut(installed);
-        AlignExistingMenu(installed);
+        if (registerContextMenu) ExplorerContextMenuService.Register(installed);
+        else ExplorerContextMenuService.Remove();
         var start = new ProcessStartInfo(installed) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(installed)! };
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not open the installed app.");

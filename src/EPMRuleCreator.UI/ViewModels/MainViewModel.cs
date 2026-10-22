@@ -85,7 +85,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly GraphAuthenticationService _graphAuthentication = new();
     private readonly string _settingsPath = AppDataPaths.PrepareSettingsPath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
     private string _clientId = string.Empty;
-    private string _tenantId = "organizations";
+    private string _tenantId = string.Empty;
     private string _graphConnectionStatus = "Optional: sign in only if you want to connect to Microsoft Graph. Local file analysis works without sign-in.";
     private string _graphAccount = string.Empty;
     private string _accountInitials = string.Empty;
@@ -123,8 +123,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OpenReleaseCommand = new RelayCommand(OpenAvailableRelease, () => _availableUpdate is not null);
         ValidateCommand = new RelayCommand(Validate, () => !Busy && _hasAnalyzedFile);
         UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && _hasAnalyzedFile && !_policiesLoading && !_policyCountLoading && GraphConnected && (IsCreatingPolicy || SelectedElevationPolicy is not null));
-        ToggleExplorerMenuCommand = new RelayCommand(ToggleExplorerMenu, () => !Busy);
-        RepairExplorerMenuCommand = new RelayCommand(() => SetExplorerMenu(registered: true), () => !Busy && _explorerMenuRegistered);
+        ToggleExplorerMenuCommand = new RelayCommand(ToggleExplorerMenu, () => !Busy && IsInstalledApplication);
+        RepairExplorerMenuCommand = new RelayCommand(() => SetExplorerMenu(registered: true), () => !Busy && IsInstalledApplication && _explorerMenuRegistered);
         ValidationMessages.CollectionChanged += (_, _) =>
         {
             Raise(nameof(BlockingValidationMessages));
@@ -160,6 +160,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand UpdateNowCommand { get; }
     public ICommand InstallApplicationCommand { get; }
     public bool IsPortableApplication => !ApplicationInstallation.IsInstalled;
+    public bool IsInstalledApplication => ApplicationInstallation.IsInstalled;
     public string ApplicationModeLabel => ApplicationInstallation.IsInstalled ? "Installed for this user" : "Portable";
     public string ApplicationLocation => Environment.ProcessPath ?? string.Empty;
     public string InstallApplicationLabel => ApplicationInstallation.Exists ? "Open installed app" : "Install for this user";
@@ -168,8 +169,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         try
         {
-            ApplicationInstallation.InstallOrOpen(string.IsNullOrWhiteSpace(FilePath) ? [] : [FilePath]);
-            Application.Current.Shutdown();
+            var choice = new LaunchModeWindow(string.IsNullOrWhiteSpace(FilePath) ? [] : [FilePath]) { Owner = Application.Current.MainWindow };
+            if (choice.ShowDialog() == true && choice.UseInstallation) Application.Current.Shutdown();
         }
         catch (Exception exception) { AddLog($"Could not open the installation: {exception.Message}"); }
     }
@@ -330,11 +331,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
     public string ExplorerMenuButtonText => _explorerMenuRegistered ? "Remove menu" : "Add menu";
-    public bool HasExplorerMenu => _explorerMenuRegistered;
+    public bool HasExplorerMenu => IsInstalledApplication && _explorerMenuRegistered;
     public string ExplorerMenuToolTip => (_explorerMenuRegistered
         ? "Remove 'Create EPM Rule' from the Explorer context menu."
         : "Add 'Create EPM Rule' to the Explorer context menu for EXE, MSI and PS1 files.") +
-        " Uses this EXE without making another copy. In portable mode, repair the menu after moving the EXE. Current user only; no admin rights required. On Windows 11: Show more options.";
+        " Uses the installed EXE without making another copy. Current user only; no admin permissions required. On Windows 11: Show more options.";
     public string ExplorerMenuRepairToolTip => "Point the context menu at this EXE without copying it: " + ApplicationLocation;
     public IEnumerable<string> BlockingValidationMessages => ValidationMessages.Where(message => message.StartsWith("Error:", StringComparison.Ordinal));
     public string ValidationWarningsLabel
@@ -661,6 +662,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void SetExplorerMenu(bool registered)
     {
+        if (!IsInstalledApplication) return;
         try
         {
             if (registered) ExplorerContextMenuService.Register(Environment.ProcessPath ?? throw new InvalidOperationException("The application path is unavailable."));
@@ -884,7 +886,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (settings is null) return;
             if (!string.IsNullOrWhiteSpace(settings.ClientId))
                 _clientId = settings.ClientId;
-            _tenantId = string.IsNullOrWhiteSpace(settings.TenantId) ? "organizations" : settings.TenantId;
+            _tenantId = TenantIdPreference.ForDisplay(settings.TenantId);
             _themeOverride = settings.IsDarkTheme;
             _checkForUpdatesAtStartup = settings.CheckForUpdatesAtStartup;
         }
