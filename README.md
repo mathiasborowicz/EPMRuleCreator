@@ -13,8 +13,7 @@ Check file details and signing certificates, prepare an elevation rule, and uplo
 
 Extract the ZIP and open `EPMRuleCreator.exe`.
 
-> 📸 Screenshot coming soon.
-<!-- SCREENSHOT: overview. See docs/Screenshots.md. -->
+![EPMRuleCreator showing file details, the signing certificate chain, and a prepared elevation rule](docs/assets/App.png)
 
 ## 🚀 Get started
 
@@ -31,6 +30,10 @@ That's it. You can also use the tool just to inspect files or export certificate
 - Add an Explorer right-click entry during installation.
 - Switch between light and dark themes.
 - Check for updates, or turn automatic checks off.
+
+Right-click a file in Explorer and choose **Create EPM Rule**.
+
+![Explorer context menu with Create EPM Rule highlighted](docs/assets/Context%20Menu.png)
 
 > Upload writes immediately. Test in a test tenant first. New policies need assignments in Intune.
 

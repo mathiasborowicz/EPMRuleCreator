@@ -6,6 +6,15 @@ namespace EPMRuleCreator.Tests;
 public sealed class DocumentationTests
 {
     [Fact]
+    public void ReadmeShowsTheAppAndExplorerContextMenuScreenshots()
+    {
+        var readme = File.ReadAllText(Path.Combine(Root(), "README.md"));
+        Assert.Contains("](docs/assets/App.png)", readme);
+        Assert.Contains("](docs/assets/Context%20Menu.png)", readme);
+        Assert.DoesNotContain("Screenshot coming soon", readme);
+    }
+
+    [Fact]
     public void PublishedMarkdownHasNoBrokenLocalLinksOrImages()
     {
         foreach (var file in Pages())
