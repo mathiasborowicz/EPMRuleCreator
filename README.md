@@ -11,10 +11,11 @@ A Windows desktop tool for inspecting local files and preparing Microsoft Intune
 - Independent SHA256 calculation and version resource metadata.
 - Detection of Microsoft EPM Tools and invocation of `Get-FileAttributes` through Windows PowerShell 5.1 using JSON input, without placing the file path in PowerShell source code.
 - Embedded publisher certificate extraction with subject, issuer, thumbprint, and validity dates. Certificate extraction is not an Authenticode trust check.
-- Certificate-based rule selection between the analyzed file's extracted publisher certificate and a loaded reusable EPM certificate setting.
+- Certificate-based rule selection between the analyzed file's extracted publisher certificate and a reusable EPM certificate setting. Selecting **Use a certificate file in reusable settings** loads EPM certificates automatically into the rule's **Certificate** dropdown after sign-in; there is no separate reusable-settings section. Loading errors and empty results appear directly below that dropdown; open it again to retry a failed load.
 - Explicit Graph upload that appends to an existing EPM rule collection, preserves its other entries, rechecks the 100-rule limit, requests confirmation, and verifies the updated count.
 - Local validation for rule name, conditional file-name/SHA256 requirements, optional three- or four-part numeric minimum file version (1–30 characters when set), selected policy requirement, 100-rule cap, user-writable path warnings, automatic elevation, and unrestricted child process warnings.
 - Optional Graph browsing of EPM Elevation Rules policies and EPM reusable certificate settings (unrelated reusable settings are filtered out by setting definition ID).
+- Elevation Rules policies appear directly in the rule editor's dropdown and load automatically after sign-in. Selecting a policy reads its rule count automatically. There are no separate policy/reusable-settings panels or manual load/count buttons; reopen a dropdown to retry a failed request.
 - Per-user Explorer context menu registration and removal scripts.
 
 ### Offline file analysis

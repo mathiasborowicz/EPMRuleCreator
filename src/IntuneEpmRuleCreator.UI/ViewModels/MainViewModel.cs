@@ -64,21 +64,27 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _policyLoadStatus = "Use the account button at the top right to sign in and load EPM policies.";
     private int? _selectedPolicyRuleCount;
     private int? _selectedPolicyRuleLimit;
+    private bool _policiesLoaded;
+    private bool _policiesLoading;
+    private bool _policyCountLoading;
+    private int _policiesGeneration;
+    private int _policyCountRequest;
     private bool _requireBusinessJustification;
     private bool _requireWindowsAuthentication;
     private EpmReusableCertificateSetting? _selectedReusableCertificateSetting;
+    private bool _reusableCertificatesLoaded;
+    private bool _reusableCertificatesLoading;
+    private string? _reusableCertificatesLoadError;
+    private int _reusableCertificatesGeneration;
 
     public MainViewModel()
     {
         ChildProcessBehaviors = Enum.GetValues<ChildProcessBehavior>();
         AnalyzeCommand = new AsyncCommand(AnalyzeAsync, () => !Busy && !string.IsNullOrWhiteSpace(FilePath));
         ValidateCommand = new RelayCommand(Validate);
-        UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && GraphConnected && SelectedElevationPolicy is not null);
+        UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && !_policyCountLoading && GraphConnected && SelectedElevationPolicy is not null);
         ConnectGraphCommand = new AsyncCommand(ConnectGraphAsync, () => !Busy && !GraphConnected);
         DisconnectGraphCommand = new AsyncCommand(DisconnectGraphAsync, () => !Busy && GraphConnected);
-        LoadPoliciesCommand = new AsyncCommand(LoadPoliciesAsync, () => !Busy && GraphConnected);
-        LoadSelectedPolicyCountCommand = new AsyncCommand(LoadSelectedPolicyCountAsync, () => !Busy && GraphConnected && SelectedElevationPolicy is not null);
-        LoadReusableCertificateSettingsCommand = new AsyncCommand(LoadReusableCertificateSettingsAsync, () => !Busy && GraphConnected);
         LoadSettings();
     }
 
@@ -113,9 +119,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand UploadRuleCommand { get; }
     public ICommand ConnectGraphCommand { get; }
     public ICommand DisconnectGraphCommand { get; }
-    public ICommand LoadPoliciesCommand { get; }
-    public ICommand LoadSelectedPolicyCountCommand { get; }
-    public ICommand LoadReusableCertificateSettingsCommand { get; }
     public ObservableCollection<string> ValidationMessages { get; } = [];
     public ObservableCollection<ElevationRulePolicy> ElevationPolicies { get; } = [];
     public ObservableCollection<EpmReusableCertificateSetting> ReusableCertificateSettings { get; } = [];
@@ -162,6 +165,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(ShowReusableCertificateSource));
             Raise(nameof(FileNameLabel));
             Raise(nameof(FileHashLabel));
+            Raise(nameof(ReusableCertificateSelectionHint));
+            if (ShowReusableCertificateSource)
+                _ = EnsureReusableCertificateSettingsAsync();
         }
     }
     public bool ShowCertificateSelection => SignatureSource != global::IntuneEpmRuleCreator.Core.Models.SignatureSource.NotConfigured;
@@ -196,7 +202,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool RequireBusinessJustification { get => _requireBusinessJustification; set => Set(ref _requireBusinessJustification, value); }
     public bool RequireWindowsAuthentication { get => _requireWindowsAuthentication; set => Set(ref _requireWindowsAuthentication, value); }
     public ChildProcessBehavior ChildProcessBehavior { get => _childProcessBehavior; set => Set(ref _childProcessBehavior, value); }
-    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(AnalyzeCommand)); Raise(nameof(UploadRuleCommand)); } }
+    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(AnalyzeCommand)); Raise(nameof(UploadRuleCommand)); } }
     public string ClientId { get => _clientId; set { Set(ref _clientId, value); SaveSettings(); } }
     public string TenantId { get => _tenantId; set { Set(ref _tenantId, value); SaveSettings(); } }
     public string GraphConnectionStatus { get => _graphConnectionStatus; private set => Set(ref _graphConnectionStatus, value); }
@@ -204,7 +210,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string AccountInitials { get => _accountInitials; private set => Set(ref _accountInitials, value); }
     public bool IsAccountMenuOpen { get => _isAccountMenuOpen; set => Set(ref _isAccountMenuOpen, value); }
     public string AccountButtonLabel => GraphConnected ? $"Microsoft Entra account: {GraphAccount}" : "Sign in to Microsoft Entra (optional)";
-    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(AccountButtonLabel)); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); } }
+    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(AccountButtonLabel)); Raise(nameof(ReusableCertificateSelectionHint)); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); } }
+    public bool CanSelectElevationPolicy => GraphConnected && !Busy;
     public ElevationRulePolicy? SelectedElevationPolicy
     {
         get => _selectedElevationPolicy;
@@ -214,17 +221,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Set(ref _selectedElevationPolicy, value);
             _selectedPolicyRuleCount = null;
             _selectedPolicyRuleLimit = null;
+            _policyCountRequest++;
+            _policyCountLoading = false;
             Raise(nameof(SelectedPolicySummary));
-            Raise(nameof(LoadSelectedPolicyCountCommand));
             Raise(nameof(UploadRuleCommand));
+            if (value is not null && GraphConnected)
+                _ = LoadSelectedPolicyCountAsync();
         }
     }
     public string PolicyLoadStatus { get => _policyLoadStatus; private set => Set(ref _policyLoadStatus, value); }
-    public string SelectedPolicySummary => SelectedElevationPolicy is null
-        ? "No policy selected."
-        : _selectedPolicyRuleCount is null
-            ? $"{SelectedElevationPolicy.Name}\nLast modified: {SelectedElevationPolicy.LastModifiedDateTime?.ToLocalTime().ToString("g") ?? "unknown"} | Assigned: {(SelectedElevationPolicy.IsAssigned ? "Yes" : "No")}\nGraph settingCount: {SelectedElevationPolicy.SettingCount} (settings, not rules). Load the rule count before validation."
-            : $"{SelectedElevationPolicy.Name}\nLast modified: {SelectedElevationPolicy.LastModifiedDateTime?.ToLocalTime().ToString("g") ?? "unknown"} | Assigned: {(SelectedElevationPolicy.IsAssigned ? "Yes" : "No")}\nElevation rules: {_selectedPolicyRuleCount}/{_selectedPolicyRuleLimit ?? 100}.";
+    public string SelectedPolicySummary => SelectedElevationPolicy is null || _selectedPolicyRuleCount is null
+        ? string.Empty
+        : $"Elevation rules: {_selectedPolicyRuleCount}/{_selectedPolicyRuleLimit ?? 100}.";
 
     private async Task AnalyzeAsync()
     {
@@ -277,6 +285,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             var window = Application.Current?.MainWindow;
             var profile = await _graphAuthentication.SignInAsync(ClientId, TenantId, window is null ? IntPtr.Zero : new System.Windows.Interop.WindowInteropHelper(window).Handle);
+            ResetReusableCertificateSettings();
+            ResetElevationPolicies();
             GraphConnected = true;
             GraphAccount = $"{profile.DisplayName} ({profile.UserPrincipalName})\nTenant ID: {profile.TenantId}";
             var nameParts = (string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.UserPrincipalName : profile.DisplayName)
@@ -286,7 +296,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             GraphConnectionStatus = "Connected to Microsoft Graph. Intune is changed only when you explicitly upload a rule.";
             TenantId = profile.TenantId;
             IsAccountMenuOpen = false;
-            await LoadPoliciesAsync();
+            await EnsureElevationPoliciesAsync();
+            await EnsureReusableCertificateSettingsAsync();
         }
         catch (Exception exception)
         {
@@ -300,10 +311,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         await _graphAuthentication.RemoveAccountAsync();
         GraphConnected = false;
-        ElevationPolicies.Clear();
-        ReusableCertificateSettings.Clear();
-        SelectedReusableCertificateSetting = null;
-        Raise(nameof(ReusableCertificateSelectionHint));
+        ResetElevationPolicies();
+        ResetReusableCertificateSettings();
         SelectedElevationPolicy = null;
         _selectedPolicyRuleCount = null;
         _selectedPolicyRuleLimit = null;
@@ -314,72 +323,137 @@ public sealed class MainViewModel : INotifyPropertyChanged
         PolicyLoadStatus = "Use the account button at the top right to sign in and load EPM policies.";
     }
 
-    private async Task LoadPoliciesAsync()
+    public async Task EnsureElevationPoliciesAsync()
     {
-        Busy = true;
+        if (!GraphConnected || _policiesLoading) return;
+        if (_policiesLoaded)
+        {
+            if (SelectedElevationPolicy is not null && _selectedPolicyRuleCount is null && !_policyCountLoading)
+                await LoadSelectedPolicyCountAsync();
+            return;
+        }
+
+        var generation = _policiesGeneration;
+        _policiesLoading = true;
         PolicyLoadStatus = "Loading EPM policies…";
         try
         {
             var policies = await _graphAuthentication.GetElevationRulePoliciesAsync();
+            if (generation != _policiesGeneration || !GraphConnected) return;
             ElevationPolicies.Clear();
             foreach (var policy in policies.OrderBy(policy => policy.Name, StringComparer.CurrentCultureIgnoreCase))
                 ElevationPolicies.Add(policy);
             SelectedElevationPolicy = null;
+            _policiesLoaded = true;
             PolicyLoadStatus = policies.Count == 0
                 ? "No Elevation Rules policies were found in this tenant."
-                : $"Loaded {policies.Count} Elevation Rules policy/policies.";
+                : "Choose an Elevation Rules policy from the dropdown.";
         }
         catch (Exception exception)
         {
-            PolicyLoadStatus = $"Could not load policies: {exception.Message}";
+            if (generation == _policiesGeneration)
+                PolicyLoadStatus = $"Could not load policies: {exception.Message} Open the dropdown to retry.";
         }
-        finally { Busy = false; }
+        finally
+        {
+            if (generation == _policiesGeneration)
+                _policiesLoading = false;
+        }
+    }
+
+    private void ResetElevationPolicies()
+    {
+        _policiesGeneration++;
+        _policyCountRequest++;
+        _policiesLoaded = false;
+        _policiesLoading = false;
+        _policyCountLoading = false;
+        ElevationPolicies.Clear();
+        SelectedElevationPolicy = null;
+        _selectedPolicyRuleCount = null;
+        _selectedPolicyRuleLimit = null;
+        Raise(nameof(SelectedPolicySummary));
     }
 
     private async Task LoadSelectedPolicyCountAsync()
     {
-        if (SelectedElevationPolicy is null) return;
-        Busy = true;
-        PolicyLoadStatus = $"Reading rules in '{SelectedElevationPolicy.Name}'…";
+        if (SelectedElevationPolicy is not { } policy || !GraphConnected) return;
+        var generation = _policiesGeneration;
+        var request = ++_policyCountRequest;
+        _policyCountLoading = true;
+        Raise(nameof(UploadRuleCommand));
+        PolicyLoadStatus = $"Reading rules in '{policy.Name}'…";
         try
         {
-            var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(SelectedElevationPolicy);
+            var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(policy);
+            if (generation != _policiesGeneration || request != _policyCountRequest) return;
             _selectedPolicyRuleCount = collection.RuleCount;
             _selectedPolicyRuleLimit = collection.MaximumRuleCount;
             Raise(nameof(SelectedPolicySummary));
-            PolicyLoadStatus = $"Read {collection.RuleCount} existing elevation rule(s); maximum is {collection.MaximumRuleCount}.";
+            PolicyLoadStatus = string.Empty;
         }
         catch (Exception exception)
         {
+            if (generation != _policiesGeneration || request != _policyCountRequest) return;
             _selectedPolicyRuleCount = null;
             _selectedPolicyRuleLimit = null;
             Raise(nameof(SelectedPolicySummary));
-            PolicyLoadStatus = $"Could not read rule count: {exception.Message}";
+            PolicyLoadStatus = $"Could not read rule count: {exception.Message} Open the policy dropdown to retry.";
         }
-        finally { Busy = false; }
+        finally
+        {
+            if (generation == _policiesGeneration && request == _policyCountRequest)
+            {
+                _policyCountLoading = false;
+                Raise(nameof(UploadRuleCommand));
+            }
+        }
     }
 
-    private async Task LoadReusableCertificateSettingsAsync()
+    public async Task EnsureReusableCertificateSettingsAsync()
     {
-        Busy = true;
-        PolicyLoadStatus = "Loading reusable EPM certificate settings…";
+        if (!GraphConnected || !ShowReusableCertificateSource || _reusableCertificatesLoaded || _reusableCertificatesLoading)
+            return;
+
+        var generation = _reusableCertificatesGeneration;
+        _reusableCertificatesLoading = true;
+        _reusableCertificatesLoadError = null;
+        Raise(nameof(ReusableCertificateSelectionHint));
         try
         {
             var settings = await _graphAuthentication.GetEpmReusableCertificateSettingsAsync();
+            // Discard a response from an account that has since signed out.
+            if (generation != _reusableCertificatesGeneration || !GraphConnected) return;
             ReusableCertificateSettings.Clear();
             SelectedReusableCertificateSetting = null;
             foreach (var setting in settings.OrderBy(setting => setting.DisplayName, StringComparer.CurrentCultureIgnoreCase))
                 ReusableCertificateSettings.Add(setting);
-            Raise(nameof(ReusableCertificateSelectionHint));
-            PolicyLoadStatus = settings.Count == 0
-                ? "No reusable EPM certificate settings were found. Non-EPM reusable settings are filtered out."
-                : $"Loaded {settings.Count} reusable EPM certificate setting(s).";
+            _reusableCertificatesLoaded = true;
         }
         catch (Exception exception)
         {
-            PolicyLoadStatus = $"Could not load reusable EPM certificate settings: {exception.Message}";
+            if (generation == _reusableCertificatesGeneration)
+                _reusableCertificatesLoadError = $"Could not load certificates: {exception.Message} Open the dropdown to retry.";
         }
-        finally { Busy = false; }
+        finally
+        {
+            if (generation == _reusableCertificatesGeneration)
+            {
+                _reusableCertificatesLoading = false;
+                Raise(nameof(ReusableCertificateSelectionHint));
+            }
+        }
+    }
+
+    private void ResetReusableCertificateSettings()
+    {
+        _reusableCertificatesGeneration++;
+        _reusableCertificatesLoaded = false;
+        _reusableCertificatesLoading = false;
+        _reusableCertificatesLoadError = null;
+        ReusableCertificateSettings.Clear();
+        SelectedReusableCertificateSetting = null;
+        Raise(nameof(ReusableCertificateSelectionHint));
     }
 
     private void LoadSettings()
@@ -408,9 +482,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private sealed record AppSettings(string? ClientId, string? TenantId);
 
-    public string ReusableCertificateSelectionHint => ReusableCertificateSettings.Count == 0
-        ? "No reusable EPM certificate settings are loaded. Load them in the Graph section first."
-        : "Choose the reusable EPM certificate setting to reference in this rule.";
+    public string ReusableCertificateSelectionHint => !GraphConnected
+        ? "Sign in using the account button at the top right to choose a reusable certificate."
+        : _reusableCertificatesLoading
+            ? "Loading EPM certificates…"
+            : _reusableCertificatesLoadError ?? (_reusableCertificatesLoaded && ReusableCertificateSettings.Count == 0
+                ? "No reusable EPM certificates were found in this tenant."
+                : "Choose a reusable EPM certificate from the dropdown.");
 
     public void LoadCertificateFile(string path)
     {
