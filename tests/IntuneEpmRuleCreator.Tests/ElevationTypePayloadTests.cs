@@ -43,7 +43,16 @@ public sealed class ElevationTypePayloadTests
             RequireWindowsAuthentication = authentication
         });
 
-        var collection = children[0]!["choiceSettingValue"]!["children"]![0]!;
+        var validation = children[0]!["choiceSettingValue"]!["children"]!.AsArray();
+        if (!justification && !authentication)
+        {
+            // The successful Intune PUT uses children: [] when neither optional
+            // validation is selected; Graph rejects an empty collection instance.
+            Assert.Empty(validation);
+            return;
+        }
+
+        var collection = Assert.Single(validation)!;
         Assert.Equal("device_vendor_msft_policy_privilegemanagement_elevationrules_{elevationrulename}_ruletype_validation",
             collection["settingDefinitionId"]!.GetValue<string>());
         var expected = new List<string>();
@@ -55,8 +64,10 @@ public sealed class ElevationTypePayloadTests
             .Select(value => value!["value"]!.GetValue<string>()).ToArray());
     }
 
-    [Fact]
-    public void CurrentUser_AlwaysRequiresWindowsAuthentication()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CurrentUser_AlwaysRequiresWindowsAuthentication_AndOnlyAddsSelectedJustification(bool justification)
     {
         var children = CreateRuleChildren();
 
@@ -64,14 +75,35 @@ public sealed class ElevationTypePayloadTests
         {
             ElevationType = ElevationType.CurrentUser,
             RequireWindowsAuthentication = false,
-            RequireBusinessJustification = true
+            RequireBusinessJustification = justification
         });
 
         var validation = children[0]!["choiceSettingValue"]!["children"]!.AsArray();
+        Assert.Equal(justification ? 2 : 1, validation.Count);
         Assert.Equal("device_vendor_msft_policy_privilegemanagement_elevationrules_{elevationrulename}_ruletype_userconfirmeduservalidation_0",
             validation[0]!["choiceSettingCollectionValue"]![0]!["value"]!.GetValue<string>());
-        Assert.Equal("device_vendor_msft_policy_privilegemanagement_elevationrules_{elevationrulename}_ruletype_userconfirmeduservalidation_2_0",
-            validation[1]!["choiceSettingCollectionValue"]![0]!["value"]!.GetValue<string>());
+        if (justification)
+            Assert.Equal("device_vendor_msft_policy_privilegemanagement_elevationrules_{elevationrulename}_ruletype_userconfirmeduservalidation_2_0",
+                validation[1]!["choiceSettingCollectionValue"]![0]!["value"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void UserConfirmed_ClearingValidation_RemovesPreviouslySelectedRequirements()
+    {
+        var children = CreateRuleChildren();
+        GraphAuthenticationService.SetElevationType(children, new ElevationRule
+        {
+            ElevationType = ElevationType.UserConfirmed,
+            RequireBusinessJustification = true,
+            RequireWindowsAuthentication = true
+        });
+
+        GraphAuthenticationService.SetElevationType(children, new ElevationRule
+        {
+            ElevationType = ElevationType.UserConfirmed
+        });
+
+        Assert.Empty(children[0]!["choiceSettingValue"]!["children"]!.AsArray());
     }
 
     private static JsonArray CreateRuleChildren() => JsonNode.Parse("""

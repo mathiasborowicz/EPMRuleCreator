@@ -503,12 +503,15 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
                 var userConfirmedOptions = new List<string>();
                 if (rule.RequireBusinessJustification) userConfirmedOptions.Add("0");
                 if (rule.RequireWindowsAuthentication) userConfirmedOptions.Add("1");
-                nested.Add(CreateValidationCollection(definitionId + "_validation", [.. userConfirmedOptions]));
+                // Intune omits optional validation settings when nothing is selected.
+                // Sending an instance with an empty value collection is rejected.
+                if (userConfirmedOptions.Count > 0)
+                    nested.Add(CreateValidationCollection(definitionId + "_validation", [.. userConfirmedOptions]));
                 break;
             case ElevationType.CurrentUser:
                 nested.Add(CreateValidationCollection(definitionId + "_userconfirmeduservalidation", ["0"]));
-                nested.Add(CreateValidationCollection(definitionId + "_userconfirmeduservalidation_2",
-                    rule.RequireBusinessJustification ? ["0"] : []));
+                if (rule.RequireBusinessJustification)
+                    nested.Add(CreateValidationCollection(definitionId + "_userconfirmeduservalidation_2", ["0"]));
                 break;
         }
         choice["children"] = nested;
