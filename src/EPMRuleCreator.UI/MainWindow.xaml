@@ -9,11 +9,17 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <Grid Grid.Row="0" Margin="0,0,0,20">
+        <Border x:Name="AppHeader" Grid.Row="0" Margin="0,0,0,20" Padding="18,14"
+                CornerRadius="16" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                Background="{DynamicResource HeaderBackgroundBrush}">
+        <Grid>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <Image Source="Assets/epm-rule-creator.ico" Width="40" Height="40" Margin="0,0,12,0"/>
-                <TextBlock Text="EPMRuleCreator" FontSize="27" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="ZERO TRUST STORIES" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,2"/>
+                    <TextBlock Text="EPMRuleCreator" FontSize="25" FontWeight="SemiBold"/>
+                </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <ToggleButton x:Name="UpdatesButton" Content="{Binding UpdatesButtonText}" Padding="10,6" FontSize="12" Margin="0"
@@ -158,6 +164,8 @@
                 </Border>
             </Popup>
         </Grid>
+
+        </Border>
 
         <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,16">
             <Grid x:Name="FilePickerGrid">

@@ -49,6 +49,11 @@ public sealed class PresentationLayoutTests
         foreach (var text in new[] { "InkBrush", "MutedBrush", "WarningBrush", "ErrorBrush" })
             Assert.True(Contrast(colors[text], colors["CardBrush"]) >= 4.5, $"{text} must have readable contrast.");
         Assert.True(Contrast(colors["OnPrimaryBrush"], colors["PrimaryBrush"]) >= 4.5);
+        foreach (var surface in new[] { "CardBrush", "SurfaceBrush", "HeaderStartBrush", "HeaderEndBrush" })
+        {
+            Assert.True(Contrast(colors["InkBrush"], colors[surface]) >= 4.5, $"Text must remain readable on {surface}.");
+            Assert.True(Contrast(colors["AccentBrush"], colors[surface]) >= 4.5, $"Accent text must remain readable on {surface}.");
+        }
     }
 
     [Fact]
@@ -132,6 +137,18 @@ public sealed class PresentationLayoutTests
         Assert.Contains("overwriteExisting: false", installation);
         Assert.Contains("Environment.SpecialFolder.Programs", installation);
         Assert.Contains("start.ArgumentList.Add(argument)", installation);
+    }
+
+    [Fact]
+    public void BrandedHeaderUsesLiveThemeResourcesAndKeepsExistingActions()
+    {
+        var window = XDocument.Load(Source("MainWindow.xaml"));
+        var header = window.Descendants(Presentation + "Border").Single(element => (string?)element.Attribute(Xaml + "Name") == "AppHeader");
+        Assert.Equal("{DynamicResource HeaderBackgroundBrush}", (string?)header.Attribute("Background"));
+        foreach (var name in new[] { "ThemeSwitch", "UpdatesButton", "AccountButton" })
+            Assert.Contains(header.Descendants(), element => (string?)element.Attribute(Xaml + "Name") == name);
+        Assert.Contains(header.Descendants(Presentation + "TextBlock"), element => (string?)element.Attribute("Text") == "ZERO TRUST STORIES");
+        Assert.Contains("app.Resources[\"HeaderBackgroundBrush\"] = new LinearGradientBrush", File.ReadAllText(Source("ThemeService.cs")));
     }
 
     private static double Contrast(string a, string b)

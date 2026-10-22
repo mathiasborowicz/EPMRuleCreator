@@ -4,17 +4,20 @@ public static class ThemePalette
 {
     public static IReadOnlyDictionary<string, string> GetColors(bool dark) => new Dictionary<string, string>
     {
-        ["CanvasBrush"] = dark ? "#0E1623" : "#F4F7FB",
-        ["CardBrush"] = dark ? "#172231" : "#FFFFFF",
-        ["InkBrush"] = dark ? "#E8EEF7" : "#182230",
-        ["MutedBrush"] = dark ? "#A8B7C9" : "#58677A",
-        ["AccentBrush"] = dark ? "#55D9D0" : "#0F766E",
-        ["PrimaryBrush"] = dark ? "#117C72" : "#0F766E",
+        // Inspired by the supplied Zero Trust Stories screenshot, not scraped CSS.
+        ["CanvasBrush"] = dark ? "#0B1016" : "#F3F6FB",
+        ["CardBrush"] = dark ? "#161D26" : "#FFFFFF",
+        ["HeaderStartBrush"] = dark ? "#1A2635" : "#EAF1FB",
+        ["HeaderEndBrush"] = dark ? "#121923" : "#FFFFFF",
+        ["InkBrush"] = dark ? "#E7EDF6" : "#19283C",
+        ["MutedBrush"] = dark ? "#A6BAD8" : "#52657E",
+        ["AccentBrush"] = dark ? "#8AB4F8" : "#275BA1",
+        ["PrimaryBrush"] = dark ? "#285FA8" : "#245EAA",
         ["OnPrimaryBrush"] = "#FFFFFF",
-        ["AccentSoftBrush"] = dark ? "#183E3D" : "#E8F5F2",
-        ["BorderBrush"] = dark ? "#34455B" : "#DCE4ED",
-        ["SurfaceBrush"] = dark ? "#1E2B3D" : "#F8FAFC",
-        ["InputHoverBrush"] = dark ? "#6E879E" : "#AABBCB",
+        ["AccentSoftBrush"] = dark ? "#21334C" : "#E7EFFB",
+        ["BorderBrush"] = dark ? "#2D3A49" : "#D4DFED",
+        ["SurfaceBrush"] = dark ? "#1C2836" : "#F6F8FC",
+        ["InputHoverBrush"] = dark ? "#7992AF" : "#8DA8CA",
         ["WarningBrush"] = dark ? "#F6C177" : "#8A4B00",
         ["ErrorBrush"] = dark ? "#FFB4A9" : "#B42318",
         ["HoverOverlayBrush"] = dark ? "#FFFFFF" : "#182230"

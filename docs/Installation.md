@@ -1,144 +1,113 @@
-# Installation and Explorer integration
+# Get EPMRuleCreator running
 
-## Requirements
+For normal use, you only need Windows 11 x64 and the release ZIP. Git and the .NET SDK are for contributors, not a requirement to run the tool.
 
-- Windows 11 x64.
-- Git for Windows to obtain the source branch.
-- .NET 10 SDK only if building locally. The published application is self-contained and does not need a separate .NET runtime.
-- Microsoft Intune Endpoint Privilege Management Tools are optional and disabled by default. They are needed only if you enable **Use EpmCmdlets** for additional `Get-FileAttributes` output. Obtain them through your organization's supported Microsoft Intune deployment; the application does not install the EPM agent or change device configuration.
+## Download and start
 
-## Get the project
+1. Download [EPMRuleCreator-win-x64.zip](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.zip).
+2. Extract the ZIP. It contains the standalone `EPMRuleCreator.exe` and `LICENSE`, not the source project.
+3. Open the EXE and choose portable or installed mode.
+4. Choose a file and click **Analyze file**. No sign-in or administrator rights are needed for basic analysis.
 
-The development branch is `work`. First inspect the intended folder so an existing directory is not overwritten:
+If Windows marks a trusted manual download as blocked, open its **Properties** and select **Unblock**, if available. ZIP packaging does not bypass Defender, SmartScreen, or ASR. Follow your organization's security policy; the app does not disable those protections.
 
-```powershell
-Get-ChildItem -Force C:\Git\EPMRuleCreator
-```
+> 📸 **Screenshot placeholder: first-start mode selection.** Show the portable and per-user installation choices.
+<!-- SCREENSHOT: startup-modes. See Screenshots.md. -->
 
-If that directory is empty, clone into it:
+## Portable or installed
 
-```powershell
-git clone --branch work --single-branch https://github.com/mathiasborowicz/EPMRuleCreator.git C:\Git\EPMRuleCreator
-Set-Location C:\Git\EPMRuleCreator
-```
+### Use portable
 
-If it contains files, keep them and clone into a new empty directory instead, then use that directory in the remaining commands.
+The EXE runs in the folder where you extracted it. There is no additional EXE copy in AppData. An empty `EPMRuleCreator.portable` marker next to it remembers your choice; keep that marker when moving the app. On read-only media, the choice applies to this session only.
 
-## Install the SDK
+Updates replace this same EXE. If you move it after adding the Explorer menu, open it at the new location and click **↻** to repair the menu.
 
-Install the **SDK**, not only the runtime. With `winget`:
+Portable refers to the executable, not all user data: preferences still use `%LOCALAPPDATA%\EPMRuleCreator\settings.json`, and tokens remain in RAM.
 
-```powershell
-winget install --exact --id Microsoft.DotNet.SDK.10
-```
+### Install for this user
 
-Alternatively, use the [official .NET 10 download page](https://dotnet.microsoft.com/download/dotnet/10.0) and select the Windows x64 SDK. Close and reopen PowerShell, then verify:
+This explicitly copies the EXE to `%LOCALAPPDATA%\EPMRuleCreator\App\EPMRuleCreator.exe`, creates a Start menu shortcut, and opens that installation. No admin rights are required. You can then delete the original downloaded EXE; it is not automatically removed.
 
-```powershell
-dotnet --list-sdks
-```
+The shortcut, context menu, and updater use the same installed EXE. If an installation already exists, the startup choice becomes **Open installed app**. It opens that copy without overwriting it with a potentially older download. Use **Updates** in the installed app for newer versions.
 
-At least one `10.0.x` SDK should be listed.
+From portable mode, **Updates > Install for this user** (or **Open installed app**) switches to the fixed installation. Save rule edits first. The **Updates** panel shows the current mode; hover it to see the running EXE path.
 
-## Build and publish
+Old application copies are not automatically deleted. To display the first-start choices again for a portable folder, close the app and remove only its `EPMRuleCreator.portable` marker.
 
-Run from the repository root:
+## Updates
 
-```powershell
-dotnet test .\EPMRuleCreator.sln
-dotnet publish .\src\EPMRuleCreator.UI\EPMRuleCreator.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeAllContentForSelfExtract=true -o .\publish\win-x64
-```
+The app checks public GitHub releases at startup by default. Open **Updates** and uncheck **Check for updates at startup** to disable that request. **Check now** works on demand. Neither operation requires Entra sign-in or sends analyzed-file details, tenant IDs, or Graph tokens to GitHub. Offline or rate-limited checks do not block file analysis.
 
-The executable is `publish\win-x64\EPMRuleCreator.exe`. Run it directly to select a file in the app. No administrator rights, tenant connection, or network are needed for local file analysis.
+When a newer stable release is available, **Update** downloads the release ZIP, verifies its GitHub SHA256 digest and the EXE's product/version, then replaces the running EXE and restarts. Save your rule edits first. The folder must be writable. An installed app stays installed; a portable app stays portable.
 
-## Download the current standalone build
+The old executable remains next to it as `EPMRuleCreator.exe.previous`. If replacement or restart fails, the helper attempts to restore it. The updater removes an Internet zone marker only from the verified replacement using `Unblock-File` in Windows PowerShell 5.1. It does not change execution policy, Defender, or ASR. If that helper is blocked by your organization, use a manual update.
 
-For normal use, download [**EPMRuleCreator-win-x64.zip from the latest GitHub release**](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.zip). Extract it and run `EPMRuleCreator.exe`. This ZIP contains only the standalone EXE and `LICENSE`, not the source project; you do not need Git or the .NET SDK. New releases attach the ZIP instead of a raw EXE. ZIP packaging does not bypass Defender, SmartScreen, or ASR: your organization's security checks can still apply when downloading, extracting, or running the file. The archive is not password-protected.
+Without a usable GitHub checksum, automatic installation is unavailable; **Open release page** provides the manual download instead. To update manually, close the app, extract the new EXE into its current folder, and keep your portable marker if present. This is also the recovery path for older versions whose updater fails.
 
-A release is created automatically after a push/merge to `main` passes tests and publishes the Windows build. Releases use version tags starting at `v0.9.0` and are not subject to the 30-day Actions-artifact retention. Further merges automatically increment the highest version's patch number, and the same version is embedded in the EXE. A higher `<Version>` in the UI project starts a new version line. Retrying an already tagged commit reuses its release instead of incrementing again. Failed builds and pull-request checks do not publish releases. Older releases and their existing EXE downloads remain unchanged; the ZIP link becomes available once the first release with this packaging has been published.
-
-Every push to `work` or `main` runs tests and creates a self-contained, compressed Windows x64 build automatically. The single executable is about 63 MB in the current build (down from about 127 MB); WPF's native components are bundled and extracted by .NET at startup. To download it, open the repository's **Actions** tab, select the latest successful **Windows standalone build**, and download the `EPMRuleCreator-win-x64` artifact. GitHub provides the artifact as a ZIP containing only `EPMRuleCreator.exe`; no source project or companion files are included. GitHub retains each artifact for 30 days. The build does not embed an Entra client ID; click the circular account button with the person icon at the top right to enter the client ID and tenant if you want to test Graph sign-in. Compression and extraction may add a small startup cost.
+> 📸 **Screenshot placeholder: Updates panel.** Show the installed version, mode, startup-check toggle, and available-update action.
+<!-- SCREENSHOT: updates. See Screenshots.md. -->
 
 ## Register the Explorer menu
 
-### Updating from the previous application name
+Click **Add menu** in the header. The app registers the exact running EXE for `.exe`, `.msi`, and `.ps1` files. This does not install or copy another executable.
 
-The app, solution, projects, and release assets are now named **EPMRuleCreator**. On first launch, the renamed app copies an existing `%LOCALAPPDATA%\IntuneEpmRuleCreator\settings.json` to `%LOCALAPPDATA%\EPMRuleCreator\settings.json` only if no settings exist at the new path. The original file is retained, and newer settings are never overwritten. Tokens now stay in memory only, so sign in again after starting the app. Old token caches are not read, copied, decrypted, or removed; the previous directory and its encrypted cache remain untouched. See [token handling and old-cache cleanup](GraphAuthentication.md#runtime-and-token-handling).
+On Windows 11, right-click a file, choose **Show more options**, then **Create EPM Rule**. The app opens with that file and analyzes it. The selected file is never executed, and its path is passed as a quoted argument.
 
-For an existing Explorer menu, start the new EXE and click **↻**. This points the menu to the running EXE and removes only the app's legacy menu entries after the new entries are registered. **Remove menu** recognizes both names. Existing old application copies are not deleted automatically.
+- **Remove menu** removes the app-owned menu entries.
+- **↻** points the menu to the current EXE, for example after moving a portable copy. It does not update an application binary.
 
-The display name of your own Entra app registration is managed separately in Entra and is not changed by this update.
+Registration is per-user under `HKEY_CURRENT_USER`; no admin rights are needed. Existing registrations are repointed when you select a mode. Legacy `CreateIntuneEpmRule` entries are removed only after new entries are registered; removal recognizes both names.
 
-### Portable or installed
-
-On first launch outside the installed location, choose a mode:
-
-- **Use portable:** run the EXE where you extracted it. No app EXE is copied to AppData. An empty `EPMRuleCreator.portable` marker next to the EXE remembers this choice; keep it when moving the app. On read-only media the choice applies to this session only. Local preferences still use the documented AppData `settings.json`; tokens remain in RAM.
-- **Install for this user:** explicitly copy the EXE to `%LOCALAPPDATA%\EPMRuleCreator\App\EPMRuleCreator.exe`, create a Start menu shortcut and launch that installed EXE. The downloaded source is not automatically deleted; you can remove it once installation succeeds. No admin rights required.
-
-An EXE running at the fixed path is recognized as installed, including installations created by older context-menu registration. If an installation already exists, the choice becomes **Open installed app**. It does not overwrite that installation with a potentially older download. Update it using **Updates**. To replace a version whose updater is broken, close it and manually extract the new EXE into the fixed installation folder.
-
-Portable mode can switch to the installation through **Updates > Install for this user** (or **Open installed app**). Save rule edits before switching. **Updates** shows the mode, with the actual running EXE path in its tooltip. To choose portable mode again for a folder, remove only its `EPMRuleCreator.portable` marker while the app is closed.
-
-Updates always replace the running EXE in place, in either mode. Context-menu registration no longer installs or synchronizes a second executable. Existing menu registrations are pointed to the chosen EXE when selecting a mode. Old application copies are not automatically deleted.
-
-Click **Add menu** in the top-right header to register the running EXE and refresh Explorer's association cache. In installed mode you can move or delete the downloaded source without breaking the menu. In portable mode keep the EXE at the registered path, or repair the menu after moving it.
-
-The button changes to **Remove menu**, with a small **↻** repair button beside it. Open the EXE you intend to use and click **↻** to point the menu to that exact path. This never copies or updates an EXE. Use **Updates** for application updates.
-
-The PowerShell scripts are an alternative. From a normal, non-elevated PowerShell session in the repository root, register the current user's menu:
+If you use the source repository, the PowerShell alternative also registers the exact supplied path without deploying a copy:
 
 ```powershell
 $appPath = Join-Path $PWD 'publish\win-x64\EPMRuleCreator.exe'
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Register-ExplorerMenu.ps1 -ApplicationPath $appPath
 ```
 
-The registration is per-user under `HKEY_CURRENT_USER` and does not require administrator privileges. Windows 11 shows this classic registry menu item under **Show more options**; it is not in the primary modern context menu. The menu is registered for `.exe`, `.msi`, and `.ps1` files. Right-click one of those files, choose **Show more options**, then **Create EPM Rule**. The application starts with that path and analyzes it automatically. The selected file is never executed. The path is passed as a quoted argument, including when it contains spaces or Unicode characters.
-
-The registration script uses exactly `-ApplicationPath` without copying an EXE. Run it again with the new path after moving a portable app.
-
-**Remove menu** and the removal script delete only the app-owned `CreateEPMRule` registry subtrees and their legacy `CreateIntuneEpmRule` equivalents for the three supported file types. They retain the EXE, `settings.json`, and any cache files left by old versions. The current version has no on-disk token cache. To uninstall, remove the menu, close the app, remove the EPMRuleCreator Start menu shortcut and delete only `%LOCALAPPDATA%\EPMRuleCreator\App` in Explorer. For portable removal, delete your portable EXE and its marker instead. Account settings remain in the AppData parent folder.
-
-## What works offline
-
-### Appearance
-
-The **Dark** switch in the header changes the theme immediately, including input fields, dropdowns, certificate cards, logs, and the sign-in panel. Until a manual choice is saved, the app reads the current user's Windows **app** color mode at each startup (`HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme`: 0 means dark). Missing or inaccessible Windows settings fall back to light. This reads the setting only; it does not change Windows preferences. Live Windows theme changes while the app is open are not tracked.
-
-Using the switch saves your explicit choice as `IsDarkTheme: true` or `false` in the existing local `settings.json`, alongside the client/tenant identifiers. A saved choice takes precedence over Windows. Missing or `null` theme values follow Windows; saving sign-in settings does not convert that automatic mode into a manual choice. Existing explicit values from earlier versions are retained. To restore startup-based Windows detection, remove only `IsDarkTheme` from the settings file or set it to `null` while the app is closed. Switching themes preserves the saved sign-in configuration. No Graph connection is needed. The file path and its Choose/Analyze buttons share a dedicated row and the same height; the optional EpmCmdlets checkbox sits on the next row.
-
-### File details
-
-- SHA256 is calculated locally by the application.
-- Available Windows version metadata and embedded publisher certificate details are shown where present.
-- **Use EpmCmdlets** is unchecked on each app start. It is enabled only if `C:\Program Files\Microsoft EPM Agent\EpmTools\EpmCmdlets.dll` exists, and availability is refreshed when the app regains focus and before analysis. The checkbox is disabled during analysis and grayed out when the DLL is missing; hover it for the path. No module is loaded unless you explicitly select it.
-- With that option selected, `Get-FileAttributes` runs through Windows PowerShell 5.1 and its hash is compared with the independent SHA256 result. Module import can require administrator rights. The app does not elevate automatically: access-denied/import failures become **Analysis notes**, and local SHA256, Windows metadata, and signing certificate analysis still complete. The **EPM Tools hash** field appears only when a result is available.
-- Without EPM Tools, or with the checkbox off, file details are read directly without PowerShell. Hover **Analysis notes** for analysis warnings or **Signature** for certificate details and signature-trust information. Nothing is silently installed.
-
-These local operations do not require Microsoft Entra authentication, Graph permissions, a tenant, or an Internet connection. Certificate extraction alone does not establish that a signature is trusted.
-
-With **Signature source → Upload a certificate file**, the **Use analyzed file certificate** radio option is selected automatically when the analyzed file contains a signing certificate. Choosing your own certificate file selects that uploaded certificate instead. You can switch back using the radio options; the certificate card under File information always shows the certificate extracted from the analyzed file. Changing the analyzed file clears any previously uploaded certificate.
-
-### Export the certificate chain
-
-The **Signing certificate** card lists every available certificate from signer through intermediate issuers to root, with validity dates and issuer/thumbprint details on hover. **Export certificates…** saves each one as a separate DER-encoded `.cer` file, matching the individual-certificate export workflow of EpmCmdlets. Choose a parent folder; the app creates a unique export subfolder, avoiding overwrites. Files are numbered in chain order and include their role and thumbprint. **Export chain bundle…** retains the P7B (PKCS #7) and PEM bundle formats. This works without EpmCmdlets or admin rights. No private keys are exported. The chain belongs to the analyzed file, not to a separate certificate you selected for the rule; exporting it does not change the Graph upload, which still uses the selected rule certificate.
-
-On Windows, the app reads the signed file's embedded certificate store using `CryptQueryObject` and builds a chain using those certificates and local certificate stores. Certificate downloads are disabled and revocation checking is not performed. PEM output is ordered from signer to root; P7B contains the same set of public certificates. The card shows whether the chain is complete, and its tooltip lists certificates and chain statuses. A complete chain is not proof of a trusted or valid Authenticode signature.
-
-Not every file embeds its entire chain. If an issuer or root is missing locally, the app marks the chain **Incomplete** and records a warning in Logs when exporting the available subset. It never fabricates missing certificates or silently calls a partial chain complete. Changing the analyzed file clears the previous chain. Export remains disabled during analysis.
-
-Reference: [Microsoft CryptQueryObject documentation](https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptqueryobject).
-
-To remove the registration:
+Remove it with:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Unregister-ExplorerMenu.ps1
 ```
 
-## Current limitations
+## Local preferences and appearance
 
-Graph authentication and policy selection are optional for offline analysis. Uploading can append to a selected policy or create a new policy with its first rule when the user clicks Upload, without an additional confirmation dialog; see [Graph authentication](GraphAuthentication.md) and [Graph integration](GraphIntegration.md). Local analysis and validation do not create or modify policies.
+The app follows your Windows app theme at startup until you use its **Dark** switch. That manual choice is saved locally. Live Windows theme changes while the app is open are not tracked. The palette takes inspiration from the supplied Zero Trust Stories screenshot: dark navy/graphite cards, fine borders, and pale blue accents, with a corresponding light theme. These are screenshot-based choices, not verified website CSS or fonts.
 
-Changing files immediately clears previous metadata and rule fields, including certificates and validation choices. Analyze the new file before validating or uploading. The current Entra account and selected target policy are retained. Explanations are in tooltips. The Logs panel below the certificate chain shows timestamped analysis, validation, upload, and export activity, including full errors. It retains the latest 200 entries in memory across file changes, supports selecting/copying text, and has a Clear button. Logs are not automatically saved to disk and are cleared when the app closes. File paths and Graph error details can appear in logs; redact them before sharing.
+`%LOCALAPPDATA%\EPMRuleCreator\settings.json` contains these preferences:
 
-The development runner is Linux, so WPF, signed-file extraction, and Explorer integration require a Windows smoke test: analyze with EpmCmdlets off, retry with it selected in a non-admin session, verify an import failure preserves local results, test a missing DLL, export a signed file's complete or partial chain as individual CER files and P7B/PEM bundles, verify all certificates appear in the card and upload results appear in Logs without a popup, and switch files to check old results are cleared. Verify the custom icon in Explorer and the window/taskbar. Also test menu registration, migration, updates, and removal. Automated tests cover EpmCmdlets opt-in/fallback/cancellation, generated certificate chains and public-only exports, plus menu deployment without modifying a real Windows registry. The Windows build also parses both Explorer scripts using Windows PowerShell.
+- `ClientId` and `TenantId`: your optional sign-in identifiers, not secrets.
+- `IsDarkTheme`: `true` for dark, `false` for light; missing or `null` follows Windows at startup.
+- `CheckForUpdatesAtStartup`: `true` by default, or `false` to opt out.
+
+The file is unencrypted and contains no tokens. Change preferences in the app where possible. If editing the file, close the app first and preserve the other fields. See [token handling](GraphAuthentication.md#runtime-and-token-handling) for RAM-only authentication and older cache files.
+
+**Coming from the old application name?** If the new settings path is missing, the app copies only `settings.json` from `%LOCALAPPDATA%\IntuneEpmRuleCreator`. It keeps the original, never overwrites existing new settings, and does not copy old token caches. An EXE already at the current fixed installation path is recognized as installed. Old EXE copies are not deleted; **↻** repairs the menu to the EXE you actually run.
+
+## Remove the app
+
+First click **Remove menu** and close the app. For portable mode, remove the portable EXE and marker. For installed mode, remove the EPMRuleCreator Start menu shortcut and only `%LOCALAPPDATA%\EPMRuleCreator\App` in Explorer. Preferences remain in the parent folder unless you remove them separately. Menu removal never deletes your EXE or settings.
+
+## Build and publish
+
+Only needed if you want to contribute or compile your own build. Install Git for Windows and the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), not just the runtime. With winget:
+
+```powershell
+winget install --exact --id Microsoft.DotNet.SDK.10
+```
+
+Reopen PowerShell and check `dotnet --list-sdks`. Clone into a new or empty folder, preserving any existing project files:
+
+```powershell
+git clone https://github.com/mathiasborowicz/EPMRuleCreator.git C:\Git\EPMRuleCreator
+Set-Location C:\Git\EPMRuleCreator
+dotnet test .\EPMRuleCreator.sln
+dotnet publish .\src\EPMRuleCreator.UI\EPMRuleCreator.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeAllContentForSelfExtract=true -o .\publish\win-x64
+```
+
+The EXE is `publish\win-x64\EPMRuleCreator.exe`. The development branch is `work`. Actions builds on `work` and `main` provide a compressed, self-contained Windows x64 EXE artifact retained for 30 days. Native WPF components are bundled and extracted by .NET at startup.
+
+Successful pushes/merges to `main` publish a versioned GitHub release ZIP with the EXE and license. Tags use `vX.Y.Z`, with the same version embedded in the EXE. The release workflow increments the latest patch version; increasing the UI project's baseline starts a new version line. Retrying a tagged commit reuses its release. Failed builds and pull-request checks do not publish releases.
+
+The Linux development runner cannot exercise WPF, Explorer, shortcuts, or the real updater end to end. Windows smoke tests should cover both modes, file switching, optional EpmCmdlets failure/fallback, certificate exports, theme changes, menu repair/removal, and update/restart. Automated tests and Windows workflow checks complement, but do not replace, those checks.

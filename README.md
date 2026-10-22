@@ -2,78 +2,76 @@
 
 # EPMRuleCreator
 
+**Inspect a file. Understand its signature. Create an Intune EPM rule.**
+
 [![Windows 11 x64](https://img.shields.io/badge/Windows-11_x64-0078D4?logo=windows&logoColor=white)](docs/Installation.md)
-[![Offline first](https://img.shields.io/badge/Offline-first-2ea44f)](#-get-started)
+[![Offline first](https://img.shields.io/badge/Offline-first-2ea44f)](docs/UserGuide.md)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-**From a file to an Intune EPM rule, without the busywork.**
+EPMRuleCreator is a Windows desktop tool for people who manage Microsoft Intune Endpoint Privilege Management (EPM). Select an application, inspect its file details and signing certificate, and prepare an elevation rule without copying everything by hand.
 
-Inspect file details, check signing certificates, and prepare Microsoft Intune Endpoint Privilege Management rules in one Windows app. File analysis works offline. Connect to Intune only when you want to upload a rule.
+**Just need the file information? Stop there.** File analysis and certificate export work locally, without signing in. Connecting to Intune is entirely optional.
 
-### [⬇ Download the latest ZIP](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.zip)
+### [⬇ Download EPMRuleCreator](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.zip)
 
-Just the standalone EXE and license in a ZIP. No compiling, no separate .NET installation, no account needed to get started.
+Extract the ZIP and open `EPMRuleCreator.exe`. No compiling, no Git, no separate .NET installation.
 
-## 🚀 Get started
+> 📸 **Screenshot coming soon:** the main window with an analyzed file, its signing certificate chain, and a prepared rule.
+<!-- SCREENSHOT: overview. Replacement instructions and suggested filenames: docs/Screenshots.md. -->
 
-1. Download and extract the ZIP, then open **EPMRuleCreator.exe** on Windows 11 x64.
-   Choose **Use portable** to keep it here, or **Install for this user** for a fixed Local AppData location and Start menu shortcut. Updates and the context menu always use the same EXE. An existing installation is opened, never silently overwritten.
-2. Choose an `.exe`, `.msi`, or `.ps1` file and click **Analyze file**.
-3. Review its details and prepare your elevation rule. That's it for offline use!
+## 🚀 From file to rule
 
-Want to send the rule to Intune? Sign in using the account icon at the top right, select an **Elevation Rules policy**, and click **Upload rule**. Progress and results appear in **Logs** below the certificate chain. Choose **+ Add new** to create a policy with its first rule instead.
+1. **Choose how to run it.** Choose **Use portable** to keep the EXE in your folder, or **Install for this user** for a fixed AppData location and Start menu shortcut.
+2. **Analyze a file.** Choose an `.exe`, `.msi`, or `.ps1` file and click **Analyze file**. Review SHA256, available version information, and signing certificates. The selected file is never executed.
+3. **Prepare your rule.** Review the prefilled fields, choose file-hash or certificate identification, and set the elevation behavior. **Validate rule** checks the local inputs.
+4. **Upload only if you want to.** Sign in through the account icon, select an **Elevation Rules policy**, or choose **+ Add new**. Review the rule, then click the upload button. Results appear in **Logs**.
 
-*📸 Screenshot coming soon.*
+New to the workflow? The [step-by-step walkthrough](docs/UserGuide.md) explains each step and what the choices mean.
 
-<!-- Screenshot slot: replace the line above with the supplied app screenshot when available. Do not add a broken image link. -->
+## ✨ What you can do
 
-## 🔎 What you can do
+- **Inspect locally:** see SHA256, product/version metadata, and the available signing certificate chain.
+- **Export public certificates:** save each chain certificate as its own `.cer`, or export a P7B/PEM bundle.
+- **Choose the right match:** use a file hash, the file's signing certificate, your own certificate file, or an EPM reusable certificate setting.
+- **Prepare EPM rules:** configure elevation type, user validation, child processes, and argument restrictions.
+- **Write to Intune:** append a rule to an existing policy or create a policy with its first rule.
+- **Work from Explorer:** **Add menu** registers the current EXE. **Remove menu** removes the entry; **↻** repairs its path. No hidden EXE copy is created.
+- **Keep it comfortable:** light/dark themes inspired by Zero Trust Stories, optional startup update checks, and an **Update** button that installs a verified release and restarts the app.
 
-- **Stay up to date:** open **Updates** to turn startup checks on/off or **Check now**. Click **Update** to download the release ZIP, verify its GitHub SHA256 checksum, replace the EXE in place and restart. Save your work first. The previous EXE stays beside it as `EPMRuleCreator.exe.previous`. No admin prompt or separate installer; if the folder is not writable, choose a writable location. Without a GitHub checksum, use **Open release page** instead. Checks never block offline analysis and send no file details, Entra IDs, or tokens to GitHub. Your preference is saved as `CheckForUpdatesAtStartup` in local `settings.json`.
-  The updater removes any Internet zone marker from the verified update EXE only (equivalent to `Unblock-File`). Defender and ASR policies are not changed. For your first manual download, use the file's **Properties > Unblock** if Windows requires it.
-- **Make it yours:** the app starts with your Windows app theme until you choose light or dark using the switch. Your manual choice is remembered locally.
-- **See what's in a file:** SHA256, version, product details, and its signing certificate, where available.
-- **Export its certificate chain:** save each public certificate as its own CER file, or the chain together as P7B/PEM. Missing issuers are clearly marked.
-- **Choose how to identify it:** file hash, the extracted signing certificate, your own certificate file, or an Intune reusable certificate setting.
-- **Prepare elevation rules:** configure elevation type, validation requirements, child processes, and arguments.
-- **Upload when you're ready:** add a rule to an existing policy or create a new policy with its first rule.
-- **Start from a right-click:** use **Add menu** to enable Explorer integration without creating another EXE copy. **Remove menu** undoes it; **↻** points the menu at the current EXE after moving a portable app.
+Portable means the EXE stays where you put it. If you move it, repair its context-menu entry. Installed mode uses one fixed EXE in AppData; the original download can be deleted after installation. [Installation and updates](docs/Installation.md).
 
-On Windows 11, the Explorer entry appears under **Show more options**. You can move or delete the original download after adding the menu. [How it works](docs/Installation.md#register-the-explorer-menu).
+## 🔐 Local first. Intune when you need it.
 
-## 🔐 Intune connection is optional
+You do **not** need a tenant, an Entra app registration, or EPM Tools for basic file analysis. **Use EpmCmdlets** is optional, off by default, and disabled when its DLL is missing. The tool does not install an EPM agent, run the analyzed file, or elevate applications itself.
 
-No tenant, Entra app registration, or EPM Tools installation is needed for basic file analysis. **Use EpmCmdlets** is off by default and grayed out if the DLL is missing. Enable it only if you want the additional PowerShell attributes; module errors never block normal analysis. The app never installs an agent or runs the file you analyze.
+For Intune, bring your own Entra public-client app registration with the `http://localhost` redirect URI. Required delegated Graph permissions are `User.Read` and `DeviceManagementConfiguration.ReadWrite.All`, with admin consent for the latter. Your account also needs the appropriate Intune licensing, RBAC, and scope-tag access. [Set up sign-in](docs/GraphAuthentication.md).
 
 <details>
-<summary><strong>Connecting to Intune: permissions and local settings</strong></summary>
+<summary>What is saved on my computer?</summary>
 
-For Intune uploads, configure your own Entra public-client app registration with the `http://localhost` redirect URI. No client secret is needed.
+`%LOCALAPPDATA%\EPMRuleCreator\settings.json` stores the client ID, tenant, theme preference, and startup-update preference. It is unencrypted: these IDs are identifiers, not credentials. No client/tenant ID is embedded in the EXE or repository, and no client secret is needed.
 
-Required delegated Graph permissions:
+Tokens stay in RAM for the app session; no new `msal.cache` is written. Closing the app ends its session, though the browser may still provide Microsoft SSO. Old cache files are not automatically deleted. [Token handling and cleanup](docs/GraphAuthentication.md#runtime-and-token-handling).
 
-- `User.Read`
-- `DeviceManagementConfiguration.ReadWrite.All` with admin consent
-
-Your account also needs the appropriate Intune license, RBAC permissions, and scope-tag access. Follow the [sign-in setup guide](docs/GraphAuthentication.md).
-
-The app remembers your client ID, tenant, and theme choice in `%LOCALAPPDATA%\EPMRuleCreator\settings.json`. This file is unencrypted; the IDs are identifiers, not secrets, and are **not embedded in the EXE or repository**. Tokens stay in memory for the app session: no new `msal.cache` is written. After closing the app, sign in again; your browser's existing Microsoft session may still provide SSO. Signing out clears the app's in-memory session, not the saved IDs or browser cookies. [Cache details and cleanup of older files](docs/GraphAuthentication.md#runtime-and-token-handling).
+Portable mode creates an empty `EPMRuleCreator.portable` marker beside the EXE to remember your choice; preferences still use AppData. Logs are session-only and are not automatically saved. Optional update checks contact public GitHub releases, not Intune, and can be disabled in **Updates**.
 
 </details>
 
-> Test uploads in a test tenant first. Clicking Upload writes immediately, without an extra confirmation popup, and sends the full policy settings collection, preserving other rules. Graph beta has [limitations](docs/GraphIntegration.md). New policies need assignments in Intune. Certificate extraction is not a signature-trust check.
+> **Before your first upload:** test in a test tenant. Upload writes immediately, without an extra confirmation popup. New policies have no assignments; configure those in Intune. Extracting a certificate does not prove a signature is trusted. [Graph behavior and limitations](docs/GraphIntegration.md).
 
-## 📚 Need more detail?
+## 📚 Find your next step
 
-- [Installation, updates, and Explorer menu](docs/Installation.md)
-- [Entra sign-in and Graph permissions](docs/GraphAuthentication.md)
-- [Graph behavior and current limitations](docs/GraphIntegration.md)
+- [Using the tool: file analysis, certificates, and rules](docs/UserGuide.md)
+- [Download, portable/install modes, updates, and Explorer integration](docs/Installation.md)
+- [Entra registration, Graph permissions, and sign-in](docs/GraphAuthentication.md)
+- [Technical Graph behavior and limitations](docs/GraphIntegration.md)
+- [Screenshot checklist for contributors](docs/Screenshots.md)
 
-Building it yourself? The [installation guide](docs/Installation.md#build-and-publish) covers the .NET 10 SDK and build commands. Merges to `main` automatically publish a tested, versioned ZIP containing the EXE; development builds are available in Actions. ZIP packaging does not disable Defender, SmartScreen, or ASR checks.
+## 🤝 Made for the community
 
-## 🤝 Feedback welcome
+Found a bug or have an idea? [Open an issue](https://github.com/mathiasborowicz/EPMRuleCreator/issues) or send a pull request. Include the app version, what you did, and the relevant error from **Logs**. Redact personal information, tenant details, and tokens.
 
-Found a bug or have an idea? [Open an issue](https://github.com/mathiasborowicz/EPMRuleCreator/issues) or send a pull request. Include your app version and steps to reproduce. Please redact tokens and personal or tenant-specific details.
+Want to build it yourself? See [Build and publish](docs/Installation.md#build-and-publish). Successful merges to `main` publish a versioned release ZIP automatically.
 
 ## License
 
