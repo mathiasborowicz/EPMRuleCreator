@@ -159,31 +159,53 @@
                     </Border>
                     <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18" Margin="0,0,0,16"
                             Visibility="{Binding HasAnalyzedPublisherCertificate, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border.ToolTip>
-                            <ToolTip><TextBlock Text="{Binding AnalyzedCertificateDetails}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip>
-                        </Border.ToolTip>
                         <StackPanel>
                             <TextBlock Text="Signing certificate" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                            <TextBlock Text="{Binding AnalyzedPublisherCertificate.Subject, Mode=OneWay}" TextTrimming="CharacterEllipsis"
-                                       FontWeight="SemiBold" Margin="0,0,0,6"/>
-                            <TextBlock Text="{Binding AnalyzedCertificateValidity}" FontSize="12">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-                                        <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding AnalyzedPublisherCertificate.IsWithinValidityPeriod}" Value="False">
-                                                <Setter Property="Foreground" Value="#8A4B00"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding CertificateChainEntries}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#D4DCE6" BorderThickness="0,0,0,1" Padding="0,8" Margin="0,0,0,4">
+                                            <Border.ToolTip><ToolTip><TextBlock Text="{Binding Details}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></Border.ToolTip>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Role}" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
+                                                <TextBlock Text="{Binding Certificate.Subject}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                <TextBlock Text="{Binding Validity}" FontSize="12" Margin="0,4,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                                            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Certificate.IsWithinValidityPeriod}" Value="False">
+                                                                    <Setter Property="Foreground" Value="#8A4B00"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                             <TextBlock Text="{Binding CertificateChainLabel}" FontSize="12" Margin="0,6,0,0">
                                 <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding CertificateChainDetails}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
                             </TextBlock>
-                            <Button Content="Export certificate chain…" Click="ExportCertificateChain_Click"
-                                    IsEnabled="{Binding CanExportCertificateChain}" HorizontalAlignment="Left" Margin="0,10,0,0"
-                                    ToolTip="Export public signing, intermediate, and root certificates as P7B or PEM. No private keys are exported."/>
+                            <WrapPanel Margin="0,10,0,0">
+                                <Button Content="Export certificates…" Click="ExportIndividualCertificates_Click" IsEnabled="{Binding CanExportCertificateChain}"
+                                        ToolTip="Save each public certificate as a separate CER file in a new folder. No private keys."/>
+                                <Button Content="Export chain bundle…" Click="ExportCertificateChain_Click" IsEnabled="{Binding CanExportCertificateChain}"
+                                        ToolTip="Save all available public certificates together as P7B or PEM."/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="18" Margin="0,0,0,16">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,8">
+                                <Button Content="Clear" Command="{Binding ClearLogCommand}" DockPanel.Dock="Right" HorizontalAlignment="Right" Padding="8,3" FontSize="12"/>
+                                <TextBlock Text="Logs" FontSize="18" FontWeight="SemiBold"/>
+                            </DockPanel>
+                            <TextBox Text="{Binding ActivityLogText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                                     Height="230" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12"
+                                     TextChanged="ActivityLog_TextChanged" ToolTip="Session-only log. Select text to copy; Clear removes the current log."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -218,9 +240,6 @@
                                 <TextBlock Text="Policy description" Foreground="{StaticResource MutedBrush}" ToolTip="Optional. New policies use the default scope tag (0) and have no assignments."/>
                                 <TextBox Text="{Binding NewPolicyDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap"/>
                             </StackPanel>
-                            <TextBlock Text="{Binding PolicyLoadStatus}" Style="{StaticResource StatusText}" Margin="0,0,0,6">
-                                <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding PolicyLoadStatus}" TextWrapping="Wrap" MaxWidth="440"/></ToolTip></TextBlock.ToolTip>
-                            </TextBlock>
                             <TextBlock Text="{Binding SelectedPolicySummary}" Style="{StaticResource StatusText}" Margin="0,0,0,12"/>
                             <TextBlock Text="Rule name" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Rule description" Foreground="{StaticResource MutedBrush}"/><TextBox Text="{Binding RuleDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="68" TextWrapping="Wrap"/>
@@ -282,8 +301,7 @@
                         <StackPanel>
                             <TextBlock Text="Validation" FontSize="18" FontWeight="SemiBold"/>
                             <Button Content="Validate rule" Command="{Binding ValidateCommand}" HorizontalAlignment="Left" Margin="0,12,0,0"/>
-                            <Button Content="{Binding UploadButtonText, Mode=OneWay}" Command="{Binding UploadRuleCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{StaticResource AccentBrush}" Foreground="White" ToolTip="Writes require confirmation. A new policy is created together with its first rule, without assignments."/>
-                            <TextBlock Text="{Binding ValidationSummary}" Style="{StaticResource StatusText}" Margin="0,8,0,0"/>
+                            <Button Content="{Binding UploadButtonText, Mode=OneWay}" Command="{Binding UploadRuleCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{StaticResource AccentBrush}" Foreground="White" ToolTip="Uploads immediately after validation, without an additional confirmation dialog. Progress and results appear in Logs. New policies have no assignments."/>
                             <ItemsControl ItemsSource="{Binding BlockingValidationMessages}" Margin="0,6,0,0">
                                 <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="#8A3B12" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate>
                             </ItemsControl>

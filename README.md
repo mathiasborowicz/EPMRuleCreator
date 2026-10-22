@@ -20,7 +20,7 @@ Just the standalone EXE and license in a ZIP. No compiling, no separate .NET ins
 2. Choose an `.exe`, `.msi`, or `.ps1` file and click **Analyze file**.
 3. Review its details and prepare your elevation rule. That's it for offline use!
 
-Want to send the rule to Intune? Sign in using the account icon at the top right, select an **Elevation Rules policy**, and confirm the upload. Choose **+ Add new** to create a policy with its first rule instead.
+Want to send the rule to Intune? Sign in using the account icon at the top right, select an **Elevation Rules policy**, and click **Upload rule**. Progress and results appear in **Logs** below the certificate chain. Choose **+ Add new** to create a policy with its first rule instead.
 
 *📸 Screenshot coming soon.*
 
@@ -29,7 +29,7 @@ Want to send the rule to Intune? Sign in using the account icon at the top right
 ## 🔎 What you can do
 
 - **See what's in a file:** SHA256, version, product details, and its signing certificate, where available.
-- **Export its certificate chain:** save public signing, intermediate, and root certificates as P7B or PEM. Missing issuers are clearly marked.
+- **Export its certificate chain:** save each public certificate as its own CER file, or the chain together as P7B/PEM. Missing issuers are clearly marked.
 - **Choose how to identify it:** file hash, the extracted signing certificate, your own certificate file, or an Intune reusable certificate setting.
 - **Prepare elevation rules:** configure elevation type, validation requirements, child processes, and arguments.
 - **Upload when you're ready:** add a rule to an existing policy or create a new policy with its first rule.
@@ -57,7 +57,7 @@ The app remembers your client ID and tenant in `%LOCALAPPDATA%\IntuneEpmRuleCrea
 
 </details>
 
-> Test uploads in a test tenant first. Updates require confirmation and send the full policy settings collection, preserving other rules. Graph beta has [limitations](docs/GraphIntegration.md). New policies need assignments in Intune. Certificate extraction is not a signature-trust check.
+> Test uploads in a test tenant first. Clicking Upload writes immediately, without an extra confirmation popup, and sends the full policy settings collection, preserving other rules. Graph beta has [limitations](docs/GraphIntegration.md). New policies need assignments in Intune. Certificate extraction is not a signature-trust check.
 
 ## 📚 Need more detail?
 
