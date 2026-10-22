@@ -1,0 +1,36 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EPMRuleCreator.Core", "src\EPMRuleCreator.Core\EPMRuleCreator.Core.csproj", "{6E0F15D1-91AA-49E0-BA79-540807E4A6E1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EPMRuleCreator.UI", "src\EPMRuleCreator.UI\EPMRuleCreator.UI.csproj", "{23E855B7-5DC1-44B7-BD2A-286EC274C66A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EPMRuleCreator.Graph", "src\EPMRuleCreator.Graph\EPMRuleCreator.Graph.csproj", "{89A28674-7168-4C5E-B8A3-C89959C32C75}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EPMRuleCreator.Tests", "tests\EPMRuleCreator.Tests\EPMRuleCreator.Tests.csproj", "{05BDBA2B-EFA7-4F20-BBD4-E6C5C7282AB7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6E0F15D1-91AA-49E0-BA79-540807E4A6E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E0F15D1-91AA-49E0-BA79-540807E4A6E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E0F15D1-91AA-49E0-BA79-540807E4A6E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E0F15D1-91AA-49E0-BA79-540807E4A6E1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{23E855B7-5DC1-44B7-BD2A-286EC274C66A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23E855B7-5DC1-44B7-BD2A-286EC274C66A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23E855B7-5DC1-44B7-BD2A-286EC274C66A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23E855B7-5DC1-44B7-BD2A-286EC274C66A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{89A28674-7168-4C5E-B8A3-C89959C32C75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{89A28674-7168-4C5E-B8A3-C89959C32C75}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{89A28674-7168-4C5E-B8A3-C89959C32C75}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{89A28674-7168-4C5E-B8A3-C89959C32C75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{05BDBA2B-EFA7-4F20-BBD4-E6C5C7282AB7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{05BDBA2B-EFA7-4F20-BBD4-E6C5C7282AB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{05BDBA2B-EFA7-4F20-BBD4-E6C5C7282AB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{05BDBA2B-EFA7-4F20-BBD4-E6C5C7282AB7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

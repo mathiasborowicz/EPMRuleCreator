@@ -14,8 +14,8 @@ if ([IO.Path]::GetExtension($resolvedPath) -ine '.exe' -or [IO.Path]::GetFileNam
     throw 'Use the published standalone application EXE.'
 }
 
-$managedDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'IntuneEpmRuleCreator\App'
-$managedPath = Join-Path $managedDirectory 'IntuneEpmRuleCreator.exe'
+$managedDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'EPMRuleCreator\App'
+$managedPath = Join-Path $managedDirectory 'EPMRuleCreator.exe'
 if ($resolvedPath -ine $managedPath) {
     $sameContent = $false
     if (Test-Path -LiteralPath $managedPath -PathType Leaf) {
@@ -41,11 +41,18 @@ if ($resolvedPath -ine $managedPath) {
 
 $extensions = @('.exe', '.msi', '.ps1')
 foreach ($extension in $extensions) {
-    $key = "HKCU:\Software\Classes\SystemFileAssociations\$extension\shell\CreateIntuneEpmRule"
+    $key = "HKCU:\Software\Classes\SystemFileAssociations\$extension\shell\CreateEPMRule"
     New-Item -Path "$key\command" -Force | Out-Null
-    Set-Item -LiteralPath $key -Value 'Create Intune EPM Rule'
+    Set-Item -LiteralPath $key -Value 'Create EPM Rule'
     Set-ItemProperty -LiteralPath $key -Name 'Icon' -Value ('"{0}",0' -f $managedPath)
     Set-Item -LiteralPath "$key\command" -Value ('"{0}" "%1"' -f $managedPath)
+}
+
+foreach ($extension in $extensions) {
+    $legacyKey = "HKCU:\Software\Classes\SystemFileAssociations\$extension\shell\CreateIntuneEpmRule"
+    if (Test-Path -LiteralPath $legacyKey) {
+        Remove-Item -LiteralPath $legacyKey -Recurse -Force
+    }
 }
 
 Write-Host 'Explorer menu registered for the current user. In Windows 11 it appears under Show more options.'
