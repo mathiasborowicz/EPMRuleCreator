@@ -28,7 +28,7 @@ test('application, embedded resources, license, and build changes still require 
     'src/EPMRuleCreator.UI/MainWindow.xaml', 'src/EPMRuleCreator.Core/Services/FileAttributeService.cs',
     'src/EPMRuleCreator.UI/EPMRuleCreator.UI.csproj', 'docs/assets/epm-rule-creator.png',
     'LICENSE', 'scripts/Install-AppUpdate.ps1', '.github/workflows/windows-release-build.yml',
-    'packaging/msi/package.json', 'Directory.Build.props'
+    'releases/EPMRuleCreator-win-x64.msi'
   ]) assert.equal(requiresRelease([file]), true, file);
 });
 

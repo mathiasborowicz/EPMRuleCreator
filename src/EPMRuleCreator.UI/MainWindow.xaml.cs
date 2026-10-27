@@ -5,6 +5,9 @@ using EPMRuleCreator.UI.ViewModels;
 using EPMRuleCreator.Core.Services;
 using System.IO;
 using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Media;
 
 namespace EPMRuleCreator.UI;
 
@@ -48,9 +51,34 @@ public partial class MainWindow : Window
         if (DataContext is MainViewModel viewModel) viewModel.RefreshEpmCmdletsAvailability();
     }
 
-    private void ActivityLog_TextChanged(object sender, TextChangedEventArgs e)
+    private void ActivityLog_TargetUpdated(object sender, DataTransferEventArgs e)
     {
-        if (sender is TextBox textBox) textBox.ScrollToEnd();
+        if (sender is not RichTextBox logViewer || logViewer.Tag is not string text) return;
+
+        logViewer.Document.Blocks.Clear();
+        foreach (var entry in text.Split(Environment.NewLine + Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var paragraph = new Paragraph { Margin = new Thickness(0) };
+            var run = new Run(entry);
+            run.SetResourceReference(TextElement.ForegroundProperty, GetLogBrush(entry));
+            paragraph.Inlines.Add(run);
+            logViewer.Document.Blocks.Add(paragraph);
+        }
+
+        logViewer.ScrollToEnd();
+    }
+
+    private static string GetLogBrush(string entry)
+    {
+        var message = entry[(entry.IndexOf(']') + 1)..].TrimStart();
+        if (message.StartsWith("Warning:", StringComparison.OrdinalIgnoreCase)) return "WarningBrush";
+        if (message.StartsWith("Error:", StringComparison.OrdinalIgnoreCase)
+            || message.StartsWith("Could not", StringComparison.OrdinalIgnoreCase)
+            || message.Contains(" failed", StringComparison.OrdinalIgnoreCase)
+            || message.StartsWith("Update not installed", StringComparison.OrdinalIgnoreCase)) return "ErrorBrush";
+        if (message.StartsWith("Success:", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("successfully", StringComparison.OrdinalIgnoreCase)) return "SuccessBrush";
+        return "InkBrush";
     }
 
     private void ExportIndividualCertificates_Click(object sender, RoutedEventArgs e)

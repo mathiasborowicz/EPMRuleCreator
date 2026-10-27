@@ -1043,12 +1043,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 Raise(nameof(SelectedPolicySummary));
             }
             ValidationSummary = "Rule uploaded successfully.";
+            AddLog($"Success: Rule '{rule.Name}' uploaded successfully.");
             PolicyLoadStatus = $"Uploaded '{rule.Name}'. The policy now contains {updatedCount}/{collection.MaximumRuleCount} rules.";
         }
         catch (Exception exception)
         {
             ValidationSummary = "Rule upload failed.";
             PolicyLoadStatus = $"Could not upload the rule: {exception.Message}";
+            AddLog($"Error: Could not upload the rule: {exception.Message}");
         }
         finally { Busy = false; }
     }
@@ -1099,6 +1101,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (collection.RuleCount != 1)
                 throw new InvalidOperationException($"Readback returned {collection.RuleCount} rules instead of 1.");
             ValidationSummary = "Policy created and rule uploaded successfully.";
+            AddLog($"Success: Policy '{created.Name}' created and rule uploaded successfully.");
             PolicyLoadStatus = $"Created '{created.Name}' without assignments. Configure assignments in Intune when ready.";
         }
         catch (Exception exception)
@@ -1106,6 +1109,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ValidationSummary = created is null ? "Policy creation failed." : "Policy created; verification failed.";
             PolicyLoadStatus = created is null ? exception.Message
                 : $"Policy '{created.Name}' (ID: {created.Id}) was created. Check Intune before retrying: {exception.Message}";
+            AddLog(created is null
+                ? $"Error: Policy creation failed: {exception.Message}"
+                : $"Error: Policy verification failed after creation: {exception.Message}");
         }
         finally { Busy = false; }
     }

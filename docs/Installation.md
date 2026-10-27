@@ -1,6 +1,6 @@
 # Get EPMRuleCreator running
 
-For normal use, you only need Windows 11 x64 and the release ZIP. Git and the .NET SDK are for contributors, not a requirement to run the tool.
+For normal use, you only need Windows 11 x64 and either the release ZIP or MSI. Git and the .NET SDK are for contributors, not a requirement to run the tool.
 
 ## Download and start
 
@@ -11,14 +11,16 @@ For normal use, you only need Windows 11 x64 and the release ZIP. Git and the .N
 
 If Windows marks a trusted manual download as blocked, open its **Properties** and select **Unblock**, if available. ZIP packaging does not bypass Defender, SmartScreen, or ASR. Follow your organization's security policy; the app does not disable those protections.
 
-> 📸 **Screenshot placeholder: MSI installation dialog.** Show the MSI scope selection.
+To install the application, download [EPMRuleCreator-win-x64.msi](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.msi) instead. The MSI asks whether to install only for the current user or for all users. The all-users option installs under `C:\Program Files\EPMRuleCreator`; both options create Start menu and desktop shortcuts.
+
+> 📸 **Screenshot placeholder: MSI scope selection dialog.**
 <!-- SCREENSHOT: msi-install. See Screenshots.md. -->
 
 ## Standalone or MSI
 
 The release ZIP contains a portable EXE. It runs directly from the folder where you extracted it and never copies itself or opens an installation dialog. Updates replace that same EXE. Preferences are stored in `%LOCALAPPDATA%\EPMRuleCreator\settings.json`; tokens remain in RAM.
 
-The MSI is the installation format. It installs the application, creates Start menu and desktop shortcuts, writes the application registration, and supports per-user or per-machine scope. An **All users** installation places the application under `C:\Program Files\EPMRuleCreator`. Open the MSI when you want an installed copy.
+The MSI is the installation format. It supports per-user and per-machine installation, creates Start menu and desktop shortcuts, and writes the application registration. An **All users** installation places the application under `C:\Program Files\EPMRuleCreator`. Open the MSI when you want an installed copy.
 
 ## Updates
 

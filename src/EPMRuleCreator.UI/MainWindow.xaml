@@ -264,9 +264,10 @@
                                 <Button Content="Clear" Command="{Binding ClearLogCommand}" DockPanel.Dock="Right" HorizontalAlignment="Right" Padding="8,3" FontSize="12"/>
                                 <TextBlock Text="Logs" FontSize="18" FontWeight="SemiBold"/>
                             </DockPanel>
-                            <TextBox Text="{Binding ActivityLogText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
-                                     Height="230" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12"
-                                     TextChanged="ActivityLog_TextChanged" ToolTip="Session log. Select text to copy."/>
+                            <RichTextBox x:Name="ActivityLogViewer" Tag="{Binding ActivityLogText, Mode=OneWay, NotifyOnTargetUpdated=True}"
+                                         IsReadOnly="True" IsUndoEnabled="False" Height="230" VerticalScrollBarVisibility="Auto"
+                                         FontFamily="Consolas" FontSize="12" TargetUpdated="ActivityLog_TargetUpdated"
+                                         ToolTip="Session log. Select text to copy."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

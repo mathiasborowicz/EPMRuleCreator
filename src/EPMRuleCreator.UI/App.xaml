@@ -24,6 +24,7 @@
         <SolidColorBrush x:Key="InputHoverBrush" Color="#8DA8CA"/>
         <SolidColorBrush x:Key="WarningBrush" Color="#8A4B00"/>
         <SolidColorBrush x:Key="ErrorBrush" Color="#B42318"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#087F5B"/>
         <SolidColorBrush x:Key="HoverOverlayBrush" Color="#182230"/>
         <Style TargetType="Window">
             <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>

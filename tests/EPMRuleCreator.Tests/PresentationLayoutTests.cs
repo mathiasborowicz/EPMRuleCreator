@@ -46,7 +46,7 @@ public sealed class PresentationLayoutTests
     public void TextColorsHaveReadableContrastInBothThemes(bool dark)
     {
         var colors = ThemePalette.GetColors(dark);
-        foreach (var text in new[] { "InkBrush", "MutedBrush", "WarningBrush", "ErrorBrush" })
+        foreach (var text in new[] { "InkBrush", "MutedBrush", "WarningBrush", "ErrorBrush", "SuccessBrush" })
             Assert.True(Contrast(colors[text], colors["CardBrush"]) >= 4.5, $"{text} must have readable contrast.");
         Assert.True(Contrast(colors["OnPrimaryBrush"], colors["PrimaryBrush"]) >= 4.5);
         foreach (var surface in new[] { "CardBrush", "SurfaceBrush", "HeaderStartBrush", "HeaderEndBrush" })
@@ -67,6 +67,23 @@ public sealed class PresentationLayoutTests
         Assert.Contains("IsKeyboardFocused", app);
         var window = File.ReadAllText(Source("MainWindow.xaml"));
         Assert.Contains("{Binding IsDarkTheme, Mode=TwoWay}", window);
+    }
+
+    [Fact]
+    public void ActivityLogUsesRichTextRenderingAndUploadStatusPrefixes()
+    {
+        var window = File.ReadAllText(Source("MainWindow.xaml"));
+        Assert.Contains("RichTextBox x:Name=\"ActivityLogViewer\"", window);
+        Assert.Contains("TargetUpdated=\"ActivityLog_TargetUpdated\"", window);
+
+        var code = File.ReadAllText(Source("MainWindow.xaml.cs"));
+        Assert.Contains("WarningBrush", code);
+        Assert.Contains("ErrorBrush", code);
+        Assert.Contains("SuccessBrush", code);
+
+        var viewModel = File.ReadAllText(Source("ViewModels/MainViewModel.cs"));
+        Assert.Contains("Success: Rule", viewModel);
+        Assert.Contains("Error: Could not upload the rule", viewModel);
     }
 
     [Fact]

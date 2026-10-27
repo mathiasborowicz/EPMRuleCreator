@@ -88,6 +88,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Validate committed MSI package
+        shell: bash
+        run: test -s releases/EPMRuleCreator-win-x64.msi
+
       - name: Upload license for release publication
         uses: actions/upload-artifact@v4
         with:
@@ -97,13 +101,18 @@ jobs:
           retention-days: 30
 
   release:
-    name: Publish standalone ZIP release
+    name: Publish Windows release assets
     needs: test-and-publish
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test-and-publish.outputs.release_required == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Check out tested source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
       - name: Download tested executable
         uses: actions/download-artifact@v4
         with:
@@ -116,11 +125,15 @@ jobs:
           name: EPMRuleCreator-license
           path: release
 
+      - name: Use committed MSI
+        shell: bash
+        run: cp releases/EPMRuleCreator-win-x64.msi release/EPMRuleCreator-win-x64.msi
+
       - name: Package standalone EXE and license
         working-directory: release
         run: zip -9 EPMRuleCreator-win-x64.zip EPMRuleCreator.exe LICENSE
 
-      - name: Create release and upload standalone ZIP
+      - name: Create release and upload Windows packages
         uses: actions/github-script@v8
         env:
           RELEASE_VERSION: ${{ needs.test-and-publish.outputs.version }}
@@ -134,6 +147,8 @@ jobs:
             const assetName = 'EPMRuleCreator-win-x64.zip';
             // Read the complete asset before creating a public release.
             const data = fs.readFileSync(`release/${assetName}`);
+            const msiName = 'EPMRuleCreator-win-x64.msi';
+            const msiData = fs.readFileSync(`release/${msiName}`);
             const licenseData = fs.readFileSync('release/LICENSE');
             // List also includes drafts, allowing retries after a failed asset upload.
             const releases = await github.paginate(github.rest.repos.listReleases, { owner, repo, per_page: 100 });
@@ -144,7 +159,7 @@ jobs:
                 tag_name: tag,
                 target_commitish: context.sha,
                 name: `EPMRuleCreator v${version}`,
-                body: `Download EPMRuleCreator-win-x64.zip below, extract it, and run EPMRuleCreator.exe. The ZIP contains only the standalone Windows x64 EXE and LICENSE; no .NET installation or compilation required. Security checks can still apply when extracting or running the app.\n\nLicense: GNU GPLv3. License text and corresponding source code are available in this release's tagged source: https://github.com/${owner}/${repo}/tree/${tag}`,
+                body: `Download EPMRuleCreator-win-x64.zip for the portable version, or EPMRuleCreator-win-x64.msi for the Windows Installer installation with its scope selection. The ZIP contains the standalone Windows x64 EXE and LICENSE; no .NET installation or compilation required. Security checks can still apply when extracting or running the app.\n\nLicense: GNU GPLv3. License text and corresponding source code are available in this release's tagged source: https://github.com/${owner}/${repo}/tree/${tag}`,
                 generate_release_notes: true,
                 draft: true,
                 prerelease: false
@@ -156,6 +171,7 @@ jobs:
             });
             for (const attachment of [
               { name: assetName, data, contentType: 'application/zip' },
+              { name: msiName, data: msiData, contentType: 'application/x-msi' },
               { name: 'LICENSE', data: licenseData, contentType: 'text/plain' }
             ]) {
               if (assets.some(asset => asset.name === attachment.name)) {
@@ -176,6 +192,7 @@ jobs:
                 owner, repo, release_id: release.id, draft: false, make_latest: 'true'
               }));
             }
-            await core.summary.addHeading('Standalone Windows release')
+            await core.summary.addHeading('Windows release')
               .addLink('Download EPMRuleCreator-win-x64.zip', `${release.html_url.replace('/tag/', '/download/')}/${assetName}`)
+              .addLink('Download EPMRuleCreator-win-x64.msi', `${release.html_url.replace('/tag/', '/download/')}/${msiName}`)
               .write();

@@ -20,6 +20,7 @@ public static class ThemePalette
         ["InputHoverBrush"] = dark ? "#7992AF" : "#8DA8CA",
         ["WarningBrush"] = dark ? "#F6C177" : "#8A4B00",
         ["ErrorBrush"] = dark ? "#FFB4A9" : "#B42318",
+        ["SuccessBrush"] = dark ? "#74D3AE" : "#087F5B",
         ["HoverOverlayBrush"] = dark ? "#FFFFFF" : "#182230"
     };
 }
