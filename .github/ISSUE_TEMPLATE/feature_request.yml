@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest a feature or improvement for EPMRuleCreator.
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to improve?
+      description: Describe the problem or task you want to make easier.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What should the tool do?
+      description: Describe your idea and how it would help.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Optional examples, alternatives, or screenshots. Remove personal details before sharing.

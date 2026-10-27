@@ -22,11 +22,18 @@ jobs:
     runs-on: windows-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      release_required: ${{ steps.changes.outputs.release_required }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Detect release-relevant changes
+        id: changes
+        env:
+          RELEASE_BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/release-change-filter.cjs
 
       - name: Resolve application and release version
         id: version
@@ -59,7 +66,7 @@ jobs:
         run: .\scripts\Test-TextBoxLayout.ps1
 
       - name: Test release publishing with mocked GitHub API
-        run: node --test tests/workflows/release-workflow.test.cjs
+        run: node --test tests/workflows/release-workflow.test.cjs tests/workflows/release-change-filter.test.cjs
 
       - name: Publish standalone Windows x64 app
         run: >-
@@ -92,7 +99,7 @@ jobs:
   release:
     name: Publish standalone ZIP release
     needs: test-and-publish
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test-and-publish.outputs.release_required == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
