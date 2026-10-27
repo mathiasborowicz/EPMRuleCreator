@@ -59,7 +59,7 @@ test('publishes a draft only after uploading the ZIP, portable EXE, MSI, and lic
   assert.match(h.calls[0][1].body, /GNU GPLv3/);
   assert.equal(h.calls[1][1].name, 'EPMRuleCreator-win-x64.zip');
   assert.equal(h.calls[1][1].headers['content-type'], 'application/zip');
-  assert.match(h.calls[0][1].body, /portable version/);
+  assert.match(h.calls[0][1].body, /EPMRuleCreator-portable\.exe for the standalone app/);
   assert.equal(h.calls[2][1].name, 'EPMRuleCreator-portable.exe');
   assert.equal(h.calls[2][1].headers['content-type'], 'application/vnd.microsoft.portable-executable');
   assert.equal(h.calls[3][1].name, 'EPMRuleCreator-win-x64.msi');
