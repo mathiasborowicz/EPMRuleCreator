@@ -145,7 +145,7 @@ jobs:
 
       - name: Name portable release executable
         shell: bash
-        run: cp release/portable-artifact/EPMRuleCreator.exe release/EPMRuleCreator-portable.exe
+        run: cp release/portable-artifact/EPMRuleCreator-portable.exe release/EPMRuleCreator-portable.exe
 
       - name: Use committed MSI
         shell: bash
