@@ -9,7 +9,7 @@
 
 Check file details and signing certificates, prepare an elevation rule, and upload it to Microsoft Intune when you're ready. File analysis works locally, without signing in.
 
-### [⬇ Download portable ZIP](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.zip) · [Download MSI installer](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.msi)
+### [⬇ Download portable EXE](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-portable.exe) · [Portable ZIP](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.zip) · [Download MSI installer](https://github.com/mathiasborowicz/EPMRuleCreator/releases/latest/download/EPMRuleCreator-win-x64.msi)
 
 Extract the ZIP and open `EPMRuleCreator.exe`.
 

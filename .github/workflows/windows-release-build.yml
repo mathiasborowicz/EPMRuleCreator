@@ -88,6 +88,18 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Create named portable executable
+        shell: powershell
+        run: Copy-Item .\publish\win-x64\EPMRuleCreator.exe .\publish\win-x64\EPMRuleCreator-portable.exe
+
+      - name: Upload portable executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EPMRuleCreator-portable
+          path: publish/win-x64/EPMRuleCreator-portable.exe
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Validate committed MSI package
         shell: bash
         run: test -s releases/EPMRuleCreator-win-x64.msi
@@ -125,6 +137,16 @@ jobs:
           name: EPMRuleCreator-license
           path: release
 
+      - name: Download portable executable
+        uses: actions/download-artifact@v4
+        with:
+          name: EPMRuleCreator-portable
+          path: release/portable-artifact
+
+      - name: Name portable release executable
+        shell: bash
+        run: cp release/portable-artifact/EPMRuleCreator.exe release/EPMRuleCreator-portable.exe
+
       - name: Use committed MSI
         shell: bash
         run: cp releases/EPMRuleCreator-win-x64.msi release/EPMRuleCreator-win-x64.msi
@@ -147,6 +169,8 @@ jobs:
             const assetName = 'EPMRuleCreator-win-x64.zip';
             // Read the complete asset before creating a public release.
             const data = fs.readFileSync(`release/${assetName}`);
+            const portableName = 'EPMRuleCreator-portable.exe';
+            const portableData = fs.readFileSync(`release/${portableName}`);
             const msiName = 'EPMRuleCreator-win-x64.msi';
             const msiData = fs.readFileSync(`release/${msiName}`);
             const licenseData = fs.readFileSync('release/LICENSE');
@@ -159,7 +183,7 @@ jobs:
                 tag_name: tag,
                 target_commitish: context.sha,
                 name: `EPMRuleCreator v${version}`,
-                body: `Download EPMRuleCreator-win-x64.zip for the portable version, or EPMRuleCreator-win-x64.msi for the Windows Installer installation with its scope selection. The ZIP contains the standalone Windows x64 EXE and LICENSE; no .NET installation or compilation required. Security checks can still apply when extracting or running the app.\n\nLicense: GNU GPLv3. License text and corresponding source code are available in this release's tagged source: https://github.com/${owner}/${repo}/tree/${tag}`,
+                body: `Download EPMRuleCreator-portable.exe for the standalone app, EPMRuleCreator-win-x64.zip for the portable package, or EPMRuleCreator-win-x64.msi for installation with its scope selection. The ZIP contains EPMRuleCreator.exe and LICENSE; no .NET installation or compilation required. Security checks can still apply when extracting or running the app.\n\nLicense: GNU GPLv3. License text and corresponding source code are available in this release's tagged source: https://github.com/${owner}/${repo}/tree/${tag}`,
                 generate_release_notes: true,
                 draft: true,
                 prerelease: false
@@ -171,6 +195,7 @@ jobs:
             });
             for (const attachment of [
               { name: assetName, data, contentType: 'application/zip' },
+              { name: portableName, data: portableData, contentType: 'application/vnd.microsoft.portable-executable' },
               { name: msiName, data: msiData, contentType: 'application/x-msi' },
               { name: 'LICENSE', data: licenseData, contentType: 'text/plain' }
             ]) {
@@ -194,5 +219,6 @@ jobs:
             }
             await core.summary.addHeading('Windows release')
               .addLink('Download EPMRuleCreator-win-x64.zip', `${release.html_url.replace('/tag/', '/download/')}/${assetName}`)
+              .addLink('Download EPMRuleCreator-portable.exe', `${release.html_url.replace('/tag/', '/download/')}/${portableName}`)
               .addLink('Download EPMRuleCreator-win-x64.msi', `${release.html_url.replace('/tag/', '/download/')}/${msiName}`)
               .write();
