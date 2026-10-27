@@ -12,6 +12,8 @@ internal static class UpdateInstaller
         var destination = Environment.ProcessPath;
         if (destination is null || !Path.GetFileName(destination).Equals("EPMRuleCreator.exe", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Automatic updates require the standalone EPMRuleCreator.exe.");
+        if (ApplicationModeService.IsMsiInstalled(destination))
+            throw new InvalidOperationException("MSI installations must be updated with a newer MSI package.");
         var stage = Directory.CreateTempSubdirectory("EPMRuleCreator-update-").FullName;
         var archive = Path.Combine(stage, "update.zip");
         var executable = Path.Combine(stage, "EPMRuleCreator.exe");

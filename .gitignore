@@ -5,3 +5,4 @@ publish/
 TestResults/
 *.user
 *.suo
+packaging/

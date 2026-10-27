@@ -119,8 +119,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         AnalyzeCommand = new AsyncCommand(AnalyzeAsync, () => !Busy && !string.IsNullOrWhiteSpace(FilePath));
         ClearLogCommand = new RelayCommand(() => { _activityLog.Clear(); Raise(nameof(ActivityLogText)); });
         CheckForUpdatesCommand = new AsyncCommand(CheckForUpdatesAsync, () => !_checkingUpdates && !Busy);
-        UpdateNowCommand = new AsyncCommand(InstallUpdateAsync, () => HasVerifiedUpdate && !_checkingUpdates && !Busy);
-        InstallApplicationCommand = new RelayCommand(InstallApplication, () => !Busy && !ApplicationInstallation.IsInstalled);
+        UpdateNowCommand = new AsyncCommand(InstallUpdateAsync, () => CanInstallPortableUpdate && !_checkingUpdates && !Busy);
         OpenReleaseCommand = new RelayCommand(OpenAvailableRelease, () => _availableUpdate is not null);
         ValidateCommand = new RelayCommand(Validate, () => !Busy && _hasAnalyzedFile);
         UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && _hasAnalyzedFile && !_policiesLoading && !_policyCountLoading && GraphConnected && (IsCreatingPolicy || SelectedElevationPolicy is not null));
@@ -159,22 +158,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand CheckForUpdatesCommand { get; }
     public ICommand OpenReleaseCommand { get; }
     public ICommand UpdateNowCommand { get; }
-    public ICommand InstallApplicationCommand { get; }
-    public bool IsPortableApplication => !ApplicationInstallation.IsInstalled;
     public bool IsInstalledApplication => ApplicationInstallation.IsInstalled;
-    public string ApplicationModeLabel => ApplicationInstallation.IsInstalled ? "Installed for this user" : "Portable";
-    public string ApplicationLocation => Environment.ProcessPath ?? string.Empty;
-    public string InstallApplicationLabel => ApplicationInstallation.Exists ? "Open installed app" : "Install for this user";
-
-    private void InstallApplication()
+    public bool IsMsiApplication => ApplicationInstallation.IsMsiInstalled;
+    public string ApplicationModeLabel => ApplicationInstallation.CurrentMode switch
     {
-        try
-        {
-            var choice = new LaunchModeWindow(string.IsNullOrWhiteSpace(FilePath) ? [] : [FilePath]) { Owner = Application.Current.MainWindow };
-            if (choice.ShowDialog() == true && choice.UseInstallation) Application.Current.Shutdown();
-        }
-        catch (Exception exception) { AddLog($"Could not open the installation: {exception.Message}"); }
-    }
+        ApplicationMode.Msi => "Installed via MSI",
+        ApplicationMode.Portable => "Portable",
+        _ => "Portable"
+    };
+    public string ApplicationLocation => Environment.ProcessPath ?? string.Empty;
     public bool IsUpdatesMenuOpen { get => _isUpdatesMenuOpen; set => Set(ref _isUpdatesMenuOpen, value); }
     public bool CheckForUpdatesAtStartup
     {
@@ -189,6 +181,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string UpdateStatus { get => _updateStatus; private set => Set(ref _updateStatus, value); }
     public bool HasAvailableUpdate => _availableUpdate is not null;
     public bool HasVerifiedUpdate => _availableUpdate?.DownloadUrl is not null && _availableUpdate.Sha256 is not null;
+    public bool CanInstallPortableUpdate => !IsMsiApplication && HasVerifiedUpdate;
+    public string MsiUpdateNotice => "This MSI installation must be updated with a newer MSI package.";
+    public string UpdateButtonToolTip => IsMsiApplication
+        ? "Use a newer MSI package. Unsaved rule edits will be lost."
+        : "Install update and restart. Unsaved rule edits will be lost.";
     public string UpdatesButtonText => _availableUpdate is null ? "Updates" : $"Update v{_availableUpdate.Version}";
     public string CurrentVersionLabel => $"Installed: v{CurrentAppVersion.ToString(3)}";
     private static Version CurrentAppVersion => typeof(MainViewModel).Assembly.GetName().Version ?? new Version(0, 0, 0);
@@ -222,8 +219,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _availableUpdate = update;
             Raise(nameof(HasAvailableUpdate));
             Raise(nameof(HasVerifiedUpdate));
+            Raise(nameof(CanInstallPortableUpdate));
             Raise(nameof(UpdatesButtonText));
             UpdateStatus = update is null ? "No newer stable release available."
+                : IsMsiApplication ? $"Version {update.Version} is available. Use the MSI package to update this installation."
                 : HasVerifiedUpdate ? $"Version {update.Version} is available."
                 : $"Version {update.Version}: no verified package. Open release page.";
             if (update is not null) AddLog(UpdateStatus);
@@ -253,7 +252,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task InstallUpdateAsync()
     {
-        if (_availableUpdate is null || Busy) return;
+        if (_availableUpdate is null || !CanInstallPortableUpdate || Busy) return;
         Busy = true;
         using var cancellation = new CancellationTokenSource();
         _installationCancellation = cancellation;
@@ -1044,12 +1043,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 Raise(nameof(SelectedPolicySummary));
             }
             ValidationSummary = "Rule uploaded successfully.";
+            AddLog($"Success: Rule '{rule.Name}' uploaded successfully.");
             PolicyLoadStatus = $"Uploaded '{rule.Name}'. The policy now contains {updatedCount}/{collection.MaximumRuleCount} rules.";
         }
         catch (Exception exception)
         {
             ValidationSummary = "Rule upload failed.";
             PolicyLoadStatus = $"Could not upload the rule: {exception.Message}";
+            AddLog($"Error: Could not upload the rule: {exception.Message}");
         }
         finally { Busy = false; }
     }
@@ -1100,6 +1101,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (collection.RuleCount != 1)
                 throw new InvalidOperationException($"Readback returned {collection.RuleCount} rules instead of 1.");
             ValidationSummary = "Policy created and rule uploaded successfully.";
+            AddLog($"Success: Policy '{created.Name}' created and rule uploaded successfully.");
             PolicyLoadStatus = $"Created '{created.Name}' without assignments. Configure assignments in Intune when ready.";
         }
         catch (Exception exception)
@@ -1107,6 +1109,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ValidationSummary = created is null ? "Policy creation failed." : "Policy created; verification failed.";
             PolicyLoadStatus = created is null ? exception.Message
                 : $"Policy '{created.Name}' (ID: {created.Id}) was created. Check Intune before retrying: {exception.Message}";
+            AddLog(created is null
+                ? $"Error: Policy creation failed: {exception.Message}"
+                : $"Error: Policy verification failed after creation: {exception.Message}");
         }
         finally { Busy = false; }
     }
