@@ -6,42 +6,34 @@ namespace EPMRuleCreator.Tests;
 public sealed class ApplicationModeTests
 {
     [Fact]
-    public void PortableChoiceRemembersFolderWithoutInstallingAnExe()
+    public void StandaloneExecutableIsPortableWithoutWritingInstallationState()
     {
         using var files = new Files();
         var executable = files.Create("download.exe", "portable");
-        Assert.Equal(ApplicationMode.Choose, ApplicationModeService.Resolve(executable, files.AppData));
-        ApplicationModeService.RememberPortable(executable);
-        ApplicationModeService.RememberPortable(executable);
         Assert.Equal(ApplicationMode.Portable, ApplicationModeService.Resolve(executable, files.AppData));
         Assert.Equal("portable", File.ReadAllText(executable));
         Assert.False(Directory.Exists(files.AppData));
-        Assert.Equal(0, new FileInfo(ApplicationModeService.PortableMarker(executable)).Length);
     }
 
-    [Fact]
-    public void InstalledLocationIsRecognizedWithoutWritingAnySettingsOrMarker()
+    [Theory]
+    [InlineData("{ABCDEFAB-1234-1234-1234-ABCDEFABCDEF}", "abcdefab-1234-1234-1234-abcdefabcdef")]
+    [InlineData("ABCDEFAB-1234-1234-1234-ABCDEFABCDEF", "{abcdefab-1234-1234-1234-abcdefabcdef}")]
+    public void MsiRegistrationMatchesExecutableAndUninstallProductCode(string productCode, string uninstallProductCode)
     {
         using var files = new Files();
-        var installed = ExplorerApplicationDeployment.GetInstalledPath(files.AppData);
-        Assert.Equal(ApplicationMode.Installed, ApplicationModeService.Resolve(installed, files.AppData));
-        Assert.False(Directory.Exists(files.AppData));
-    }
+        var executable = files.Create("installed.exe", "msi");
 
-    [Fact]
-    public void ExistingInstallationDoesNotOverridePortableModeOrGetOverwritten()
-    {
-        using var files = new Files();
-        var original = files.Create("original.exe", "installed release");
-        var installed = ExplorerApplicationDeployment.Install(original, files.AppData);
-        var portable = files.Create("portable.exe", "different release");
-        Assert.Equal(ApplicationMode.Choose, ApplicationModeService.Resolve(portable, files.AppData));
-        ApplicationModeService.RememberPortable(portable);
-        Assert.Equal(ApplicationMode.Portable, ApplicationModeService.Resolve(portable, files.AppData));
-        Assert.Equal(installed, ExplorerApplicationDeployment.Install(portable, files.AppData, overwriteExisting: false));
-        Assert.Equal("installed release", File.ReadAllText(installed));
-        Assert.Equal("different release", File.ReadAllText(portable));
-        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(installed)!, "*.tmp"));
+        var installLocation = Path.GetDirectoryName(executable)!;
+        Assert.True(ApplicationModeService.MatchesMsiInstallation(executable, executable, productCode, uninstallProductCode));
+        Assert.True(ApplicationModeService.MatchesMsiInstallation(
+            executable, executable, productCode, uninstallProductCode,
+            "1.0.0", "1.0.0", "1.0.0", installLocation, installLocation));
+        Assert.False(ApplicationModeService.MatchesMsiInstallation(
+            executable, files.Create("other.exe", "msi"), productCode, uninstallProductCode,
+            "1.0.0", "1.0.0", "1.0.0", installLocation, installLocation));
+        Assert.False(ApplicationModeService.MatchesMsiInstallation(
+            executable, executable, productCode, "{00000000-0000-0000-0000-000000000000}",
+            "1.0.0", "1.0.0", "1.0.0", installLocation, installLocation));
     }
 
     [Fact]

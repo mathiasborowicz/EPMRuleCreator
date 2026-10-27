@@ -121,26 +121,6 @@ public sealed class PresentationLayoutTests
     }
 
     [Fact]
-    public void ModeChoiceRunsBeforeMainWindowAndMenuRegistrationNeverDeploys()
-    {
-        var app = XDocument.Load(Source("App.xaml"));
-        Assert.Null(app.Root!.Attribute("StartupUri"));
-        Assert.Equal("OnExplicitShutdown", (string?)app.Root.Attribute("ShutdownMode"));
-        var startup = File.ReadAllText(Source("App.xaml.cs"));
-        Assert.True(startup.IndexOf("choice.ShowDialog()", StringComparison.Ordinal) < startup.IndexOf("new MainWindow()", StringComparison.Ordinal));
-        var root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Source("App.xaml.cs"))!, "../.."));
-        var menu = File.ReadAllText(Path.Combine(root, "src", "EPMRuleCreator.Core", "Services", "ExplorerContextMenuService.cs"));
-        Assert.DoesNotContain("ExplorerApplicationDeployment.Install", menu);
-        var script = File.ReadAllText(Path.Combine(root, "scripts", "Register-ExplorerMenu.ps1"));
-        Assert.DoesNotContain("[IO.File]::Copy", script);
-        Assert.DoesNotContain("managedPath", script);
-        var installation = File.ReadAllText(Source("ApplicationInstallation.cs"));
-        Assert.Contains("overwriteExisting: false", installation);
-        Assert.Contains("Environment.SpecialFolder.Programs", installation);
-        Assert.Contains("start.ArgumentList.Add(argument)", installation);
-    }
-
-    [Fact]
     public void BrandedHeaderUsesLiveThemeResourcesAndKeepsExistingActions()
     {
         var window = XDocument.Load(Source("MainWindow.xaml"));
@@ -171,29 +151,6 @@ public sealed class PresentationLayoutTests
     }
 
     [Fact]
-    public void SetupOffersInstalledOnlyMenuCheckboxWithoutExtraHint()
-    {
-        var setup = XDocument.Load(Source("LaunchModeWindow.xaml"));
-        var installed = setup.Descendants(Presentation + "StackPanel").Single(element => (string?)element.Attribute(Xaml + "Name") == "InstalledModePanel");
-        var checkbox = Assert.Single(setup.Descendants(Presentation + "CheckBox"));
-        Assert.Equal("AddContextMenuCheckBox", (string?)checkbox.Attribute(Xaml + "Name"));
-        Assert.Contains(installed, checkbox.Ancestors());
-        Assert.Equal("False", (string?)checkbox.Attribute("IsChecked"));
-        Assert.DoesNotContain(setup.Descendants(), element => (string?)element.Attribute(Xaml + "Name") == "ExistingInstallationHint");
-        var text = File.ReadAllText(Source("LaunchModeWindow.xaml"));
-        Assert.Contains("No admin permissions required.", text);
-        Assert.DoesNotContain("admin rights", text);
-        var code = File.ReadAllText(Source("LaunchModeWindow.xaml.cs"));
-        Assert.Contains("InstallOrOpen(_arguments, AddContextMenuCheckBox.IsChecked == true)", code);
-        var portable = code[code.IndexOf("private void Portable_Click", StringComparison.Ordinal)..code.IndexOf("private void Install_Click", StringComparison.Ordinal)];
-        Assert.DoesNotContain("ExplorerContextMenuService", portable);
-        Assert.DoesNotContain("AlignExistingMenu", portable);
-        var installation = File.ReadAllText(Source("ApplicationInstallation.cs"));
-        Assert.Contains("if (registerContextMenu) ExplorerContextMenuService.Register(installed);", installation);
-        Assert.Contains("else ExplorerContextMenuService.Remove();", installation);
-    }
-
-    [Fact]
     public void PortableMenuCommandsAreHiddenAndTenantStartsEmpty()
     {
         var window = XDocument.Load(Source("MainWindow.xaml"));
@@ -214,17 +171,21 @@ public sealed class PresentationLayoutTests
     [Fact]
     public void GeneralTooltipsStayShortAndPreserveActionWarnings()
     {
-        foreach (var file in new[] { "MainWindow.xaml", "LaunchModeWindow.xaml" })
+        foreach (var file in new[] { "MainWindow.xaml" })
         {
             var document = XDocument.Load(Source(file));
             foreach (var tooltip in document.Descendants().Attributes("ToolTip").Where(attribute => !attribute.Value.StartsWith('{')))
                 Assert.True(tooltip.Value.Length <= 80, $"Tooltip is too long: {tooltip.Value}");
         }
         var window = XDocument.Load(Source("MainWindow.xaml"));
-        foreach (var command in new[] { "UpdateNowCommand", "InstallApplicationCommand" })
+        foreach (var command in new[] { "UpdateNowCommand" })
         {
             var button = window.Descendants(Presentation + "Button").Single(element => (string?)element.Attribute("Command") == $"{{Binding {command}}}");
-            Assert.Contains("Unsaved rule edits will be lost.", (string?)button.Attribute("ToolTip"));
+            var tooltip = (string?)button.Attribute("ToolTip");
+            if (tooltip?.StartsWith("{", StringComparison.Ordinal) == true)
+                Assert.Contains("Unsaved rule edits will be lost.", File.ReadAllText(Source("ViewModels/MainViewModel.cs")));
+            else
+                Assert.Contains("Unsaved rule edits will be lost.", tooltip);
         }
         var upload = window.Descendants(Presentation + "Button").Single(element => (string?)element.Attribute("Command") == "{Binding UploadRuleCommand}");
         Assert.Contains("Writes immediately.", (string?)upload.Attribute("ToolTip"));

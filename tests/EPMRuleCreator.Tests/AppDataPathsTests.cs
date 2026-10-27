@@ -38,7 +38,6 @@ public sealed class AppDataPathsTests : IDisposable
     public void FreshInstallUsesOnlyTheNewName()
     {
         Assert.Equal(Path.Combine(_root, "EPMRuleCreator", "settings.json"), AppDataPaths.PrepareSettingsPath(_root));
-        Assert.Equal(Path.Combine(_root, "EPMRuleCreator", "App", "EPMRuleCreator.exe"), ExplorerApplicationDeployment.GetInstalledPath(_root));
     }
 
     [Fact]
