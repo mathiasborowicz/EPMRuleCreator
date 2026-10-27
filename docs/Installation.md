@@ -18,7 +18,7 @@ If Windows marks a trusted manual download as blocked, open its **Properties** a
 
 The release ZIP contains a portable EXE. It runs directly from the folder where you extracted it and never copies itself or opens an installation dialog. Updates replace that same EXE. Preferences are stored in `%LOCALAPPDATA%\EPMRuleCreator\settings.json`; tokens remain in RAM.
 
-The MSI is the installation format. It installs the application, creates the Start menu shortcut, writes the application registration, and supports per-user or per-machine scope. Open the MSI when you want an installed copy.
+The MSI is the installation format. It installs the application, creates Start menu and desktop shortcuts, writes the application registration, and supports per-user or per-machine scope. An **All users** installation places the application under `C:\Program Files\EPMRuleCreator`. Open the MSI when you want an installed copy.
 
 ## Updates
 

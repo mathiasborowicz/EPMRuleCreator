@@ -208,7 +208,7 @@ try {
     Sql 'INSERT INTO `RadioButton` (`Property`, `Order`, `Value`, `X`, `Y`, `Width`, `Height`, `Text`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)' @('EPM_INSTALL_SCOPE', 1, 'perUser', 5, 5, 310, 18, 'Only for me')
     Sql 'INSERT INTO `RadioButton` (`Property`, `Order`, `Value`, `X`, `Y`, `Width`, `Height`, `Text`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)' @('EPM_INSTALL_SCOPE', 2, 'perMachine', 5, 34, 310, 18, 'All users (requires admin permissions)')
 
-    Control 'EpmScope' 'Info' 'Text' 20 150 330 20 $null 'A Start menu shortcut will be created.' $null
+    Control 'EpmScope' 'Info' 'Text' 20 150 330 20 $null 'Start menu and desktop shortcuts will be created.' $null
     Control 'EpmScope' 'Install' 'PushButton' 192 184 75 24 $null '&Install' 'Cancel'
     Control 'EpmScope' 'Cancel' 'PushButton' 275 184 75 24 $null 'Cancel' 'Scope'
 
@@ -235,8 +235,10 @@ try {
     }
 
     foreach ($action in @(
-        @('EpmUserDir', 35, $appDirectory, '[LocalAppDataFolder]Programs\EPMRuleCreator\', 'NOT ALLUSERS', 1010),
-        @('EpmMachineDir', 35, $appDirectory, '[ProgramFiles64Folder]EPMRuleCreator\', 'ALLUSERS=1', 1020),
+        @('EpmSetUserScope', 51, 'ALLUSERS', '', 'EPM_INSTALL_SCOPE="perUser"', 1005),
+        @('EpmSetMachineScope', 51, 'ALLUSERS', '1', 'EPM_INSTALL_SCOPE="perMachine"', 1006),
+        @('EpmUserDir', 35, $appDirectory, '[LocalAppDataFolder]Programs\EPMRuleCreator\', 'EPM_INSTALL_SCOPE="perUser"', 1010),
+        @('EpmMachineDir', 35, $appDirectory, '[ProgramFiles64Folder]EPMRuleCreator\', 'EPM_INSTALL_SCOPE="perMachine"', 1020),
         @('EpmInstallLocation', 51, 'ARPINSTALLLOCATION', ('[' + $appDirectory + ']'), '1', 1050),
         @('EpmExistingMachineScope', 51, 'EPM_INSTALL_SCOPE', 'perMachine', 'EPM_EXISTING_MACHINE', 110)
     )) {
@@ -330,7 +332,12 @@ try {
         Sql 'INSERT INTO `Directory` (`Directory`, `Directory_Parent`, `DefaultDir`) VALUES (?, ?, ?)' @('ProgramMenuFolder', 'TARGETDIR', '.')
     }
 
+    if (@(Sql 'SELECT `Directory` FROM `Directory` WHERE `Directory` = ?' @('DesktopFolder') -Read).Count -eq 0) {
+        Sql 'INSERT INTO `Directory` (`Directory`, `Directory_Parent`, `DefaultDir`) VALUES (?, ?, ?)' @('DesktopFolder', 'TARGETDIR', '.')
+    }
+
     Sql 'INSERT INTO `Shortcut` (`Shortcut`, `Directory_`, `Name`, `Component_`, `Target`, `Description`, `ShowCmd`, `WkDir`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)' @('EpmStartMenu', 'ProgramMenuFolder', 'EPMRuleCreator', $component, ('[' + $appDirectory + ']EPMRuleCreator.exe'), 'EPMRuleCreator', 1, $appDirectory)
+    Sql 'INSERT INTO `Shortcut` (`Shortcut`, `Directory_`, `Name`, `Component_`, `Target`, `Description`, `ShowCmd`, `WkDir`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)' @('EpmDesktop', 'DesktopFolder', 'EPMRuleCreator', $component, ('[' + $appDirectory + ']EPMRuleCreator.exe'), 'EPMRuleCreator', 1, $appDirectory)
 
     Set-MsiSequence 'InstallExecuteSequence' 'CreateShortcuts' '1' 4500
     Set-MsiSequence 'InstallExecuteSequence' 'WriteRegistryValues' '1' 5000
