@@ -19,13 +19,16 @@ public sealed record ElevationRulePolicy(
     DateTimeOffset? LastModifiedDateTime,
     int SettingCount,
     bool IsAssigned);
-public sealed record ElevationRuleConflict(string ConflictType, string Value, IReadOnlyList<string> Rules);
+public sealed record ElevationRuleConflictRule(int Index, string Name, string FileName, string? FileHash,
+    string? FileVersion, ElevationRule Rule, ElevationRuleMatch Match);
+public sealed record ElevationRuleConflict(string ConflictType, string Value, IReadOnlyList<ElevationRuleConflictRule> Rules);
 public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount, IReadOnlyList<ElevationRuleConflict> Conflicts);
 public sealed record ElevationRuleMatch(int Index, string Name, string FileName, string? FileVersion, string? FileHash,
     string? Signature, string MatchReason, bool VersionMatches, string VersionDisplayReason,
     string? OtherRuleWithSameName, bool IncomingNameAlreadyExists);
 public sealed record EpmReusableCertificateSetting(string Id, string DisplayName, string? Description, DateTimeOffset? LastModifiedDateTime);
-internal sealed record RuleConflictCandidate(string? Name, string? FileName, string? Hash, string? Version);
+internal sealed record RuleConflictCandidate(int Index, string? Name, string? FileName, string? Hash, string? Version,
+    ElevationRule Rule, ElevationRuleMatch Match);
 
 /// <summary>Interactive delegated authentication for the Microsoft Graph global cloud.</summary>
 public sealed class GraphAuthenticationService : IAsyncDisposable
@@ -370,6 +373,9 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         var existingRuleIndex = existingRuleMatch?.Index;
         if (existingRuleMatch is not null)
             ValidateSelectedRuleMatch(rules, rule, existingRuleMatch!);
+        if (updateExisting && rules.OfType<JsonObject>().Where((_, index) => index != existingRuleIndex)
+            .Any(existing => string.Equals(GetSimpleValue(existing, "name"), rule.Name, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"Another rule already uses the name '{rule.Name}'. Choose a unique rule name before updating.");
         if (!updateExisting && existingRuleMatch is null && rules.OfType<JsonObject>().Any(existing =>
                 string.Equals(GetSimpleValue(existing, "name"), rule.Name, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException($"A rule named '{rule.Name}' already exists in this policy.");
@@ -480,10 +486,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
     internal static IReadOnlyList<ElevationRuleConflict> FindRuleConflicts(JsonArray rules)
     {
-        var ruleEntries = rules.OfType<JsonObject>().Select(rule => new RuleConflictCandidate(
-            GetSimpleValue(rule, "name")?.Trim(), GetSimpleValue(rule, "filename")?.Trim(),
-            NormalizeHash(GetSimpleValue(rule, "filehash")), NormalizeVersion(GetSimpleValue(rule, "fileversion"))))
-            .ToArray();
+        var ruleEntries = rules.OfType<JsonObject>().Select((rule, index) => CreateConflictCandidate(rule, index)).ToArray();
         var conflicts = new List<ElevationRuleConflict>();
 
         AddConflicts("Name", entry => entry.Name);
@@ -497,15 +500,126 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
                          .Where(item => !string.IsNullOrWhiteSpace(item.Value))
                          .GroupBy(item => item.Value!, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1))
             {
-                var affectedRules = group.Select(item =>
-                {
-                    var name = item.Entry.Name;
-                    var fileName = item.Entry.FileName;
-                    return string.IsNullOrWhiteSpace(fileName) ? name ?? "(Unnamed rule)" : $"{name ?? "(Unnamed rule)"} — {fileName}";
-                }).ToArray();
+                var affectedRules = group.Select(item => new ElevationRuleConflictRule(
+                    item.Entry.Index, item.Entry.Name ?? "(Unnamed rule)", item.Entry.FileName ?? string.Empty,
+                    item.Entry.Hash, item.Entry.Version, item.Entry.Rule, item.Entry.Match)).ToArray();
                 conflicts.Add(new ElevationRuleConflict(conflictType, group.Key, affectedRules));
             }
         }
+    }
+
+    private static RuleConflictCandidate CreateConflictCandidate(JsonObject source, int index)
+    {
+        var name = GetSimpleValue(source, "name")?.Trim() ?? string.Empty;
+        var fileName = GetSimpleValue(source, "filename")?.Trim() ?? string.Empty;
+        var fileHash = GetSimpleValue(source, "filehash");
+        var fileVersion = GetSimpleValue(source, "fileversion");
+        var signature = GetSignatureIdentity(source);
+        var rule = ReadElevationRule(source);
+        var match = new ElevationRuleMatch(index, name, fileName, fileVersion, fileHash, signature,
+            "Selected from the policy conflict list", true,
+            string.IsNullOrWhiteSpace(fileVersion) ? "No stored file version" : $"Stored minimum version {fileVersion}",
+            null, true);
+        return new RuleConflictCandidate(index, name, fileName, NormalizeHash(fileHash), NormalizeVersion(fileVersion), rule, match);
+    }
+
+    internal static ElevationRule ReadElevationRule(JsonObject source)
+    {
+        var children = source["children"] as JsonArray ?? [];
+        var elevationType = GetChoiceOption(children, "ruletype") switch
+        {
+            "self" => ElevationType.UserConfirmed,
+            "automatic" => ElevationType.Automatic,
+            "supportarbitrated" => ElevationType.SupportApproved,
+            "deny" => ElevationType.Deny,
+            "userconfirmeduser" => ElevationType.CurrentUser,
+            _ => ElevationType.UserConfirmed
+        };
+        var signatureOption = GetChoiceOption(children, "signaturesource");
+        var signatureSource = signatureOption switch
+        {
+            "0" => SignatureSource.ReusableSettings,
+            "1" => SignatureSource.CertificateFile,
+            _ => SignatureSource.NotConfigured
+        };
+        var certificateType = GetNestedChoiceOption(children, "signaturesource", "certificatetype") switch
+        {
+            "issuingauthority" => CertificateType.CertificateAuthority,
+            _ => CertificateType.Publisher
+        };
+        var certificate = signatureSource == SignatureSource.CertificateFile
+            ? ReadPublisherCertificate(FindDescendant(children, "certificatefileupload")?["simpleSettingValue"]?["value"]?.GetValue<string>())
+            : null;
+        var businessJustification = elevationType == ElevationType.CurrentUser
+            ? GetCollectionOptions(children, "userconfirmeduservalidation_2").Contains("0", StringComparer.Ordinal)
+            : GetCollectionOptions(children, "validation").Contains("0", StringComparer.Ordinal);
+        var windowsAuthentication = elevationType == ElevationType.CurrentUser ||
+            GetCollectionOptions(children, elevationType == ElevationType.CurrentUser ? "userconfirmeduservalidation" : "validation")
+                .Contains(elevationType == ElevationType.CurrentUser ? "0" : "1", StringComparer.Ordinal);
+        var argumentValues = FindDescendant(children, "restrictargumentlist")?["simpleSettingCollectionValue"] as JsonArray;
+        var arguments = argumentValues?.OfType<JsonObject>()
+            .Select(item => item["value"]?.GetValue<string>())
+            .Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>().ToArray() ?? [];
+        var reusableId = signatureSource == SignatureSource.ReusableSettings
+            ? FindDescendant(children, "certificatepayloadwithreusablesetting")?["simpleSettingValue"]?["value"]?.GetValue<string>()
+            : null;
+
+        return new ElevationRule
+        {
+            Name = GetSimpleValue(source, "name") ?? string.Empty,
+            Description = GetSimpleValue(source, "description") ?? string.Empty,
+            FileName = GetSimpleValue(source, "filename") ?? string.Empty,
+            FilePath = GetSimpleValue(source, "filepath"),
+            FileHash = GetSimpleValue(source, "filehash"),
+            ProductName = GetSimpleValue(source, "productname"),
+            FileDescription = GetSimpleValue(source, "filedescription"),
+            InternalName = GetSimpleValue(source, "internalname"),
+            MinimumFileVersion = GetSimpleValue(source, "fileversion"),
+            SignatureSource = signatureSource,
+            PublisherCertificate = certificate,
+            ReusableCertificateSettingId = reusableId,
+            CertificateType = certificateType,
+            ElevationType = elevationType,
+            RequireBusinessJustification = businessJustification,
+            RequireWindowsAuthentication = windowsAuthentication,
+            ChildProcessBehavior = GetChoiceOption(children, "childprocessbehavior") switch
+            {
+                "allowrunelevatedrulerequired" => ChildProcessBehavior.RequireRuleToElevate,
+                "allowrunelevated" => ChildProcessBehavior.AllowAllElevated,
+                "deny" => ChildProcessBehavior.DenyAll,
+                _ => ChildProcessBehavior.NotConfigured
+            },
+            RestrictArguments = GetChoiceOption(children, "arguments") == "allow"
+                ? RestrictArgumentsMode.Allow : RestrictArgumentsMode.NotConfigured,
+            ArgumentList = arguments
+        };
+    }
+
+    private static CertificateAttributes? ReadPublisherCertificate(string? pem)
+    {
+        if (string.IsNullOrWhiteSpace(pem)) return null;
+        try
+        {
+            using var certificate = X509Certificate2.CreateFromPem(pem);
+            return CertificateChainService.Describe(certificate);
+        }
+        catch (CryptographicException) { return null; }
+        catch (ArgumentException) { return null; }
+    }
+
+    private static string? GetNestedChoiceOption(JsonArray children, string parentSuffix, string suffix)
+    {
+        var nested = FindChild(children, parentSuffix)?["choiceSettingValue"]?["children"] as JsonArray;
+        return nested is null ? null : GetChoiceOption(nested, suffix);
+    }
+
+    private static string[] GetCollectionOptions(JsonArray children, string suffix)
+    {
+        var values = FindDescendant(children, suffix)?["choiceSettingCollectionValue"] as JsonArray;
+        return values?.OfType<JsonObject>()
+            .Select(item => item["value"]?.GetValue<string>())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value![(value!.LastIndexOf('_') + 1)..]).ToArray() ?? [];
     }
 
     internal static JsonObject CreateRuleForUpdate(JsonArray rules, int index, ElevationRule rule)
@@ -523,9 +637,15 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(currentRules);
         ArgumentNullException.ThrowIfNull(rule);
         ArgumentNullException.ThrowIfNull(expectedMatch);
-        var refreshedMatch = FindRuleMatches(currentRules, rule)
-            .FirstOrDefault(match => match.Index == expectedMatch.Index);
-        if (refreshedMatch is null || refreshedMatch != expectedMatch)
+        var currentRule = (uint)expectedMatch.Index < (uint)currentRules.Count
+            ? currentRules[expectedMatch.Index] as JsonObject
+            : null;
+        if (currentRule is null ||
+            !string.Equals(GetSimpleValue(currentRule, "name"), expectedMatch.Name, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(GetSimpleValue(currentRule, "filename"), expectedMatch.FileName, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(GetSimpleValue(currentRule, "fileversion"), expectedMatch.FileVersion, StringComparison.Ordinal) ||
+            !string.Equals(NormalizeHash(GetSimpleValue(currentRule, "filehash")), NormalizeHash(expectedMatch.FileHash), StringComparison.Ordinal) ||
+            !string.Equals(GetSignatureIdentity(currentRule), expectedMatch.Signature, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The selected rule changed while the confirmation dialog was open. Refresh the policy and choose a matching rule again.");
     }
 

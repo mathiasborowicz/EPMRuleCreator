@@ -100,6 +100,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _isAccountMenuOpen;
     private bool _graphConnected;
     private ElevationRulePolicy? _selectedElevationPolicy;
+    private ElevationRuleMatch? _selectedConflictRuleToUpdate;
+    private string? _selectedConflictRulePolicyId;
     private readonly ElevationPolicyOption _newPolicyOption = new(null);
     private ElevationPolicyOption? _selectedPolicyOption;
     private string _newPolicyName = string.Empty;
@@ -662,7 +664,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool IsCreatingPolicy => SelectedPolicyOption?.IsNewPolicy == true;
     public string NewPolicyName { get => _newPolicyName; set => Set(ref _newPolicyName, value); }
     public string NewPolicyDescription { get => _newPolicyDescription; set => Set(ref _newPolicyDescription, value); }
-    public string UploadButtonText => IsCreatingPolicy ? "Create policy and upload rule" : "Upload rule to selected Intune policy";
+    public string UploadButtonText => _selectedConflictRuleToUpdate is not null
+        ? "Update selected rule"
+        : IsCreatingPolicy ? "Create policy and upload rule" : "Upload rule to selected Intune policy";
     public ElevationRulePolicy? SelectedElevationPolicy
     {
         get => _selectedElevationPolicy;
@@ -672,10 +676,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Set(ref _selectedElevationPolicy, value);
             _selectedPolicyRuleCount = null;
             _selectedPolicyRuleLimit = null;
+            _selectedConflictRuleToUpdate = null;
+            _selectedConflictRulePolicyId = null;
             SetElevationRuleConflicts([]);
             _policyCountRequest++;
             _policyCountLoading = false;
             Raise(nameof(SelectedPolicySummary));
+            Raise(nameof(UploadButtonText));
             Raise(nameof(UploadRuleCommand));
             if (value is not null && GraphConnected && !Busy)
                 _ = LoadSelectedPolicyCountAsync();
@@ -752,6 +759,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void ResetFileFields(bool resetPolicyDraft = false)
     {
         _hasAnalyzedFile = false;
+        _selectedConflictRuleToUpdate = null;
+        _selectedConflictRulePolicyId = null;
         _analyzedCertificateSelection.Load(null, null);
         Raise(nameof(AnalyzedCertificateOptions));
         Raise(nameof(HasAnalyzedCertificates));
@@ -784,6 +793,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (!_policiesLoading && !_policyCountLoading)
             PolicyLoadStatus = GraphConnected ? string.Empty : "Sign in to select a policy.";
         Raise(nameof(UploadRuleCommand));
+        Raise(nameof(UploadButtonText));
     }
 
     private void ToggleExplorerMenu() => SetExplorerMenu(registered: !_explorerMenuRegistered);
@@ -1069,6 +1079,79 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Raise(nameof(ElevationRuleConflictSummary));
     }
 
+    public async Task LoadConflictRuleForEditingAsync(ElevationRuleConflictRule selectedRule)
+    {
+        ArgumentNullException.ThrowIfNull(selectedRule);
+        if (!GraphConnected || SelectedElevationPolicy is not { } policy)
+            throw new InvalidOperationException("Select an Elevation Rules policy and sign in before editing a conflict.");
+
+        Busy = true;
+        try
+        {
+            var rule = selectedRule.Rule;
+            EpmReusableCertificateSetting? reusableCertificateSetting = null;
+            if (rule.SignatureSource == global::EPMRuleCreator.Core.Models.SignatureSource.ReusableSettings && !string.IsNullOrWhiteSpace(rule.ReusableCertificateSettingId))
+            {
+                var reusableSettings = await _graphAuthentication.GetEpmReusableCertificateSettingsAsync();
+                ReusableCertificateSettings.Clear();
+                foreach (var setting in reusableSettings.OrderBy(setting => setting.DisplayName, StringComparer.CurrentCultureIgnoreCase))
+                    ReusableCertificateSettings.Add(setting);
+                _reusableCertificatesLoaded = true;
+                reusableCertificateSetting = ReusableCertificateSettings.FirstOrDefault(setting =>
+                    string.Equals(setting.Id, rule.ReusableCertificateSettingId, StringComparison.OrdinalIgnoreCase));
+            }
+
+            ResetFileFields();
+            RuleName = rule.Name;
+            RuleDescription = rule.Description;
+            RuleFileName = rule.FileName;
+            RuleFileVersion = rule.MinimumFileVersion ?? string.Empty;
+            RuleFileHash = rule.FileHash ?? string.Empty;
+            RuleFilePath = rule.FilePath ?? string.Empty;
+            RuleProductName = rule.ProductName ?? string.Empty;
+            RuleFileDescription = rule.FileDescription ?? string.Empty;
+            RuleInternalName = rule.InternalName ?? string.Empty;
+            ElevationType = rule.ElevationType;
+            RequireBusinessJustification = rule.RequireBusinessJustification;
+            RequireWindowsAuthentication = rule.RequireWindowsAuthentication;
+            ChildProcessBehavior = rule.ChildProcessBehavior;
+            RestrictArguments = rule.RestrictArguments;
+            ArgumentListText = string.Join(Environment.NewLine, rule.ArgumentList);
+            CertificateType = rule.CertificateType;
+            if (rule.PublisherCertificate is { } certificate)
+            {
+                _analyzedCertificateSelection.Load(certificate, null);
+                AnalyzedPublisherCertificate = certificate;
+                PublisherCertificate = certificate;
+                Raise(nameof(AnalyzedCertificateOptions));
+                Raise(nameof(HasAnalyzedCertificates));
+                Raise(nameof(SelectedAnalyzedCertificate));
+                Raise(nameof(UseAnalyzedCertificate));
+                Raise(nameof(UseUploadedCertificate));
+            }
+            SelectedReusableCertificateSetting = reusableCertificateSetting;
+            SignatureSource = rule.SignatureSource;
+
+            _hasAnalyzedFile = true;
+            _selectedConflictRuleToUpdate = selectedRule.Match;
+            _selectedConflictRulePolicyId = policy.Id;
+            SignatureStatus = "Loaded from the selected Intune rule";
+            SignatureDetails = rule.PublisherCertificate is { } loadedCertificate
+                ? $"Publisher: {loadedCertificate.Subject}\nThumbprint: {loadedCertificate.Thumbprint}"
+                : string.Empty;
+            ValidationSummary = $"Loaded '{rule.Name}' from '{policy.Name}'. Edit the fields, then update the selected rule.";
+            PolicyLoadStatus = $"Editing '{rule.Name}' from '{policy.Name}'.";
+            AddLog($"Loaded conflict rule '{rule.Name}' for editing.");
+            Raise(nameof(UploadButtonText));
+            Raise(nameof(UploadRuleCommand));
+            Raise(nameof(ValidateCommand));
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
     public async Task EnsureReusableCertificateSettingsAsync()
     {
         if (!GraphConnected || !ShowReusableCertificateSource || _reusableCertificatesLoaded || _reusableCertificatesLoading)
@@ -1230,17 +1313,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             PolicyLoadStatus = $"Refreshing rules in '{policy.Name}' before upload…";
             var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(policy);
-            var matches = await _graphAuthentication.GetElevationRuleMatchesAsync(policy, rule);
-            RuleConflictDecision? conflictDecision = null;
-            if (matches.Count > 0)
+            RuleConflictDecision? conflictDecision = _selectedConflictRuleToUpdate is { } selectedRule &&
+                string.Equals(_selectedConflictRulePolicyId, policy.Id, StringComparison.Ordinal)
+                ? new RuleConflictDecision(true, selectedRule)
+                : null;
+            if (conflictDecision is null)
             {
-                if (RuleConflictResolver is null)
-                    throw new InvalidOperationException("The rule conflict dialog is unavailable; no rule was changed.");
-                conflictDecision = await RuleConflictResolver(matches, rule);
-                if (conflictDecision is null)
+                var matches = await _graphAuthentication.GetElevationRuleMatchesAsync(policy, rule);
+                if (matches.Count > 0)
                 {
-                    PolicyLoadStatus = "Rule upload canceled; the policy was not changed.";
-                    return;
+                    if (RuleConflictResolver is null)
+                        throw new InvalidOperationException("The rule conflict dialog is unavailable; no rule was changed.");
+                    conflictDecision = await RuleConflictResolver(matches, rule);
+                    if (conflictDecision is null)
+                    {
+                        PolicyLoadStatus = "Rule upload canceled; the policy was not changed.";
+                        return;
+                    }
                 }
             }
 
@@ -1272,6 +1361,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 : $"Uploading '{rule.Name}' to '{policy.Name}'…";
             var updatedCollection = await _graphAuthentication.SaveElevationRuleAsync(policy, rule,
                 conflictDecision?.UpdateExisting == true, conflictDecision?.ExistingRuleMatch);
+            if (conflictDecision?.UpdateExisting == true && ReferenceEquals(_selectedConflictRuleToUpdate, conflictDecision.ExistingRuleMatch))
+            {
+                _selectedConflictRuleToUpdate = null;
+                _selectedConflictRulePolicyId = null;
+                Raise(nameof(UploadButtonText));
+            }
             if (SelectedElevationPolicy?.Id == policy.Id)
             {
                 _selectedPolicyRuleCount = updatedCollection.RuleCount;

@@ -90,6 +90,19 @@ public sealed class ElevationRuleMatchTests
     }
 
     [Fact]
+    public void ReadElevationRule_PopulatesFieldsForConflictRuleEditing()
+    {
+        var rule = GraphAuthenticationService.ReadElevationRule(RuleTemplate("Existing"));
+
+        Assert.Equal("Existing", rule.Name);
+        Assert.Equal("old.exe", rule.FileName);
+        Assert.Equal("AA BB", rule.FileHash);
+        Assert.Equal("1.2", rule.MinimumFileVersion);
+        Assert.Equal(ElevationType.UserConfirmed, rule.ElevationType);
+        Assert.Equal(ChildProcessBehavior.RequireRuleToElevate, rule.ChildProcessBehavior);
+    }
+
+    [Fact]
     public void ValidateSelectedRuleMatch_RejectsRuleChangedAfterUserSelection()
     {
         var rules = Rules();
@@ -245,6 +258,17 @@ public sealed class ElevationRuleMatchTests
         var expected = Assert.Single(GraphAuthenticationService.FindRuleMatches(rules, rule));
 
         GraphAuthenticationService.ValidateSelectedRuleMatch(rules, rule, expected);
+    }
+
+    [Fact]
+    public void ValidateSelectedRuleMatch_AllowsEditingValuesAfterSelectingExistingConflictRule()
+    {
+        var rules = Rules();
+        var originallyMatchedRule = new ElevationRule { FileHash = "AABB", MinimumFileVersion = "1.2", Name = "Existing" };
+        var selected = Assert.Single(GraphAuthenticationService.FindRuleMatches(rules, originallyMatchedRule));
+        var editedRule = new ElevationRule { FileHash = "CCDD", MinimumFileVersion = "2.0", Name = "Updated" };
+
+        GraphAuthenticationService.ValidateSelectedRuleMatch(rules, editedRule, selected);
     }
 
     private const string Prefix = "device_vendor_msft_policy_privilegemanagement_elevationrules_{elevationrulename}_";

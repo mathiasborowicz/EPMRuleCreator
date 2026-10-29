@@ -184,7 +184,7 @@
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="MainContentScrollViewer" Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="0.9*"/></Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
@@ -288,7 +288,16 @@
                                                     </TextBlock>
                                                     <ItemsControl ItemsSource="{Binding Rules}" Margin="8,3,0,0">
                                                         <ItemsControl.ItemTemplate>
-                                                            <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/></DataTemplate>
+                                                            <DataTemplate>
+                                                                <DockPanel Margin="0,2">
+                                                                    <Button Content="Edit rule" Tag="{Binding}" Click="EditConflictRule_Click" DockPanel.Dock="Right" Padding="8,3" Margin="8,0,0,0"/>
+                                                                    <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
+                                                                        <Run Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                                        <Run Text=" — "/>
+                                                                        <Run Text="{Binding FileName}"/>
+                                                                    </TextBlock>
+                                                                </DockPanel>
+                                                            </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
                                                 </StackPanel>

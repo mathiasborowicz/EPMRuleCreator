@@ -186,6 +186,22 @@ public partial class MainWindow : Window
             await viewModel.EnsureSystemSettingsPoliciesAsync();
     }
 
+    private async void EditConflictRule_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ElevationRuleConflictRule conflictRule } || DataContext is not MainViewModel viewModel)
+            return;
+
+        try
+        {
+            await viewModel.LoadConflictRuleForEditingAsync(conflictRule);
+            MainContentScrollViewer.ScrollToVerticalOffset(0);
+        }
+        catch (Exception exception)
+        {
+            viewModel.AddLog($"Could not load conflict rule for editing: {exception.Message}");
+        }
+    }
+
     private void ChooseFile_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
