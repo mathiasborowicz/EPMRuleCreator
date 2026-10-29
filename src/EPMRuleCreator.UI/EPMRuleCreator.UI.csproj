@@ -11,7 +11,7 @@
     <Product>EPMRuleCreator</Product>
     <Title>EPMRuleCreator</Title>
     <RootNamespace>EPMRuleCreator.UI</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
     <Copyright>Copyright (c) 2026 Mathias Borowicz</Copyright>
     <ApplicationIcon>Assets/epm-rule-creator.ico</ApplicationIcon>

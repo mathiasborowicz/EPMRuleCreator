@@ -70,7 +70,7 @@ Open the account icon at the top right. Enter your own **Application (client) ID
 
 Configure your registration and consent first using the [Entra setup guide](GraphAuthentication.md). The app needs delegated `User.Read` and `DeviceManagementConfiguration.ReadWrite.All`; the latter requires admin consent. Intune licensing, user RBAC, and scope-tag access still apply.
 
-Policies load after sign-in. Choose an existing **Elevation Rules policy**, or **+ Add new** to enter a new policy's name and optional description. Reusable EPM certificates load when that signature source is selected. You do not need matching example rules already in the tenant.
+Policies load after sign-in. Choose an existing **Elevation Rules policy**, or **+ Add new** to enter a new policy's name and optional description. Existing rules can be loaded into the editor with their values prefilled. The **Elevation System Settings policy** section separately lets you create a policy or select an existing one to load and edit its name, description, network-settings permission, elevation type, and validation options. Reusable EPM certificates load when that signature source is selected. You do not need matching example rules already in the tenant.
 
 > 📸 **Screenshot placeholder: optional sign-in and policy selection.** Show a sanitized account panel and the policy dropdown with **+ Add new**.
 <!-- SCREENSHOT: intune-policy. -->
@@ -79,8 +79,9 @@ Policies load after sign-in. Choose an existing **Elevation Rules policy**, or *
 
 Review the selected tenant, policy, certificate source, and elevation behavior before clicking the upload button. **Upload writes immediately**, without another confirmation dialog.
 
-- For an existing policy, the app reads its current settings, checks the 100-rule limit, and submits the collection with the new rule while preserving existing rules.
+- For an existing Elevation Rules policy, the app checks the current rules and highlights duplicate names, hashes, and file versions. Matching certificates are also shown as useful context. Select a conflict rule to load it for editing, or upload the current rule and choose whether to update the matching rule or add another one. Existing rules are preserved when adding.
 - For a new policy, **Create policy and upload rule** creates the policy with its first rule. It uses the default scope tag `0` and has no assignments. Configure assignments in Intune afterwards.
+- For an existing Elevation System Settings policy, select it to load its values, edit the fields, and save the changes. Creating a new system-settings policy uses the default scope tag `0` and creates no assignments.
 
 Progress, warnings, and success/errors appear in **Logs** below the certificate card. Test in a test tenant first. Graph beta behavior can change; simultaneous edits by another administrator are a known concern. [Technical behavior and limits](GraphIntegration.md).
 
