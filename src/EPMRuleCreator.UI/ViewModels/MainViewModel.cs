@@ -33,6 +33,8 @@ public sealed record SystemSettingsPolicyOption(ElevationSystemSettingsPolicy? P
     public bool IsNewPolicy => Policy is null;
 }
 
+internal sealed record RuleConflictDecision(bool UpdateExisting, ElevationRuleMatch? ExistingRuleMatch);
+
 public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly FileAttributeService _fileService = new(new Sha256FileHasher());
@@ -167,6 +169,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    internal Func<IReadOnlyList<ElevationRuleMatch>, ElevationRule, Task<RuleConflictDecision?>>? RuleConflictResolver { get; set; }
     public bool IsDarkTheme
     {
         get => _isDarkTheme;
@@ -1210,6 +1213,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             PolicyLoadStatus = $"Refreshing rules in '{policy.Name}' before upload…";
             var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(policy);
+            var matches = await _graphAuthentication.GetElevationRuleMatchesAsync(policy, rule);
+            RuleConflictDecision? conflictDecision = null;
+            if (matches.Count > 0)
+            {
+                if (RuleConflictResolver is null)
+                    throw new InvalidOperationException("The rule conflict dialog is unavailable; no rule was changed.");
+                conflictDecision = await RuleConflictResolver(matches, rule);
+                if (conflictDecision is null)
+                {
+                    PolicyLoadStatus = "Rule upload canceled; the policy was not changed.";
+                    return;
+                }
+            }
+
             if (SelectedElevationPolicy?.Id == policy.Id)
             {
                 _selectedPolicyRuleCount = collection.RuleCount;
@@ -1217,7 +1234,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 Raise(nameof(SelectedPolicySummary));
             }
 
-            var result = _validator.Validate(rule, collection.RuleCount, hasPolicy: true);
+            var ruleCountForValidation = collection.RuleCount - (conflictDecision?.UpdateExisting == true ? 1 : 0);
+            var result = _validator.Validate(rule, ruleCountForValidation, hasPolicy: true);
             ValidationMessages.Clear();
             foreach (var issue in result.Issues)
             {
@@ -1231,17 +1249,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
-            PolicyLoadStatus = $"Uploading '{rule.Name}' to '{policy.Name}'…";
-            var updatedCount = await _graphAuthentication.AppendElevationRuleAsync(policy, rule);
+            PolicyLoadStatus = conflictDecision?.UpdateExisting == true
+                ? $"Updating the selected matching rule in '{policy.Name}'…"
+                : $"Uploading '{rule.Name}' to '{policy.Name}'…";
+            var updatedCount = await _graphAuthentication.SaveElevationRuleAsync(policy, rule,
+                conflictDecision?.UpdateExisting == true, conflictDecision?.ExistingRuleMatch);
             if (SelectedElevationPolicy?.Id == policy.Id)
             {
                 _selectedPolicyRuleCount = updatedCount;
                 _selectedPolicyRuleLimit = collection.MaximumRuleCount;
                 Raise(nameof(SelectedPolicySummary));
             }
-            ValidationSummary = "Rule uploaded successfully.";
-            AddLog($"Success: Rule '{rule.Name}' uploaded successfully.");
-            PolicyLoadStatus = $"Uploaded '{rule.Name}'. The policy now contains {updatedCount}/{collection.MaximumRuleCount} rules.";
+            ValidationSummary = conflictDecision?.UpdateExisting == true
+                ? "Existing rule updated successfully." : "Rule uploaded successfully.";
+            AddLog(conflictDecision?.UpdateExisting == true
+                ? $"Success: Existing rule '{rule.Name}' updated successfully."
+                : $"Success: Rule '{rule.Name}' uploaded successfully.");
+            PolicyLoadStatus = conflictDecision?.UpdateExisting == true
+                ? $"Updated the selected rule to '{rule.Name}'. The policy contains {updatedCount}/{collection.MaximumRuleCount} rules."
+                : $"Uploaded '{rule.Name}'. The policy now contains {updatedCount}/{collection.MaximumRuleCount} rules.";
         }
         catch (Exception exception)
         {

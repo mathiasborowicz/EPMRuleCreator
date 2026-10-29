@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Security.Cryptography.X509Certificates;
 using EPMRuleCreator.Core.Models;
 using EPMRuleCreator.Core.Services;
 using Microsoft.Identity.Client;
@@ -18,6 +20,8 @@ public sealed record ElevationRulePolicy(
     int SettingCount,
     bool IsAssigned);
 public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount);
+public sealed record ElevationRuleMatch(int Index, string Name, string FileName, string? FileVersion, string? FileHash,
+    string? Signature, string MatchReason, bool VersionMatches, string VersionDisplayReason);
 public sealed record EpmReusableCertificateSetting(string Id, string DisplayName, string? Description, DateTimeOffset? LastModifiedDateTime);
 
 /// <summary>Interactive delegated authentication for the Microsoft Graph global cloud.</summary>
@@ -297,23 +301,43 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             networkSettingsEnabled, automatic, requireBusinessJustification, requireWindowsAuthentication, cancellationToken);
     }
 
-    public async Task<int> AppendElevationRuleAsync(
+    public Task<int> AppendElevationRuleAsync(
         ElevationRulePolicy policy,
         ElevationRule rule,
+        CancellationToken cancellationToken = default) => SaveElevationRuleAsync(policy, rule, false, null, cancellationToken);
+
+    public async Task<IReadOnlyList<ElevationRuleMatch>> GetElevationRuleMatchesAsync(
+        ElevationRulePolicy policy, ElevationRule rule, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        ArgumentNullException.ThrowIfNull(rule);
+        if (_client is null || _account is null)
+            throw new InvalidOperationException("Sign in to Microsoft Graph before matching rules.");
+        ValidatePolicyId(policy);
+        var token = await GetAccessTokenAsync(cancellationToken);
+        var settings = await GetPolicySettingsForWriteAsync(policy, token, cancellationToken);
+        var setting = FindRulesSetting(settings);
+        var rules = setting?["settingInstance"]?["groupSettingCollectionValue"] as JsonArray;
+        if (rules is null) return [];
+        return FindRuleMatches(rules, rule);
+    }
+
+    public async Task<int> SaveElevationRuleAsync(
+        ElevationRulePolicy policy, ElevationRule rule, bool updateExisting, ElevationRuleMatch? existingRuleMatch,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(rule);
         if (_client is null || _account is null)
             throw new InvalidOperationException("Sign in to Microsoft Graph before writing a rule.");
-        if (string.IsNullOrWhiteSpace(policy.Id) || !Guid.TryParse(policy.Id, out _))
-            throw new InvalidOperationException("The selected policy has no valid Graph ID.");
+        ValidatePolicyId(policy);
+        if (updateExisting && existingRuleMatch is null)
+            throw new ArgumentException("The selected existing rule is required when updating a rule.", nameof(existingRuleMatch));
 
         var token = await GetAccessTokenAsync(cancellationToken);
         var policyDocument = await GetPolicyDocumentForWriteAsync(policy, token, cancellationToken);
         var settings = await GetPolicySettingsForWriteAsync(policy, token, cancellationToken);
-        var setting = settings.SingleOrDefault(item =>
-            string.Equals(item["settingInstance"]?["settingDefinitionId"]?.GetValue<string>(), ElevationRulesSettingDefinitionId, StringComparison.Ordinal));
+        var setting = FindRulesSetting(settings);
         if (setting is null)
             throw new InvalidOperationException("This policy does not yet have an Elevation Rules setting to update. Add an initial rule in Intune first; this app only appends to an existing rules collection.");
 
@@ -322,14 +346,20 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         var rules = settingInstance["groupSettingCollectionValue"] as JsonArray
             ?? throw new InvalidOperationException("The policy's Elevation Rules collection is unavailable.");
         var maximum = GetMaximumRuleCount(setting, DefaultMaximumRuleCount);
-        if (rules.Count >= maximum)
+        if (!updateExisting && rules.Count >= maximum)
             throw new InvalidOperationException($"The policy already contains {rules.Count} rules, reaching its maximum of {maximum}.");
-        if (rules.OfType<JsonObject>().Any(existing =>
+        var existingRuleIndex = existingRuleMatch?.Index;
+        if (existingRuleMatch is not null)
+            ValidateSelectedRuleMatch(rules, rule, existingRuleMatch!);
+        if (!updateExisting && existingRuleMatch is null && rules.OfType<JsonObject>().Any(existing =>
                 string.Equals(GetSimpleValue(existing, "name"), rule.Name, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException($"A rule named '{rule.Name}' already exists in this policy.");
 
-        var newRule = CreateRuleForAppend(rules, rule);
-        rules.Add(newRule);
+        var newRule = updateExisting
+            ? CreateRuleForUpdate(rules, existingRuleIndex!.Value, rule)
+            : CreateRuleForAppend(rules, rule);
+        if (updateExisting) rules[existingRuleIndex!.Value] = newRule;
+        else rules.Add(newRule);
 
         var settingId = setting["id"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(settingId))
@@ -388,6 +418,108 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             throw new InvalidOperationException("Graph accepted the write request, but the updated rule could not be verified. Check Intune before retrying to avoid a duplicate rule.", exception);
         }
     }
+
+    internal static IReadOnlyList<ElevationRuleMatch> FindRuleMatches(JsonArray rules, ElevationRule rule)
+    {
+        var matches = new List<ElevationRuleMatch>();
+        var requestedHash = NormalizeHash(rule.FileHash);
+        var requestedCertificate = GetRequestedCertificateThumbprint(rule);
+        for (var index = 0; index < rules.Count; index++)
+        {
+            if (rules[index] is not JsonObject existing) continue;
+            var hash = GetSimpleValue(existing, "filehash");
+            var fileName = GetSimpleValue(existing, "filename") ?? string.Empty;
+            var version = GetSimpleValue(existing, "fileversion");
+            var signature = GetSignatureIdentity(existing);
+            var hashMatch = requestedHash is not null && string.Equals(requestedHash, NormalizeHash(hash), StringComparison.OrdinalIgnoreCase);
+            var signatureMatch = requestedCertificate is not null && string.Equals(requestedCertificate, signature, StringComparison.OrdinalIgnoreCase);
+            if (!hashMatch && !signatureMatch) continue;
+            var normalizedRequestedVersion = NormalizeVersion(rule.MinimumFileVersion);
+            var normalizedExistingVersion = NormalizeVersion(version);
+            var versionMatches = normalizedRequestedVersion is not null && normalizedExistingVersion is not null &&
+                string.Equals(normalizedRequestedVersion, normalizedExistingVersion, StringComparison.Ordinal);
+            var versionReason = normalizedExistingVersion is null
+                ? "No stored file version"
+                : normalizedRequestedVersion is null ? "Requested file version unavailable"
+                : versionMatches ? $"Version matches ({normalizedExistingVersion})"
+                : $"Version differs (stored {normalizedExistingVersion}, requested {normalizedRequestedVersion})";
+            var reason = hashMatch && signatureMatch ? "File hash and signing certificate match"
+                : hashMatch ? "File hash matches" : "Signing certificate matches";
+            matches.Add(new ElevationRuleMatch(index, GetSimpleValue(existing, "name") ?? string.Empty,
+                fileName, version, hash, signature, reason, versionMatches, versionReason));
+        }
+        return matches;
+    }
+
+    internal static JsonObject CreateRuleForUpdate(JsonArray rules, int index, ElevationRule rule)
+    {
+        if ((uint)index >= (uint)rules.Count || rules[index] is not JsonObject existing)
+            throw new ArgumentOutOfRangeException(nameof(index), "The selected rule index is not present in the policy.");
+        var template = (JsonObject)existing.DeepClone();
+        PopulateRule(template, rule, rules);
+        RemoveTemplateReferences(template);
+        return template;
+    }
+
+    internal static void ValidateSelectedRuleMatch(JsonArray currentRules, ElevationRule rule, ElevationRuleMatch expectedMatch)
+    {
+        ArgumentNullException.ThrowIfNull(currentRules);
+        ArgumentNullException.ThrowIfNull(rule);
+        ArgumentNullException.ThrowIfNull(expectedMatch);
+        var refreshedMatch = FindRuleMatches(currentRules, rule)
+            .FirstOrDefault(match => match.Index == expectedMatch.Index);
+        if (refreshedMatch is null || refreshedMatch != expectedMatch)
+            throw new InvalidOperationException("The selected rule changed while the confirmation dialog was open. Refresh the policy and choose a matching rule again.");
+    }
+
+    private static JsonObject? FindRulesSetting(IEnumerable<JsonObject> settings) => settings.SingleOrDefault(item =>
+        string.Equals(item["settingInstance"]?["settingDefinitionId"]?.GetValue<string>(), ElevationRulesSettingDefinitionId, StringComparison.Ordinal));
+
+    private static void ValidatePolicyId(ElevationRulePolicy policy)
+    {
+        if (string.IsNullOrWhiteSpace(policy.Id) || !Guid.TryParse(policy.Id, out _))
+            throw new InvalidOperationException("The selected policy has no valid Graph ID.");
+    }
+
+    private static string? NormalizeHash(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var normalized = new string(value.Where(character => !char.IsWhiteSpace(character) && character is not '-' and not ':')
+            .Select(char.ToUpperInvariant).ToArray());
+        return normalized.Length == 0 ? null : normalized;
+    }
+
+    private static string? NormalizeVersion(string? value) => RuleValidationService.NormalizeMinimumFileVersionToFourParts(value);
+
+    private static string? GetRequestedCertificateThumbprint(ElevationRule rule)
+    {
+        if (rule.SignatureSource == SignatureSource.ReusableSettings)
+            return string.IsNullOrWhiteSpace(rule.ReusableCertificateSettingId) ? null : "reusable:" + rule.ReusableCertificateSettingId.Trim();
+        if (rule.SignatureSource != SignatureSource.CertificateFile || string.IsNullOrWhiteSpace(rule.PublisherCertificate?.CertificateBase64))
+            return null;
+        try
+        {
+            using var certificate = X509Certificate2.CreateFromPem("-----BEGIN CERTIFICATE-----\n" + rule.PublisherCertificate.CertificateBase64 + "\n-----END CERTIFICATE-----");
+            return NormalizeThumbprint(certificate.Thumbprint);
+        }
+        catch (CryptographicException) { return null; }
+        catch (ArgumentException) { return null; }
+    }
+
+    private static string? GetSignatureIdentity(JsonObject rule)
+    {
+        if (rule["children"] is not JsonArray children) return null;
+        var reusable = FindDescendant(children, "certificatepayloadwithreusablesetting")?["simpleSettingValue"]?["value"]?.GetValue<string>();
+        if (!string.IsNullOrWhiteSpace(reusable)) return "reusable:" + reusable.Trim();
+        var pem = FindDescendant(children, "certificatefileupload")?["simpleSettingValue"]?["value"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(pem)) return null;
+        try { using var certificate = X509Certificate2.CreateFromPem(pem); return NormalizeThumbprint(certificate.Thumbprint); }
+        catch (CryptographicException) { return null; }
+        catch (ArgumentException) { return null; }
+    }
+
+    private static string? NormalizeThumbprint(string? value) => string.IsNullOrWhiteSpace(value)
+        ? null : new string(value.Where(Uri.IsHexDigit).Select(char.ToUpperInvariant).ToArray());
 
     private async Task<List<JsonObject>> GetPolicySettingsForWriteAsync(
         ElevationRulePolicy policy,

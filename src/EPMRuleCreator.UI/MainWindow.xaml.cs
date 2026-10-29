@@ -3,6 +3,8 @@ using System.Windows.Input;
 using Microsoft.Win32;
 using EPMRuleCreator.UI.ViewModels;
 using EPMRuleCreator.Core.Services;
+using EPMRuleCreator.Core.Models;
+using EPMRuleCreator.Graph;
 using System.IO;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -34,6 +36,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         var viewModel = new MainViewModel();
+        viewModel.RuleConflictResolver = ResolveRuleConflictAsync;
         DataContext = viewModel;
         Loaded += async (_, _) => await viewModel.CheckForUpdatesOnStartupAsync();
         Closed += (_, _) => viewModel.StopUpdateCheck();
@@ -158,6 +161,17 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainViewModel viewModel)
             await viewModel.EnsureReusableCertificateSettingsAsync();
+    }
+
+    private Task<RuleConflictDecision?> ResolveRuleConflictAsync(
+        IReadOnlyList<ElevationRuleMatch> matches, ElevationRule incomingRule)
+    {
+        var dialog = new RuleConflictDialog(matches, incomingRule.FileName, incomingRule.MinimumFileVersion)
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+        return Task.FromResult(dialog.Decision);
     }
 
     private async void ElevationPolicies_DropDownOpened(object sender, EventArgs e)
