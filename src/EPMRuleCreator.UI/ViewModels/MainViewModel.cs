@@ -984,15 +984,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SystemSettingsBusinessJustification = configuration.RequireBusinessJustification;
             SystemSettingsWindowsAuthentication = configuration.RequireWindowsAuthentication;
             _selectedSystemSettingsPolicyConfigurationLoaded = true;
-
-            var updatedOption = new SystemSettingsPolicyOption(configuration);
-            var index = SystemSettingsPolicyOptions.ToList().FindIndex(option => option.Policy?.Id == policy.Id);
-            if (index >= 0)
-            {
-                SystemSettingsPolicyOptions[index] = updatedOption;
-                _selectedSystemSettingsPolicyOption = updatedOption;
-                Raise(nameof(SelectedSystemSettingsPolicyOption));
-            }
+            // Keep the selected ComboBox item stable; replacing it can clear SelectedItem and reset the editor fields.
+            Raise(nameof(NewSystemSettingsPolicyName));
+            Raise(nameof(NewSystemSettingsPolicyDescription));
+            Raise(nameof(SystemSettingsNetworkSettings));
+            Raise(nameof(SystemSettingsAutomatic));
+            Raise(nameof(SystemSettingsUserConfirmed));
+            Raise(nameof(ShowSystemSettingsValidation));
+            Raise(nameof(SystemSettingsBusinessJustification));
+            Raise(nameof(SystemSettingsWindowsAuthentication));
             SystemSettingsPolicyStatus = $"Loaded '{configuration.Name}'. Edit the fields and save to update it.";
         }
         catch (Exception exception)
