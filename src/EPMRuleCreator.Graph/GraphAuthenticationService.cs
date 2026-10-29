@@ -238,6 +238,23 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         return await new NewElevationPolicyWriter(_httpClient).CreateAsync(token, name, description, rule, cancellationToken);
     }
 
+    public async Task<string> CreateElevationSystemSettingsPolicyAsync(
+        string name,
+        string? description,
+        bool networkSettingsEnabled,
+        bool automatic,
+        bool requireBusinessJustification,
+        bool requireWindowsAuthentication,
+        CancellationToken cancellationToken = default)
+    {
+        if (_client is null || _account is null)
+            throw new InvalidOperationException("Sign in to Microsoft Graph before creating a policy.");
+
+        var token = await GetAccessTokenAsync(cancellationToken);
+        return await new NewElevationSystemSettingsPolicyWriter(_httpClient).CreateAsync(token, name, description,
+            networkSettingsEnabled, automatic, requireBusinessJustification, requireWindowsAuthentication, cancellationToken);
+    }
+
     public async Task<int> AppendElevationRuleAsync(
         ElevationRulePolicy policy,
         ElevationRule rule,
