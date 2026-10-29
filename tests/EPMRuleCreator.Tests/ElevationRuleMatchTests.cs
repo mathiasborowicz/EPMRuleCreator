@@ -66,6 +66,30 @@ public sealed class ElevationRuleMatchTests
     }
 
     [Fact]
+    public void FindRuleConflicts_GroupsDuplicateNamesHashesAndVersionsByAffectedRule()
+    {
+        var rules = Rules();
+        rules.Add(RuleTemplate("Second"));
+        var sameNameDifferentFile = RuleTemplate("Existing");
+        SetRuleValue(sameNameDifferentFile, "filehash", "CC DD");
+        SetRuleValue(sameNameDifferentFile, "fileversion", "3.0");
+        rules.Add(sameNameDifferentFile);
+
+        var conflicts = GraphAuthenticationService.FindRuleConflicts(rules);
+
+        Assert.Equal(3, conflicts.Count);
+        var nameConflict = Assert.Single(conflicts.Where(conflict => conflict.ConflictType == "Name"));
+        Assert.Equal("Existing", nameConflict.Value);
+        Assert.Equal(2, nameConflict.Rules.Count);
+        var hashConflict = Assert.Single(conflicts.Where(conflict => conflict.ConflictType == "Hash"));
+        Assert.Equal("AABB", hashConflict.Value);
+        Assert.Equal(2, hashConflict.Rules.Count);
+        var versionConflict = Assert.Single(conflicts.Where(conflict => conflict.ConflictType == "Version"));
+        Assert.Equal("1.2.0.0", versionConflict.Value);
+        Assert.Equal(2, versionConflict.Rules.Count);
+    }
+
+    [Fact]
     public void ValidateSelectedRuleMatch_RejectsRuleChangedAfterUserSelection()
     {
         var rules = Rules();
@@ -244,4 +268,11 @@ public sealed class ElevationRuleMatchTests
     private static string? Value(JsonObject rule, string suffix) => rule["children"]!.AsArray().OfType<JsonObject>()
         .Single(item => item["settingDefinitionId"]!.GetValue<string>().EndsWith("_" + suffix, StringComparison.Ordinal))
         ["simpleSettingValue"]?["value"]?.GetValue<string>();
+
+    private static void SetRuleValue(JsonObject rule, string suffix, string value)
+    {
+        var setting = rule["children"]!.AsArray().Single(item =>
+            item!["settingDefinitionId"]!.GetValue<string>().EndsWith("_" + suffix, StringComparison.Ordinal))!;
+        setting["simpleSettingValue"]!["value"] = value;
+    }
 }

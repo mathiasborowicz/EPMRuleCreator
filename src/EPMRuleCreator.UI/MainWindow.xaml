@@ -270,6 +270,35 @@
                                          ToolTip="Session log. Select text to copy."/>
                         </StackPanel>
                     </Border>
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="Rule conflicts" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="{Binding ElevationRuleConflictSummary}" Style="{StaticResource StatusText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding HasElevationRuleConflicts, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl ItemsSource="{Binding ElevationRuleConflicts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,6">
+                                                <StackPanel>
+                                                    <TextBlock TextWrapping="Wrap">
+                                                        <Run Text="{Binding ConflictType}" FontWeight="SemiBold"/>
+                                                        <Run Text=": "/>
+                                                        <Run Text="{Binding Value}" FontFamily="Consolas"/>
+                                                    </TextBlock>
+                                                    <ItemsControl ItemsSource="{Binding Rules}" Margin="8,3,0,0">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/></DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">

@@ -19,11 +19,13 @@ public sealed record ElevationRulePolicy(
     DateTimeOffset? LastModifiedDateTime,
     int SettingCount,
     bool IsAssigned);
-public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount);
+public sealed record ElevationRuleConflict(string ConflictType, string Value, IReadOnlyList<string> Rules);
+public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount, IReadOnlyList<ElevationRuleConflict> Conflicts);
 public sealed record ElevationRuleMatch(int Index, string Name, string FileName, string? FileVersion, string? FileHash,
     string? Signature, string MatchReason, bool VersionMatches, string VersionDisplayReason,
     string? OtherRuleWithSameName, bool IncomingNameAlreadyExists);
 public sealed record EpmReusableCertificateSetting(string Id, string DisplayName, string? Description, DateTimeOffset? LastModifiedDateTime);
+internal sealed record RuleConflictCandidate(string? Name, string? FileName, string? Hash, string? Version);
 
 /// <summary>Interactive delegated authentication for the Microsoft Graph global cloud.</summary>
 public sealed class GraphAuthenticationService : IAsyncDisposable
@@ -188,6 +190,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         var foundElevationSetting = false;
         var ruleCount = 0;
         var maximumRuleCount = DefaultMaximumRuleCount;
+        var policyRules = new JsonArray();
 
         while (!string.IsNullOrEmpty(nextLink))
         {
@@ -216,6 +219,9 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
                     foundElevationSetting = true;
                     ruleCount += rules.GetArrayLength();
+                    foreach (var rule in rules.EnumerateArray())
+                        if (JsonNode.Parse(rule.GetRawText()) is JsonObject ruleObject)
+                            policyRules.Add(ruleObject);
 
                     if (setting.TryGetProperty("settingDefinitions", out var definitions) && definitions.ValueKind == JsonValueKind.Array)
                     {
@@ -238,7 +244,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         if (!foundElevationSetting && policy.SettingCount > 0)
             throw new InvalidOperationException("The policy has settings, but the Elevation Rules collection was not found. Its rule count cannot be safely determined.");
 
-        return new ElevationRuleCollectionInfo(ruleCount, maximumRuleCount);
+        return new ElevationRuleCollectionInfo(ruleCount, maximumRuleCount, FindRuleConflicts(policyRules));
     }
 
     public async Task<ElevationRulePolicy> CreateElevationRulePolicyAsync(
@@ -313,10 +319,11 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             networkSettingsEnabled, automatic, requireBusinessJustification, requireWindowsAuthentication, cancellationToken);
     }
 
-    public Task<int> AppendElevationRuleAsync(
+    public async Task<int> AppendElevationRuleAsync(
         ElevationRulePolicy policy,
         ElevationRule rule,
-        CancellationToken cancellationToken = default) => SaveElevationRuleAsync(policy, rule, false, null, cancellationToken);
+        CancellationToken cancellationToken = default) =>
+        (await SaveElevationRuleAsync(policy, rule, false, null, cancellationToken)).RuleCount;
 
     public async Task<IReadOnlyList<ElevationRuleMatch>> GetElevationRuleMatchesAsync(
         ElevationRulePolicy policy, ElevationRule rule, CancellationToken cancellationToken = default)
@@ -334,7 +341,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         return FindRuleMatches(rules, rule);
     }
 
-    public async Task<int> SaveElevationRuleAsync(
+    public async Task<ElevationRuleCollectionInfo> SaveElevationRuleAsync(
         ElevationRulePolicy policy, ElevationRule rule, bool updateExisting, ElevationRuleMatch? existingRuleMatch,
         CancellationToken cancellationToken = default)
     {
@@ -423,7 +430,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             var verified = await GetElevationRuleCollectionInfoAsync(policy, cancellationToken);
             if (verified.RuleCount != rules.Count)
                 throw new InvalidOperationException($"Graph accepted the update, but verification returned {verified.RuleCount} rules instead of {rules.Count}.");
-            return verified.RuleCount;
+            return verified;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -469,6 +476,36 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
                 otherRuleWithSameName, incomingNameAlreadyExists));
         }
         return matches;
+    }
+
+    internal static IReadOnlyList<ElevationRuleConflict> FindRuleConflicts(JsonArray rules)
+    {
+        var ruleEntries = rules.OfType<JsonObject>().Select(rule => new RuleConflictCandidate(
+            GetSimpleValue(rule, "name")?.Trim(), GetSimpleValue(rule, "filename")?.Trim(),
+            NormalizeHash(GetSimpleValue(rule, "filehash")), NormalizeVersion(GetSimpleValue(rule, "fileversion"))))
+            .ToArray();
+        var conflicts = new List<ElevationRuleConflict>();
+
+        AddConflicts("Name", entry => entry.Name);
+        AddConflicts("Hash", entry => entry.Hash);
+        AddConflicts("Version", entry => entry.Version);
+        return conflicts;
+
+        void AddConflicts(string conflictType, Func<RuleConflictCandidate, string?> valueSelector)
+        {
+            foreach (var group in ruleEntries.Select(entry => (Entry: entry, Value: valueSelector(entry)))
+                         .Where(item => !string.IsNullOrWhiteSpace(item.Value))
+                         .GroupBy(item => item.Value!, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1))
+            {
+                var affectedRules = group.Select(item =>
+                {
+                    var name = item.Entry.Name;
+                    var fileName = item.Entry.FileName;
+                    return string.IsNullOrWhiteSpace(fileName) ? name ?? "(Unnamed rule)" : $"{name ?? "(Unnamed rule)"} — {fileName}";
+                }).ToArray();
+                conflicts.Add(new ElevationRuleConflict(conflictType, group.Key, affectedRules));
+            }
+        }
     }
 
     internal static JsonObject CreateRuleForUpdate(JsonArray rules, int index, ElevationRule rule)

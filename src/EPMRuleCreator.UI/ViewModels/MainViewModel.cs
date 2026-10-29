@@ -347,6 +347,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<ElevationPolicyOption> ElevationPolicyOptions { get; } = [];
     public ObservableCollection<SystemSettingsPolicyOption> SystemSettingsPolicyOptions { get; } = [];
     public ObservableCollection<EpmReusableCertificateSetting> ReusableCertificateSettings { get; } = [];
+    public ObservableCollection<ElevationRuleConflict> ElevationRuleConflicts { get; } = [];
+    public bool HasElevationRuleConflicts => ElevationRuleConflicts.Count > 0;
+    public string ElevationRuleConflictSummary => HasElevationRuleConflicts
+        ? $"{ElevationRuleConflicts.Count} duplicate value group(s) found in '{SelectedElevationPolicy?.Name}'."
+        : SelectedElevationPolicy is null ? "Select an Elevation Rules policy to check for duplicate names, hashes, and versions."
+        : "No duplicate rule names, hashes, or versions found in this policy.";
 
     public string FilePath
     {
@@ -666,6 +672,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Set(ref _selectedElevationPolicy, value);
             _selectedPolicyRuleCount = null;
             _selectedPolicyRuleLimit = null;
+            SetElevationRuleConflicts([]);
             _policyCountRequest++;
             _policyCountLoading = false;
             Raise(nameof(SelectedPolicySummary));
@@ -1031,6 +1038,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (generation != _policiesGeneration || request != _policyCountRequest) return;
             _selectedPolicyRuleCount = collection.RuleCount;
             _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+            SetElevationRuleConflicts(collection.Conflicts);
             Raise(nameof(SelectedPolicySummary));
             PolicyLoadStatus = string.Empty;
         }
@@ -1050,6 +1058,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 Raise(nameof(UploadRuleCommand));
             }
         }
+    }
+
+    private void SetElevationRuleConflicts(IEnumerable<ElevationRuleConflict> conflicts)
+    {
+        ElevationRuleConflicts.Clear();
+        foreach (var conflict in conflicts)
+            ElevationRuleConflicts.Add(conflict);
+        Raise(nameof(HasElevationRuleConflicts));
+        Raise(nameof(ElevationRuleConflictSummary));
     }
 
     public async Task EnsureReusableCertificateSettingsAsync()
@@ -1231,6 +1248,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             {
                 _selectedPolicyRuleCount = collection.RuleCount;
                 _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+                SetElevationRuleConflicts(collection.Conflicts);
                 Raise(nameof(SelectedPolicySummary));
             }
 
@@ -1252,12 +1270,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
             PolicyLoadStatus = conflictDecision?.UpdateExisting == true
                 ? $"Updating the selected matching rule in '{policy.Name}'…"
                 : $"Uploading '{rule.Name}' to '{policy.Name}'…";
-            var updatedCount = await _graphAuthentication.SaveElevationRuleAsync(policy, rule,
+            var updatedCollection = await _graphAuthentication.SaveElevationRuleAsync(policy, rule,
                 conflictDecision?.UpdateExisting == true, conflictDecision?.ExistingRuleMatch);
             if (SelectedElevationPolicy?.Id == policy.Id)
             {
-                _selectedPolicyRuleCount = updatedCount;
+                _selectedPolicyRuleCount = updatedCollection.RuleCount;
                 _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+                SetElevationRuleConflicts(updatedCollection.Conflicts);
                 Raise(nameof(SelectedPolicySummary));
             }
             ValidationSummary = conflictDecision?.UpdateExisting == true
@@ -1266,8 +1285,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 ? $"Success: Existing rule '{rule.Name}' updated successfully."
                 : $"Success: Rule '{rule.Name}' uploaded successfully.");
             PolicyLoadStatus = conflictDecision?.UpdateExisting == true
-                ? $"Updated the selected rule to '{rule.Name}'. The policy contains {updatedCount}/{collection.MaximumRuleCount} rules."
-                : $"Uploaded '{rule.Name}'. The policy now contains {updatedCount}/{collection.MaximumRuleCount} rules.";
+                ? $"Updated the selected rule to '{rule.Name}'. The policy contains {updatedCollection.RuleCount}/{collection.MaximumRuleCount} rules."
+                : $"Uploaded '{rule.Name}'. The policy now contains {updatedCollection.RuleCount}/{collection.MaximumRuleCount} rules.";
         }
         catch (Exception exception)
         {
@@ -1320,6 +1339,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(created);
             _selectedPolicyRuleCount = collection.RuleCount;
             _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+            SetElevationRuleConflicts(collection.Conflicts);
             Raise(nameof(SelectedPolicySummary));
             if (collection.RuleCount != 1)
                 throw new InvalidOperationException($"Readback returned {collection.RuleCount} rules instead of 1.");
