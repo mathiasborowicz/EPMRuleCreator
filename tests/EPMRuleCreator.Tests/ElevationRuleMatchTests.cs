@@ -20,7 +20,7 @@ public sealed class ElevationRuleMatchTests
         Assert.Equal(0, match.Index);
         Assert.Equal("Existing", match.Name);
         Assert.Equal("old.exe", match.FileName);
-        Assert.Equal("1.2.0.0", match.FileVersion);
+        Assert.Equal("1.2", match.FileVersion);
         Assert.Equal("AA BB", match.FileHash);
         Assert.Equal("File hash matches", match.MatchReason);
         Assert.True(match.VersionMatches);
