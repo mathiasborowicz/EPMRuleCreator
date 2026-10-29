@@ -78,13 +78,13 @@ public sealed class ElevationRuleMatchTests
         var conflicts = GraphAuthenticationService.FindRuleConflicts(rules);
 
         Assert.Equal(3, conflicts.Count);
-        var nameConflict = Assert.Single(conflicts.Where(conflict => conflict.ConflictType == "Name"));
+        var nameConflict = Assert.Single(conflicts, conflict => conflict.ConflictType == "Name");
         Assert.Equal("Existing", nameConflict.Value);
         Assert.Equal(2, nameConflict.Rules.Count);
-        var hashConflict = Assert.Single(conflicts.Where(conflict => conflict.ConflictType == "Hash"));
+        var hashConflict = Assert.Single(conflicts, conflict => conflict.ConflictType == "Hash");
         Assert.Equal("AABB", hashConflict.Value);
         Assert.Equal(2, hashConflict.Rules.Count);
-        var versionConflict = Assert.Single(conflicts.Where(conflict => conflict.ConflictType == "Version"));
+        var versionConflict = Assert.Single(conflicts, conflict => conflict.ConflictType == "Version");
         Assert.Equal("1.2.0.0", versionConflict.Value);
         Assert.Equal(2, versionConflict.Rules.Count);
     }
