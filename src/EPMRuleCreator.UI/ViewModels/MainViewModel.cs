@@ -27,6 +27,13 @@ public sealed record ElevationPolicyOption(ElevationRulePolicy? Policy)
     public string Name => Policy?.Name ?? "+ Add new";
     public bool IsNewPolicy => Policy is null;
 }
+public sealed record SystemSettingsPolicyOption(ElevationSystemSettingsPolicy? Policy)
+{
+    public string Name => Policy?.Name ?? "+ Add new system settings policy";
+    public bool IsNewPolicy => Policy is null;
+}
+
+internal sealed record RuleConflictDecision(bool UpdateExisting, ElevationRuleMatch? ExistingRuleMatch);
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
@@ -93,10 +100,28 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _isAccountMenuOpen;
     private bool _graphConnected;
     private ElevationRulePolicy? _selectedElevationPolicy;
+    private ElevationRuleMatch? _selectedConflictRuleToUpdate;
+    private string? _selectedConflictRulePolicyId;
+    private IReadOnlyList<ElevationRuleConflictRule> _selectedPolicyRules = [];
     private readonly ElevationPolicyOption _newPolicyOption = new(null);
     private ElevationPolicyOption? _selectedPolicyOption;
     private string _newPolicyName = string.Empty;
     private string _newPolicyDescription = string.Empty;
+    private string _newSystemSettingsPolicyName = string.Empty;
+    private string _newSystemSettingsPolicyDescription = string.Empty;
+    private bool _systemSettingsAutomatic;
+    private bool _systemSettingsNetworkSettings = true;
+    private bool _systemSettingsBusinessJustification;
+    private bool _systemSettingsWindowsAuthentication;
+    private readonly SystemSettingsPolicyOption _newSystemSettingsPolicyOption = new(null);
+    private SystemSettingsPolicyOption? _selectedSystemSettingsPolicyOption;
+    private bool _systemSettingsPoliciesLoading;
+    private bool _systemSettingsPoliciesLoaded;
+    private int _systemSettingsPoliciesGeneration;
+    private int _systemSettingsConfigurationRequest;
+    private bool _systemSettingsConfigurationLoading;
+    private bool _selectedSystemSettingsPolicyConfigurationLoaded;
+    private string _systemSettingsPolicyStatus = "Sign in to load system settings policies.";
     private string _policyLoadStatus = "Sign in to select a policy.";
     private int? _selectedPolicyRuleCount;
     private int? _selectedPolicyRuleLimit;
@@ -123,6 +148,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OpenReleaseCommand = new RelayCommand(OpenAvailableRelease, () => _availableUpdate is not null);
         ValidateCommand = new RelayCommand(Validate, () => !Busy && _hasAnalyzedFile);
         UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && _hasAnalyzedFile && !_policiesLoading && !_policyCountLoading && GraphConnected && (IsCreatingPolicy || SelectedElevationPolicy is not null));
+        CreateSystemSettingsPolicyCommand = new AsyncCommand(CreateSystemSettingsPolicyAsync,
+            () => !Busy && GraphConnected && !_systemSettingsPoliciesLoading && !_systemSettingsConfigurationLoading &&
+                (!IsEditingSystemSettingsPolicy || _selectedSystemSettingsPolicyConfigurationLoaded) &&
+                !string.IsNullOrWhiteSpace(NewSystemSettingsPolicyName));
         ToggleExplorerMenuCommand = new RelayCommand(ToggleExplorerMenu, () => !Busy && IsInstalledApplication);
         RepairExplorerMenuCommand = new RelayCommand(() => SetExplorerMenu(registered: true), () => !Busy && IsInstalledApplication && _explorerMenuRegistered);
         ValidationMessages.CollectionChanged += (_, _) =>
@@ -136,12 +165,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ConnectGraphCommand = new AsyncCommand(ConnectGraphAsync, () => !Busy && !GraphConnected);
         DisconnectGraphCommand = new AsyncCommand(DisconnectGraphAsync, () => !Busy && GraphConnected);
         ElevationPolicyOptions.Add(_newPolicyOption);
+        SystemSettingsPolicyOptions.Add(_newSystemSettingsPolicyOption);
         LoadSettings();
         _isDarkTheme = ThemeService.ResolveStartupTheme(_themeOverride);
         ThemeService.Apply(IsDarkTheme);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    internal Func<IReadOnlyList<ElevationRuleMatch>, ElevationRule, Task<RuleConflictDecision?>>? RuleConflictResolver { get; set; }
     public bool IsDarkTheme
     {
         get => _isDarkTheme;
@@ -312,11 +343,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand ToggleExplorerMenuCommand { get; }
     public ICommand RepairExplorerMenuCommand { get; }
     public ICommand UploadRuleCommand { get; }
+    public ICommand CreateSystemSettingsPolicyCommand { get; }
     public ICommand ConnectGraphCommand { get; }
     public ICommand DisconnectGraphCommand { get; }
     public ObservableCollection<string> ValidationMessages { get; } = [];
     public ObservableCollection<ElevationPolicyOption> ElevationPolicyOptions { get; } = [];
+    public ObservableCollection<SystemSettingsPolicyOption> SystemSettingsPolicyOptions { get; } = [];
     public ObservableCollection<EpmReusableCertificateSetting> ReusableCertificateSettings { get; } = [];
+    public ObservableCollection<ElevationRuleConflict> ElevationRuleConflicts { get; } = [];
+    public ObservableCollection<ElevationRuleConflictRule> ExistingCertificateMatches { get; } = [];
+    public bool HasElevationRuleConflicts => ElevationRuleConflicts.Count > 0;
+    public bool HasExistingCertificateMatches => ExistingCertificateMatches.Count > 0;
+    public string ElevationRuleConflictSummary => HasElevationRuleConflicts
+        ? $"{ElevationRuleConflicts.Count} duplicate value group(s) found in '{SelectedElevationPolicy?.Name}'."
+        : SelectedElevationPolicy is null ? "Select an Elevation Rules policy to check for duplicate names, hashes, and versions."
+        : "No duplicate rule names, hashes, or versions found in this policy.";
+    public string ExistingCertificateMatchSummary => CurrentSignatureIdentity() is null
+        ? "Select a signing certificate in the current rule to find other rules using it."
+        : HasExistingCertificateMatches
+            ? $"The current signing certificate is already used by {ExistingCertificateMatches.Count} rule(s)."
+            : "No other rule in this policy uses the current signing certificate.";
 
     public string FilePath
     {
@@ -423,19 +469,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(PublisherCertificateChoiceText));
             Raise(nameof(CertificateSelectionLabel));
             Raise(nameof(SignatureSourceSelectionText));
+            RefreshCurrentFileConflictHighlights();
         }
     }
     public string SignatureStatus { get => _signatureStatus; set => Set(ref _signatureStatus, value); }
     public string SignatureDetails { get => _signatureDetails; private set => Set(ref _signatureDetails, value); }
     public string AnalysisWarnings { get => _analysisWarnings; set { if (Set(ref _analysisWarnings, value)) Raise(nameof(HasAnalysisWarnings)); } }
     public bool HasAnalysisWarnings => !string.IsNullOrWhiteSpace(AnalysisWarnings);
-    public string RuleName { get => _ruleName; set => Set(ref _ruleName, value); }
+    public string RuleName { get => _ruleName; set { if (Set(ref _ruleName, value)) RefreshCurrentFileConflictHighlights(); } }
     public string RuleDescription { get => _ruleDescription; set => Set(ref _ruleDescription, value); }
     public string RuleFileName { get => _ruleFileName; set => Set(ref _ruleFileName, value); }
-    public string RuleFileVersion { get => _ruleFileVersion; set => Set(ref _ruleFileVersion, value); }
+    public string RuleFileVersion { get => _ruleFileVersion; set { if (Set(ref _ruleFileVersion, value)) RefreshCurrentFileConflictHighlights(); } }
     public void NormalizeRuleFileVersion() => RuleFileVersion =
         RuleValidationService.NormalizeMinimumFileVersionToFourParts(RuleFileVersion) ?? string.Empty;
-    public string RuleFileHash { get => _ruleFileHash; set => Set(ref _ruleFileHash, value); }
+    public string RuleFileHash { get => _ruleFileHash; set { if (Set(ref _ruleFileHash, value)) RefreshCurrentFileConflictHighlights(); } }
     public string RuleFileDescription { get => _ruleFileDescription; set => Set(ref _ruleFileDescription, value); }
     public string RuleFilePath { get => _ruleFilePath; set => Set(ref _ruleFilePath, value); }
     public string RuleProductName { get => _ruleProductName; set => Set(ref _ruleProductName, value); }
@@ -457,6 +504,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(ReusableCertificateStatusLabel));
             if (ShowReusableCertificateSource)
                 _ = EnsureReusableCertificateSettingsAsync();
+            RefreshCurrentFileConflictHighlights();
         }
     }
     public bool ShowCertificateSelection => SignatureSource != global::EPMRuleCreator.Core.Models.SignatureSource.NotConfigured;
@@ -525,7 +573,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public EpmReusableCertificateSetting? SelectedReusableCertificateSetting
     {
         get => _selectedReusableCertificateSetting;
-        set { if (Set(ref _selectedReusableCertificateSetting, value)) Raise(nameof(SignatureSourceSelectionText)); }
+        set
+        {
+            if (!Set(ref _selectedReusableCertificateSetting, value)) return;
+            Raise(nameof(SignatureSourceSelectionText));
+            RefreshCurrentFileConflictHighlights();
+        }
     }
     public ElevationType ElevationType { get => _elevationType; set { if (Set(ref _elevationType, value)) { Raise(nameof(IsUserConfirmed)); Raise(nameof(IsCurrentUser)); } } }
     public bool IsUserConfirmed => ElevationType == global::EPMRuleCreator.Core.Models.ElevationType.UserConfirmed;
@@ -533,7 +586,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool RequireBusinessJustification { get => _requireBusinessJustification; set => Set(ref _requireBusinessJustification, value); }
     public bool RequireWindowsAuthentication { get => _requireWindowsAuthentication; set => Set(ref _requireWindowsAuthentication, value); }
     public ChildProcessBehavior ChildProcessBehavior { get => _childProcessBehavior; set => Set(ref _childProcessBehavior, value); }
-    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(CanChooseFile)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(AnalyzeCommand)); Raise(nameof(UploadRuleCommand)); Raise(nameof(CanUseEpmCmdlets)); Raise(nameof(CanExportCertificateChain)); } }
+    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(CanChooseFile)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(CanSelectSystemSettingsPolicy)); Raise(nameof(CanEditSystemSettingsFields)); Raise(nameof(AnalyzeCommand)); Raise(nameof(UploadRuleCommand)); Raise(nameof(CreateSystemSettingsPolicyCommand)); Raise(nameof(CanUseEpmCmdlets)); Raise(nameof(CanExportCertificateChain)); } }
     public bool CanChooseFile => !Busy;
     public string ClientId { get => _clientId; set { Set(ref _clientId, value); SaveSettings(); } }
     public string TenantId { get => _tenantId; set { Set(ref _tenantId, value); SaveSettings(); } }
@@ -544,7 +597,70 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string AccountInitials { get => _accountInitials; private set => Set(ref _accountInitials, value); }
     public bool IsAccountMenuOpen { get => _isAccountMenuOpen; set => Set(ref _isAccountMenuOpen, value); }
     public string AccountButtonLabel => GraphConnected ? "Microsoft Entra account" : "Sign in (optional)";
-    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(GraphConnectionLabel)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(AccountButtonLabel)); Raise(nameof(ReusableCertificateSelectionHint)); Raise(nameof(ReusableCertificateStatusLabel)); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); } }
+    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(GraphConnectionLabel)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(CanSelectSystemSettingsPolicy)); Raise(nameof(AccountButtonLabel)); Raise(nameof(ReusableCertificateSelectionHint)); Raise(nameof(ReusableCertificateStatusLabel)); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); Raise(nameof(CreateSystemSettingsPolicyCommand)); } }
+    public bool CanSelectSystemSettingsPolicy => GraphConnected && !Busy;
+    public string SystemSettingsPolicyStatus { get => _systemSettingsPolicyStatus; private set => Set(ref _systemSettingsPolicyStatus, value); }
+    public SystemSettingsPolicyOption? SelectedSystemSettingsPolicyOption
+    {
+        get => _selectedSystemSettingsPolicyOption;
+        set
+        {
+            if (!Set(ref _selectedSystemSettingsPolicyOption, value)) return;
+            _systemSettingsConfigurationRequest++;
+            _systemSettingsConfigurationLoading = false;
+            _selectedSystemSettingsPolicyConfigurationLoaded = value?.Policy is null;
+            if (value?.Policy is { } policy)
+            {
+                NewSystemSettingsPolicyName = policy.Name;
+                NewSystemSettingsPolicyDescription = policy.Description ?? string.Empty;
+                SystemSettingsNetworkSettings = policy.NetworkSettingsEnabled;
+                SystemSettingsAutomatic = policy.Automatic;
+                SystemSettingsBusinessJustification = policy.RequireBusinessJustification;
+                SystemSettingsWindowsAuthentication = policy.RequireWindowsAuthentication;
+            }
+            else
+            {
+                NewSystemSettingsPolicyName = string.Empty;
+                NewSystemSettingsPolicyDescription = string.Empty;
+                SystemSettingsNetworkSettings = true;
+                SystemSettingsAutomatic = false;
+                SystemSettingsBusinessJustification = false;
+                SystemSettingsWindowsAuthentication = false;
+            }
+            Raise(nameof(IsEditingSystemSettingsPolicy));
+            Raise(nameof(SystemSettingsSaveButtonText));
+            Raise(nameof(CanEditSystemSettingsFields));
+            Raise(nameof(CreateSystemSettingsPolicyCommand));
+            if (value?.Policy is { } selected && GraphConnected)
+                _ = LoadSystemSettingsPolicyConfigurationAsync(selected);
+        }
+    }
+    public bool IsEditingSystemSettingsPolicy => SelectedSystemSettingsPolicyOption?.Policy is not null;
+    public bool CanEditSystemSettingsFields => !Busy && (!IsEditingSystemSettingsPolicy ||
+        (_selectedSystemSettingsPolicyConfigurationLoaded && !_systemSettingsConfigurationLoading));
+    public string SystemSettingsSaveButtonText => IsEditingSystemSettingsPolicy ? "Save system settings policy" : "Create system settings policy";
+    public string NewSystemSettingsPolicyName { get => _newSystemSettingsPolicyName; set { if (Set(ref _newSystemSettingsPolicyName, value)) Raise(nameof(CreateSystemSettingsPolicyCommand)); } }
+    public string NewSystemSettingsPolicyDescription { get => _newSystemSettingsPolicyDescription; set => Set(ref _newSystemSettingsPolicyDescription, value); }
+    public bool SystemSettingsNetworkSettings { get => _systemSettingsNetworkSettings; set => Set(ref _systemSettingsNetworkSettings, value); }
+    public bool SystemSettingsUserConfirmed { get => !SystemSettingsAutomatic; set { if (value) SystemSettingsAutomatic = false; } }
+    public bool SystemSettingsAutomatic
+    {
+        get => _systemSettingsAutomatic;
+        set
+        {
+            if (!Set(ref _systemSettingsAutomatic, value)) return;
+            if (value)
+            {
+                SystemSettingsBusinessJustification = false;
+                SystemSettingsWindowsAuthentication = false;
+            }
+            Raise(nameof(ShowSystemSettingsValidation));
+            Raise(nameof(SystemSettingsUserConfirmed));
+        }
+    }
+    public bool ShowSystemSettingsValidation => !SystemSettingsAutomatic;
+    public bool SystemSettingsBusinessJustification { get => _systemSettingsBusinessJustification; set => Set(ref _systemSettingsBusinessJustification, value); }
+    public bool SystemSettingsWindowsAuthentication { get => _systemSettingsWindowsAuthentication; set => Set(ref _systemSettingsWindowsAuthentication, value); }
     public bool CanSelectElevationPolicy => GraphConnected && !Busy;
     public ElevationPolicyOption? SelectedPolicyOption
     {
@@ -563,7 +679,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool IsCreatingPolicy => SelectedPolicyOption?.IsNewPolicy == true;
     public string NewPolicyName { get => _newPolicyName; set => Set(ref _newPolicyName, value); }
     public string NewPolicyDescription { get => _newPolicyDescription; set => Set(ref _newPolicyDescription, value); }
-    public string UploadButtonText => IsCreatingPolicy ? "Create policy and upload rule" : "Upload rule to selected Intune policy";
+    public string UploadButtonText => _selectedConflictRuleToUpdate is not null
+        ? "Update selected rule"
+        : IsCreatingPolicy ? "Create policy and upload rule" : "Upload rule to selected Intune policy";
     public ElevationRulePolicy? SelectedElevationPolicy
     {
         get => _selectedElevationPolicy;
@@ -573,9 +691,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Set(ref _selectedElevationPolicy, value);
             _selectedPolicyRuleCount = null;
             _selectedPolicyRuleLimit = null;
+            _selectedConflictRuleToUpdate = null;
+            _selectedConflictRulePolicyId = null;
+            SetElevationRuleCollectionInfo(null);
             _policyCountRequest++;
             _policyCountLoading = false;
             Raise(nameof(SelectedPolicySummary));
+            Raise(nameof(UploadButtonText));
             Raise(nameof(UploadRuleCommand));
             if (value is not null && GraphConnected && !Busy)
                 _ = LoadSelectedPolicyCountAsync();
@@ -652,6 +774,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void ResetFileFields(bool resetPolicyDraft = false)
     {
         _hasAnalyzedFile = false;
+        _selectedConflictRuleToUpdate = null;
+        _selectedConflictRulePolicyId = null;
         _analyzedCertificateSelection.Load(null, null);
         Raise(nameof(AnalyzedCertificateOptions));
         Raise(nameof(HasAnalyzedCertificates));
@@ -684,6 +808,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (!_policiesLoading && !_policyCountLoading)
             PolicyLoadStatus = GraphConnected ? string.Empty : "Sign in to select a policy.";
         Raise(nameof(UploadRuleCommand));
+        Raise(nameof(UploadButtonText));
     }
 
     private void ToggleExplorerMenu() => SetExplorerMenu(registered: !_explorerMenuRegistered);
@@ -720,6 +845,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var profile = await _graphAuthentication.SignInAsync(ClientId, TenantId, window is null ? IntPtr.Zero : new System.Windows.Interop.WindowInteropHelper(window).Handle);
             ResetReusableCertificateSettings();
             ResetElevationPolicies();
+            ResetSystemSettingsPolicies();
             GraphConnected = true;
             GraphAccount = $"{profile.DisplayName} ({profile.UserPrincipalName})";
             var nameParts = (string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.UserPrincipalName : profile.DisplayName)
@@ -730,6 +856,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             TenantId = profile.TenantId;
             IsAccountMenuOpen = false;
             await EnsureElevationPoliciesAsync();
+            await EnsureSystemSettingsPoliciesAsync();
             await EnsureReusableCertificateSettingsAsync();
         }
         catch (Exception exception)
@@ -745,6 +872,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         await _graphAuthentication.RemoveAccountAsync();
         GraphConnected = false;
         ResetElevationPolicies();
+        ResetSystemSettingsPolicies();
         ResetReusableCertificateSettings();
         SelectedElevationPolicy = null;
         _selectedPolicyRuleCount = null;
@@ -817,6 +945,110 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Raise(nameof(SelectedPolicySummary));
     }
 
+    public async Task EnsureSystemSettingsPoliciesAsync(bool forceRefresh = false)
+    {
+        if (!GraphConnected || _systemSettingsPoliciesLoading) return;
+        if (_systemSettingsPoliciesLoaded && !forceRefresh) return;
+
+        var generation = _systemSettingsPoliciesGeneration;
+        var selectedId = SelectedSystemSettingsPolicyOption?.Policy?.Id;
+        var creatingNew = SelectedSystemSettingsPolicyOption?.IsNewPolicy != false;
+        _systemSettingsPoliciesLoading = true;
+        Raise(nameof(CreateSystemSettingsPolicyCommand));
+        SystemSettingsPolicyStatus = "Loading system settings policies…";
+        try
+        {
+            var policies = await _graphAuthentication.GetElevationSystemSettingsPoliciesAsync();
+            if (generation != _systemSettingsPoliciesGeneration || !GraphConnected) return;
+            SystemSettingsPolicyOptions.Clear();
+            foreach (var policy in policies.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+                SystemSettingsPolicyOptions.Add(new SystemSettingsPolicyOption(policy));
+            SystemSettingsPolicyOptions.Add(_newSystemSettingsPolicyOption);
+            _systemSettingsPoliciesLoaded = true;
+            SystemSettingsPolicyStatus = policies.Count == 0 ? "No system settings policies found. Create a new one below." : string.Empty;
+            SelectedSystemSettingsPolicyOption = creatingNew
+                ? _newSystemSettingsPolicyOption
+                : SystemSettingsPolicyOptions.FirstOrDefault(option => option.Policy?.Id == selectedId)
+                    ?? _newSystemSettingsPolicyOption;
+        }
+        catch (Exception exception)
+        {
+            if (generation == _systemSettingsPoliciesGeneration)
+                SystemSettingsPolicyStatus = $"Could not load system settings policies: {exception.Message}";
+        }
+        finally
+        {
+            if (generation == _systemSettingsPoliciesGeneration)
+                _systemSettingsPoliciesLoading = false;
+                Raise(nameof(CreateSystemSettingsPolicyCommand));
+        }
+    }
+
+    private void ResetSystemSettingsPolicies()
+    {
+        _systemSettingsPoliciesGeneration++;
+        _systemSettingsConfigurationRequest++;
+        _systemSettingsPoliciesLoading = false;
+        _systemSettingsConfigurationLoading = false;
+        _selectedSystemSettingsPolicyConfigurationLoaded = false;
+        _systemSettingsPoliciesLoaded = false;
+        SystemSettingsPolicyOptions.Clear();
+        SystemSettingsPolicyOptions.Add(_newSystemSettingsPolicyOption);
+        SelectedSystemSettingsPolicyOption = _newSystemSettingsPolicyOption;
+        SystemSettingsPolicyStatus = GraphConnected ? "Load system settings policies from Intune." : "Sign in to load system settings policies.";
+    }
+
+    private async Task LoadSystemSettingsPolicyConfigurationAsync(ElevationSystemSettingsPolicy policy)
+    {
+        var request = _systemSettingsConfigurationRequest;
+        _systemSettingsConfigurationLoading = true;
+        Raise(nameof(CreateSystemSettingsPolicyCommand));
+        Raise(nameof(CanEditSystemSettingsFields));
+        SystemSettingsPolicyStatus = $"Loading settings for '{policy.Name}'…";
+        try
+        {
+            var configuration = await _graphAuthentication.GetElevationSystemSettingsPolicyConfigurationAsync(policy);
+            if (request != _systemSettingsConfigurationRequest ||
+                SelectedSystemSettingsPolicyOption?.Policy?.Id != policy.Id || !GraphConnected)
+                return;
+
+            NewSystemSettingsPolicyName = configuration.Name;
+            NewSystemSettingsPolicyDescription = configuration.Description ?? string.Empty;
+            SystemSettingsNetworkSettings = configuration.NetworkSettingsEnabled;
+            SystemSettingsAutomatic = configuration.Automatic;
+            SystemSettingsBusinessJustification = configuration.RequireBusinessJustification;
+            SystemSettingsWindowsAuthentication = configuration.RequireWindowsAuthentication;
+            _selectedSystemSettingsPolicyConfigurationLoaded = true;
+            // Keep the selected ComboBox item stable; replacing it can clear SelectedItem and reset the editor fields.
+            Raise(nameof(NewSystemSettingsPolicyName));
+            Raise(nameof(NewSystemSettingsPolicyDescription));
+            Raise(nameof(SystemSettingsNetworkSettings));
+            Raise(nameof(SystemSettingsAutomatic));
+            Raise(nameof(SystemSettingsUserConfirmed));
+            Raise(nameof(ShowSystemSettingsValidation));
+            Raise(nameof(SystemSettingsBusinessJustification));
+            Raise(nameof(SystemSettingsWindowsAuthentication));
+            SystemSettingsPolicyStatus = $"Loaded '{configuration.Name}'. Edit the fields and save to update it.";
+        }
+        catch (Exception exception)
+        {
+            if (request == _systemSettingsConfigurationRequest)
+            {
+                _selectedSystemSettingsPolicyConfigurationLoaded = false;
+                SystemSettingsPolicyStatus = $"Could not load '{policy.Name}': {exception.Message}";
+            }
+        }
+        finally
+        {
+            if (request == _systemSettingsConfigurationRequest)
+            {
+                _systemSettingsConfigurationLoading = false;
+                Raise(nameof(CreateSystemSettingsPolicyCommand));
+                Raise(nameof(CanEditSystemSettingsFields));
+            }
+        }
+    }
+
     private async Task LoadSelectedPolicyCountAsync()
     {
         if (SelectedElevationPolicy is not { } policy || !GraphConnected) return;
@@ -831,6 +1063,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (generation != _policiesGeneration || request != _policyCountRequest) return;
             _selectedPolicyRuleCount = collection.RuleCount;
             _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+            SetElevationRuleCollectionInfo(collection);
             Raise(nameof(SelectedPolicySummary));
             PolicyLoadStatus = string.Empty;
         }
@@ -849,6 +1082,146 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 _policyCountLoading = false;
                 Raise(nameof(UploadRuleCommand));
             }
+        }
+    }
+
+    private void SetElevationRuleConflicts(IEnumerable<ElevationRuleConflict> conflicts)
+    {
+        ElevationRuleConflicts.Clear();
+        foreach (var conflict in conflicts)
+            ElevationRuleConflicts.Add(conflict with
+            {
+                Rules = conflict.Rules.Select(rule => rule with
+                {
+                    IsCurrentFileConflict = IsCurrentFileConflict(conflict.ConflictType, conflict.Value) ||
+                        IsSameSigningCertificate(rule)
+                }).ToArray()
+            });
+        Raise(nameof(HasElevationRuleConflicts));
+        Raise(nameof(ElevationRuleConflictSummary));
+        RefreshExistingCertificateMatches();
+    }
+
+    private void SetElevationRuleCollectionInfo(ElevationRuleCollectionInfo? collection)
+    {
+        _selectedPolicyRules = collection?.Rules ?? [];
+        SetElevationRuleConflicts(collection?.Conflicts ?? []);
+    }
+
+    private void RefreshCurrentFileConflictHighlights()
+    {
+        SetElevationRuleConflicts(ElevationRuleConflicts.ToArray());
+        RefreshExistingCertificateMatches();
+    }
+
+    private bool IsCurrentFileConflict(string conflictType, string value) => conflictType switch
+    {
+        "Name" => string.Equals(value.Trim(), RuleName.Trim(), StringComparison.OrdinalIgnoreCase),
+        "Hash" => string.Equals(NormalizeConflictHash(value), NormalizeConflictHash(RuleFileHash), StringComparison.Ordinal),
+        "Version" => string.Equals(
+            RuleValidationService.NormalizeMinimumFileVersionToFourParts(value),
+            RuleValidationService.NormalizeMinimumFileVersionToFourParts(RuleFileVersion),
+            StringComparison.Ordinal),
+        _ => false
+    };
+
+    private static string NormalizeConflictHash(string? value) => string.IsNullOrWhiteSpace(value)
+        ? string.Empty
+        : new string(value.Where(character => !char.IsWhiteSpace(character) && character is not '-' and not ':')
+            .Select(char.ToUpperInvariant).ToArray());
+
+    private void RefreshExistingCertificateMatches()
+    {
+        ExistingCertificateMatches.Clear();
+        if (CurrentSignatureIdentity() is { } identity)
+            foreach (var rule in _selectedPolicyRules.Where(rule =>
+                         string.Equals(rule.Match.Signature, identity, StringComparison.OrdinalIgnoreCase)))
+                ExistingCertificateMatches.Add(rule);
+        Raise(nameof(HasExistingCertificateMatches));
+        Raise(nameof(ExistingCertificateMatchSummary));
+    }
+
+    private string? CurrentSignatureIdentity() => SignatureSource switch
+    {
+        global::EPMRuleCreator.Core.Models.SignatureSource.CertificateFile when PublisherCertificate is { } certificate => NormalizeConflictHash(certificate.Thumbprint),
+        global::EPMRuleCreator.Core.Models.SignatureSource.ReusableSettings when SelectedReusableCertificateSetting is { } reusable => "reusable:" + reusable.Id.Trim(),
+        _ => null
+    };
+
+    private bool IsSameSigningCertificate(ElevationRuleConflictRule rule) =>
+        CurrentSignatureIdentity() is { } identity &&
+        string.Equals(rule.Match.Signature, identity, StringComparison.OrdinalIgnoreCase);
+
+    public async Task LoadConflictRuleForEditingAsync(ElevationRuleConflictRule selectedRule)
+    {
+        ArgumentNullException.ThrowIfNull(selectedRule);
+        if (!GraphConnected || SelectedElevationPolicy is not { } policy)
+            throw new InvalidOperationException("Select an Elevation Rules policy and sign in before editing a conflict.");
+
+        Busy = true;
+        try
+        {
+            var rule = selectedRule.Rule;
+            EpmReusableCertificateSetting? reusableCertificateSetting = null;
+            if (rule.SignatureSource == global::EPMRuleCreator.Core.Models.SignatureSource.ReusableSettings && !string.IsNullOrWhiteSpace(rule.ReusableCertificateSettingId))
+            {
+                var reusableSettings = await _graphAuthentication.GetEpmReusableCertificateSettingsAsync();
+                ReusableCertificateSettings.Clear();
+                foreach (var setting in reusableSettings.OrderBy(setting => setting.DisplayName, StringComparer.CurrentCultureIgnoreCase))
+                    ReusableCertificateSettings.Add(setting);
+                _reusableCertificatesLoaded = true;
+                reusableCertificateSetting = ReusableCertificateSettings.FirstOrDefault(setting =>
+                    string.Equals(setting.Id, rule.ReusableCertificateSettingId, StringComparison.OrdinalIgnoreCase));
+            }
+
+            ResetFileFields();
+            RuleName = rule.Name;
+            RuleDescription = rule.Description;
+            RuleFileName = rule.FileName;
+            RuleFileVersion = rule.MinimumFileVersion ?? string.Empty;
+            RuleFileHash = rule.FileHash ?? string.Empty;
+            RuleFilePath = rule.FilePath ?? string.Empty;
+            RuleProductName = rule.ProductName ?? string.Empty;
+            RuleFileDescription = rule.FileDescription ?? string.Empty;
+            RuleInternalName = rule.InternalName ?? string.Empty;
+            ElevationType = rule.ElevationType;
+            RequireBusinessJustification = rule.RequireBusinessJustification;
+            RequireWindowsAuthentication = rule.RequireWindowsAuthentication;
+            ChildProcessBehavior = rule.ChildProcessBehavior;
+            RestrictArguments = rule.RestrictArguments;
+            ArgumentListText = string.Join(Environment.NewLine, rule.ArgumentList);
+            CertificateType = rule.CertificateType;
+            if (rule.PublisherCertificate is { } certificate)
+            {
+                _analyzedCertificateSelection.Load(certificate, null);
+                AnalyzedPublisherCertificate = certificate;
+                PublisherCertificate = certificate;
+                Raise(nameof(AnalyzedCertificateOptions));
+                Raise(nameof(HasAnalyzedCertificates));
+                Raise(nameof(SelectedAnalyzedCertificate));
+                Raise(nameof(UseAnalyzedCertificate));
+                Raise(nameof(UseUploadedCertificate));
+            }
+            SelectedReusableCertificateSetting = reusableCertificateSetting;
+            SignatureSource = rule.SignatureSource;
+
+            _hasAnalyzedFile = true;
+            _selectedConflictRuleToUpdate = selectedRule.Match;
+            _selectedConflictRulePolicyId = policy.Id;
+            SignatureStatus = "Loaded from the selected Intune rule";
+            SignatureDetails = rule.PublisherCertificate is { } loadedCertificate
+                ? $"Publisher: {loadedCertificate.Subject}\nThumbprint: {loadedCertificate.Thumbprint}"
+                : string.Empty;
+            ValidationSummary = $"Loaded '{rule.Name}' from '{policy.Name}'. Edit the fields, then update the selected rule.";
+            PolicyLoadStatus = $"Editing '{rule.Name}' from '{policy.Name}'.";
+            AddLog($"Loaded conflict rule '{rule.Name}' for editing.");
+            Raise(nameof(UploadButtonText));
+            Raise(nameof(UploadRuleCommand));
+            Raise(nameof(ValidateCommand));
+        }
+        finally
+        {
+            Busy = false;
         }
     }
 
@@ -1013,14 +1386,36 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             PolicyLoadStatus = $"Refreshing rules in '{policy.Name}' before upload…";
             var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(policy);
+            RuleConflictDecision? conflictDecision = _selectedConflictRuleToUpdate is { } selectedRule &&
+                string.Equals(_selectedConflictRulePolicyId, policy.Id, StringComparison.Ordinal)
+                ? new RuleConflictDecision(true, selectedRule)
+                : null;
+            if (conflictDecision is null)
+            {
+                var matches = await _graphAuthentication.GetElevationRuleMatchesAsync(policy, rule);
+                if (matches.Count > 0)
+                {
+                    if (RuleConflictResolver is null)
+                        throw new InvalidOperationException("The rule conflict dialog is unavailable; no rule was changed.");
+                    conflictDecision = await RuleConflictResolver(matches, rule);
+                    if (conflictDecision is null)
+                    {
+                        PolicyLoadStatus = "Rule upload canceled; the policy was not changed.";
+                        return;
+                    }
+                }
+            }
+
             if (SelectedElevationPolicy?.Id == policy.Id)
             {
                 _selectedPolicyRuleCount = collection.RuleCount;
                 _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+                SetElevationRuleCollectionInfo(collection);
                 Raise(nameof(SelectedPolicySummary));
             }
 
-            var result = _validator.Validate(rule, collection.RuleCount, hasPolicy: true);
+            var ruleCountForValidation = collection.RuleCount - (conflictDecision?.UpdateExisting == true ? 1 : 0);
+            var result = _validator.Validate(rule, ruleCountForValidation, hasPolicy: true);
             ValidationMessages.Clear();
             foreach (var issue in result.Issues)
             {
@@ -1034,17 +1429,32 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
-            PolicyLoadStatus = $"Uploading '{rule.Name}' to '{policy.Name}'…";
-            var updatedCount = await _graphAuthentication.AppendElevationRuleAsync(policy, rule);
+            PolicyLoadStatus = conflictDecision?.UpdateExisting == true
+                ? $"Updating the selected matching rule in '{policy.Name}'…"
+                : $"Uploading '{rule.Name}' to '{policy.Name}'…";
+            var updatedCollection = await _graphAuthentication.SaveElevationRuleAsync(policy, rule,
+                conflictDecision?.UpdateExisting == true, conflictDecision?.ExistingRuleMatch);
+            if (conflictDecision?.UpdateExisting == true && ReferenceEquals(_selectedConflictRuleToUpdate, conflictDecision.ExistingRuleMatch))
+            {
+                _selectedConflictRuleToUpdate = null;
+                _selectedConflictRulePolicyId = null;
+                Raise(nameof(UploadButtonText));
+            }
             if (SelectedElevationPolicy?.Id == policy.Id)
             {
-                _selectedPolicyRuleCount = updatedCount;
+                _selectedPolicyRuleCount = updatedCollection.RuleCount;
                 _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+                SetElevationRuleCollectionInfo(updatedCollection);
                 Raise(nameof(SelectedPolicySummary));
             }
-            ValidationSummary = "Rule uploaded successfully.";
-            AddLog($"Success: Rule '{rule.Name}' uploaded successfully.");
-            PolicyLoadStatus = $"Uploaded '{rule.Name}'. The policy now contains {updatedCount}/{collection.MaximumRuleCount} rules.";
+            ValidationSummary = conflictDecision?.UpdateExisting == true
+                ? "Existing rule updated successfully." : "Rule uploaded successfully.";
+            AddLog(conflictDecision?.UpdateExisting == true
+                ? $"Success: Existing rule '{rule.Name}' updated successfully."
+                : $"Success: Rule '{rule.Name}' uploaded successfully.");
+            PolicyLoadStatus = conflictDecision?.UpdateExisting == true
+                ? $"Updated the selected rule to '{rule.Name}'. The policy contains {updatedCollection.RuleCount}/{collection.MaximumRuleCount} rules."
+                : $"Uploaded '{rule.Name}'. The policy now contains {updatedCollection.RuleCount}/{collection.MaximumRuleCount} rules.";
         }
         catch (Exception exception)
         {
@@ -1097,6 +1507,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(created);
             _selectedPolicyRuleCount = collection.RuleCount;
             _selectedPolicyRuleLimit = collection.MaximumRuleCount;
+            SetElevationRuleCollectionInfo(collection);
             Raise(nameof(SelectedPolicySummary));
             if (collection.RuleCount != 1)
                 throw new InvalidOperationException($"Readback returned {collection.RuleCount} rules instead of 1.");
@@ -1112,6 +1523,53 @@ public sealed class MainViewModel : INotifyPropertyChanged
             AddLog(created is null
                 ? $"Error: Policy creation failed: {exception.Message}"
                 : $"Error: Policy verification failed after creation: {exception.Message}");
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task CreateSystemSettingsPolicyAsync()
+    {
+        var name = NewSystemSettingsPolicyName.Trim();
+        if (string.IsNullOrWhiteSpace(name)) return;
+        Busy = true;
+        try
+        {
+            var selectedPolicy = SelectedSystemSettingsPolicyOption?.Policy;
+            string id;
+            if (selectedPolicy is null)
+            {
+                AddLog("Creating an Elevation System Settings policy without assignments and with the default scope tag (0).");
+                SystemSettingsPolicyStatus = $"Creating system settings policy '{name}'…";
+                id = await _graphAuthentication.CreateElevationSystemSettingsPolicyAsync(name,
+                    NewSystemSettingsPolicyDescription, SystemSettingsNetworkSettings, SystemSettingsAutomatic,
+                    SystemSettingsBusinessJustification, SystemSettingsWindowsAuthentication);
+                ValidationSummary = "Elevation System Settings policy created successfully.";
+                AddLog($"Success: Elevation System Settings policy '{name}' created (ID: {id}).");
+            }
+            else
+            {
+                SystemSettingsPolicyStatus = $"Saving changes to '{selectedPolicy.Name}'…";
+                var updated = await _graphAuthentication.UpdateElevationSystemSettingsPolicyAsync(selectedPolicy,
+                    name, NewSystemSettingsPolicyDescription, SystemSettingsNetworkSettings,
+                    SystemSettingsAutomatic, SystemSettingsBusinessJustification,
+                    SystemSettingsWindowsAuthentication);
+                id = updated.Id;
+                ValidationSummary = "Elevation System Settings policy updated successfully.";
+                AddLog($"Success: Elevation System Settings policy '{updated.Name}' updated and verified.");
+            }
+
+            _systemSettingsPoliciesLoaded = false;
+            await EnsureSystemSettingsPoliciesAsync(forceRefresh: true);
+            SelectedSystemSettingsPolicyOption = SystemSettingsPolicyOptions.FirstOrDefault(option => option.Policy?.Id == id)
+                ?? _newSystemSettingsPolicyOption;
+            SystemSettingsPolicyStatus = $"'{name}' saved. Configure or review assignments in Intune.";
+        }
+        catch (Exception exception)
+        {
+            ValidationSummary = IsEditingSystemSettingsPolicy
+                ? "System settings policy update failed." : "System settings policy creation failed.";
+            SystemSettingsPolicyStatus = $"Could not save the system settings policy: {exception.Message}";
+            AddLog($"Error: Could not save the system settings policy: {exception.Message}");
         }
         finally { Busy = false; }
     }

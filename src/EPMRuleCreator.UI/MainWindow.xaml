@@ -184,7 +184,7 @@
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="MainContentScrollViewer" Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="0.9*"/></Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
@@ -270,9 +270,109 @@
                                          ToolTip="Session log. Select text to copy."/>
                         </StackPanel>
                     </Border>
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="Rule conflicts" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="{Binding ElevationRuleConflictSummary}" Style="{StaticResource StatusText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <TextBlock Text="Highlighted entries match the current editor rule by name, hash, or version." Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding HasElevationRuleConflicts, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl ItemsSource="{Binding ElevationRuleConflicts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,6">
+                                                <StackPanel>
+                                                    <TextBlock TextWrapping="Wrap">
+                                                        <Run Text="{Binding ConflictType}" FontWeight="SemiBold"/>
+                                                        <Run Text=": "/>
+                                                        <Run Text="{Binding Value}" FontFamily="Consolas"/>
+                                                    </TextBlock>
+                                                    <ItemsControl ItemsSource="{Binding Rules}" Margin="8,3,0,0">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Padding="5" CornerRadius="4" Margin="0,2">
+                                                                    <Border.Style>
+                                                                        <Style TargetType="Border">
+                                                                            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsCurrentFileConflict}" Value="True">
+                                                                                    <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                                                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                                                    <Setter Property="BorderThickness" Value="1"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Border.Style>
+                                                                    <DockPanel>
+                                                                        <Button Content="Edit rule" Tag="{Binding}" Click="EditConflictRule_Click" DockPanel.Dock="Right" Padding="8,3" Margin="8,0,0,0"/>
+                                                                        <TextBlock Text="CURRENT FILE" DockPanel.Dock="Right" Foreground="{DynamicResource AccentBrush}" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                                   Visibility="{Binding IsCurrentFileConflict, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                                        <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
+                                                                            <Run Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                                            <Run Text=" — "/>
+                                                                            <Run Text="{Binding FileName}"/>
+                                                                        </TextBlock>
+                                                                    </DockPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <Separator Margin="0,8"/>
+                            <TextBlock Text="Same signing certificate" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="{Binding ExistingCertificateMatchSummary}" Style="{StaticResource StatusText}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                            <ItemsControl ItemsSource="{Binding ExistingCertificateMatches}"
+                                          Visibility="{Binding HasExistingCertificateMatches, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,2">
+                                            <Button Content="Edit rule" Tag="{Binding}" Click="EditConflictRule_Click" DockPanel.Dock="Right" Padding="8,3" Margin="8,0,0,0"/>
+                                            <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
+                                                <Run Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                <Run Text=" — "/>
+                                                <Run Text="{Binding FileName}"/>
+                                            </TextBlock>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="Elevation System Settings policy" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock Text="Create a policy for system network settings. Assign it to groups in Intune after creation." Style="{StaticResource StatusText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <TextBlock Text="Existing system settings policy" Foreground="{DynamicResource MutedBrush}"/>
+                            <ComboBox ItemsSource="{Binding SystemSettingsPolicyOptions}" SelectedItem="{Binding SelectedSystemSettingsPolicyOption}"
+                                      DisplayMemberPath="Name" IsEnabled="{Binding CanSelectSystemSettingsPolicy}"
+                                      DropDownOpened="SystemSettingsPolicies_DropDownOpened"/>
+                            <TextBlock Text="{Binding SystemSettingsPolicyStatus}" Style="{StaticResource StatusText}" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                            <StackPanel IsEnabled="{Binding CanEditSystemSettingsFields}">
+                            <TextBlock Text="Policy name *" Foreground="{DynamicResource MutedBrush}"/>
+                            <TextBox Text="{Binding NewSystemSettingsPolicyName, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="Description" Foreground="{DynamicResource MutedBrush}"/>
+                            <TextBox Text="{Binding NewSystemSettingsPolicyDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="52" TextWrapping="Wrap"/>
+                            <CheckBox Content="Allow standard users to change network settings" IsChecked="{Binding SystemSettingsNetworkSettings}" Margin="0,8,0,4"/>
+                            <TextBlock Text="Elevation type" Foreground="{DynamicResource MutedBrush}"/>
+                            <RadioButton Content="User confirmed" GroupName="SystemSettingsElevationType" IsChecked="{Binding SystemSettingsUserConfirmed}" Margin="0,4"/>
+                            <RadioButton Content="Automatic" GroupName="SystemSettingsElevationType" IsChecked="{Binding SystemSettingsAutomatic}" Margin="0,4"/>
+                            <StackPanel Visibility="{Binding ShowSystemSettingsValidation, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,4,0,8">
+                                <TextBlock Text="Validation (optional)" FontWeight="SemiBold" Margin="0,2,0,4"/>
+                                <CheckBox Content="Business justification" IsChecked="{Binding SystemSettingsBusinessJustification}" Margin="0,3"/>
+                                <CheckBox Content="Windows authentication" IsChecked="{Binding SystemSettingsWindowsAuthentication}" Margin="0,3"/>
+                            </StackPanel>
+                            <Button Content="{Binding SystemSettingsSaveButtonText}" Command="{Binding CreateSystemSettingsPolicyCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                     <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                         <StackPanel>
                             <TextBlock Text="Elevation rule" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>

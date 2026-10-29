@@ -5,6 +5,7 @@
 **From a file to an Intune EPM rule.**
 
 [![Windows 11 x64](https://img.shields.io/badge/Windows-11_x64-0078D4?logo=windows&logoColor=white)](docs/Installation.md)
+[![Version 1.1.0](https://img.shields.io/badge/version-1.1.0-2ea44f)](docs/Installation.md#build-and-publish)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 Check file details and signing certificates, prepare an elevation rule, and upload it to Microsoft Intune when you're ready. File analysis works locally, without signing in.
@@ -27,6 +28,9 @@ That's it. You can also use the tool just to inspect files or export certificate
 
 - Export certificates individually or as a chain bundle.
 - Choose file-hash or certificate-based rules.
+- Create and edit Elevation System Settings policies.
+- Load existing elevation rules, then update a matching rule or add another one.
+- Review name, hash, and version conflicts, and see existing rules that use the same certificate.
 - Add an Explorer right-click entry during installation.
 - Switch between light and dark themes.
 - Check for updates, or turn automatic checks off.
