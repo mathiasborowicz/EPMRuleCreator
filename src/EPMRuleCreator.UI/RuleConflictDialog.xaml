@@ -1,7 +1,7 @@
 <Window x:Class="EPMRuleCreator.UI.RuleConflictDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Existing rule found" Width="640" Height="470" MinWidth="560" MinHeight="420"
+        Title="Existing rule found" Width="640" Height="510" MinWidth="560" MinHeight="450"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize" ShowInTaskbar="False">
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -12,9 +12,10 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="A rule with the same file hash or signing certificate already exists." FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
             <TextBlock x:Name="IncomingRuleText" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
-            <TextBlock Text="Choose a matching rule, then update it or add this as a separate rule." Margin="0,8,0,0" TextWrapping="Wrap"/>
+            <TextBlock Text="The matching rule is selected automatically. Review the warning and version details before choosing an action." Margin="0,8,0,0" TextWrapping="Wrap"/>
+            <TextBlock x:Name="SelectionWarningText" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource WarningBrush}" FontWeight="SemiBold"/>
         </StackPanel>
-        <ListBox x:Name="MatchesList" Grid.Row="1" SelectedIndex="0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+        <ListBox x:Name="MatchesList" Grid.Row="1" SelectedIndex="0" SelectionChanged="MatchesList_SelectionChanged" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Margin="6,4">
@@ -27,8 +28,8 @@
             </ListBox.ItemTemplate>
         </ListBox>
         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Update selected rule" Click="UpdateSelected_Click" IsDefault="True" Margin="0,0,8,0" Padding="14,7"/>
-            <Button Content="Add as additional rule" Click="AddAdditional_Click" Margin="0,0,8,0" Padding="14,7"/>
+            <Button x:Name="UpdateButton" Content="Update selected rule" Click="UpdateSelected_Click" IsDefault="True" Margin="0,0,8,0" Padding="14,7"/>
+            <Button x:Name="AddButton" Content="Add as additional rule" Click="AddAdditional_Click" Margin="0,0,8,0" Padding="14,7"/>
             <Button Content="Cancel" Click="Cancel_Click" IsCancel="True" Padding="14,7"/>
         </WrapPanel>
     </Grid>

@@ -21,7 +21,8 @@ public sealed record ElevationRulePolicy(
     bool IsAssigned);
 public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount);
 public sealed record ElevationRuleMatch(int Index, string Name, string FileName, string? FileVersion, string? FileHash,
-    string? Signature, string MatchReason, bool VersionMatches, string VersionDisplayReason);
+    string? Signature, string MatchReason, bool VersionMatches, string VersionDisplayReason,
+    string? OtherRuleWithSameName, bool IncomingNameAlreadyExists);
 public sealed record EpmReusableCertificateSetting(string Id, string DisplayName, string? Description, DateTimeOffset? LastModifiedDateTime);
 
 /// <summary>Interactive delegated authentication for the Microsoft Graph global cloud.</summary>
@@ -435,6 +436,8 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         var matches = new List<ElevationRuleMatch>();
         var requestedHash = NormalizeHash(rule.FileHash);
         var requestedCertificate = GetRequestedCertificateThumbprint(rule);
+        var incomingNameAlreadyExists = rules.OfType<JsonObject>().Any(existing =>
+            string.Equals(GetSimpleValue(existing, "name"), rule.Name, StringComparison.OrdinalIgnoreCase));
         for (var index = 0; index < rules.Count; index++)
         {
             if (rules[index] is not JsonObject existing) continue;
@@ -456,8 +459,14 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
                 : $"Version differs (stored {normalizedExistingVersion}, requested {normalizedRequestedVersion})";
             var reason = hashMatch && signatureMatch ? "File hash and signing certificate match"
                 : hashMatch ? "File hash matches" : "Signing certificate matches";
+            var otherRuleWithSameName = rules.OfType<JsonObject>()
+                .Where((candidate, candidateIndex) => candidateIndex != index &&
+                    string.Equals(GetSimpleValue(candidate, "name"), rule.Name, StringComparison.OrdinalIgnoreCase))
+                .Select(candidate => GetSimpleValue(candidate, "name"))
+                .FirstOrDefault();
             matches.Add(new ElevationRuleMatch(index, GetSimpleValue(existing, "name") ?? string.Empty,
-                fileName, version, hash, signature, reason, versionMatches, versionReason));
+                fileName, version, hash, signature, reason, versionMatches, versionReason,
+                otherRuleWithSameName, incomingNameAlreadyExists));
         }
         return matches;
     }

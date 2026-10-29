@@ -39,6 +39,33 @@ public sealed class ElevationRuleMatchTests
     }
 
     [Fact]
+    public void FindRuleMatches_ReportsNameConflictWithAnotherRuleBeforeUpdate()
+    {
+        var rules = Rules();
+        var conflictingRule = RuleTemplate("Incoming name");
+        var hashSetting = conflictingRule["children"]!.AsArray().Single(item =>
+            item!["settingDefinitionId"]!.GetValue<string>().EndsWith("_filehash", StringComparison.Ordinal))!;
+        hashSetting["simpleSettingValue"]!["value"] = "CC DD";
+        rules.Add(conflictingRule);
+
+        var match = Assert.Single(GraphAuthenticationService.FindRuleMatches(rules,
+            new ElevationRule { FileHash = "AABB", MinimumFileVersion = "1.2", Name = "Incoming name" }));
+
+        Assert.Equal("Incoming name", match.OtherRuleWithSameName);
+        Assert.True(match.IncomingNameAlreadyExists);
+    }
+
+    [Fact]
+    public void FindRuleMatches_AllowsUpdatingSameNamedMatchButBlocksAddingDuplicateName()
+    {
+        var match = Assert.Single(GraphAuthenticationService.FindRuleMatches(Rules(),
+            new ElevationRule { FileHash = "AABB", MinimumFileVersion = "1.2", Name = "Existing" }));
+
+        Assert.Null(match.OtherRuleWithSameName);
+        Assert.True(match.IncomingNameAlreadyExists);
+    }
+
+    [Fact]
     public void ValidateSelectedRuleMatch_RejectsRuleChangedAfterUserSelection()
     {
         var rules = Rules();
