@@ -67,7 +67,7 @@ internal sealed class ElevationSystemSettingsPolicyWriter(HttpClient httpClient)
             return policy with { NetworkSettingsEnabled = false, Automatic = false, RequireBusinessJustification = false, RequireWindowsAuthentication = false };
         if (matches.Count > 1)
             throw new InvalidOperationException("The policy contains multiple Network settings instances; it cannot be parsed safely.");
-        return ParseConfiguration(policy, matches[0]);
+        return ParseConfiguration(policy, GetSettingInstance(matches[0]));
     }
 
     internal async Task<ElevationSystemSettingsPolicy> UpdateAsync(
@@ -99,7 +99,7 @@ internal sealed class ElevationSystemSettingsPolicyWriter(HttpClient httpClient)
         {
             updatedInstance = systemSetting is null
                 ? CreateSystemSettingsInstance(automatic, requireBusinessJustification, requireWindowsAuthentication)
-                : UpdateSystemSettingsInstance((JsonObject)systemSetting.DeepClone(), automatic,
+                : UpdateSystemSettingsInstance((JsonObject)GetSettingInstance(systemSetting).DeepClone(), automatic,
                     requireBusinessJustification, requireWindowsAuthentication);
         }
 
@@ -291,6 +291,9 @@ internal sealed class ElevationSystemSettingsPolicyWriter(HttpClient httpClient)
         return settings.Where(item =>
             string.Equals(GetString(item["settingInstance"] as JsonObject, "settingDefinitionId"), SettingTypeDefinitionId, StringComparison.Ordinal)).ToList();
     }
+
+    private static JsonObject GetSettingInstance(JsonObject setting) => setting["settingInstance"] as JsonObject
+        ?? throw new InvalidOperationException("Graph returned a system settings item without a settingInstance.");
 
     private static JsonObject? FindChild(JsonArray? children, string definitionId) => children?.OfType<JsonObject>()
         .SingleOrDefault(child => string.Equals(GetString(child, "settingDefinitionId"), definitionId, StringComparison.Ordinal));
