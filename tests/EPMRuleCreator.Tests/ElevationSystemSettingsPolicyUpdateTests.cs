@@ -192,7 +192,7 @@ public sealed class ElevationSystemSettingsPolicyUpdateTests
                         ["value"] = Root + "_" + action,
                         ["children"] = validations
                     }
-                }
+                })
             }
         };
     }
@@ -254,7 +254,7 @@ public sealed class ElevationSystemSettingsPolicyUpdateTests
                 {
                     ["settingDefinitionId"] = "other-setting",
                     ["simpleSettingValue"] = new JsonObject { ["value"] = "leave-me-alone" }
-                })
+                }
             });
             return JsonResponse(new JsonObject { ["value"] = values }.ToJsonString());
         }
