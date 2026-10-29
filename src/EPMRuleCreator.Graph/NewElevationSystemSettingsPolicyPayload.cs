@@ -11,8 +11,6 @@ internal static class NewElevationSystemSettingsPolicyPayload
         bool requireBusinessJustification, bool requireWindowsAuthentication)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        if (!networkSettingsEnabled)
-            throw new ArgumentException("Select Network settings; it is the only system setting currently supported.");
         if (automatic && (requireBusinessJustification || requireWindowsAuthentication))
             throw new ArgumentException("Validation options require User confirmed elevation.");
 
@@ -68,7 +66,7 @@ internal static class NewElevationSystemSettingsPolicyPayload
             ["platforms"] = "windows10",
             ["technologies"] = "endpointPrivilegeManagement",
             ["roleScopeTagIds"] = new JsonArray("0"),
-            ["settings"] = new JsonArray(setting),
+            ["settings"] = networkSettingsEnabled ? new JsonArray(setting) : new JsonArray(),
             ["templateReference"] = new JsonObject { ["templateId"] = "598096f6-4121-4088-859f-b11ebfbd09bc_1" }
         };
     }

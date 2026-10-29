@@ -27,6 +27,11 @@ public sealed record ElevationPolicyOption(ElevationRulePolicy? Policy)
     public string Name => Policy?.Name ?? "+ Add new";
     public bool IsNewPolicy => Policy is null;
 }
+public sealed record SystemSettingsPolicyOption(ElevationSystemSettingsPolicy? Policy)
+{
+    public string Name => Policy?.Name ?? "+ Add new system settings policy";
+    public bool IsNewPolicy => Policy is null;
+}
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
@@ -103,6 +108,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _systemSettingsNetworkSettings = true;
     private bool _systemSettingsBusinessJustification;
     private bool _systemSettingsWindowsAuthentication;
+    private readonly SystemSettingsPolicyOption _newSystemSettingsPolicyOption = new(null);
+    private SystemSettingsPolicyOption? _selectedSystemSettingsPolicyOption;
+    private bool _systemSettingsPoliciesLoading;
+    private bool _systemSettingsPoliciesLoaded;
+    private int _systemSettingsPoliciesGeneration;
+    private int _systemSettingsConfigurationRequest;
+    private bool _systemSettingsConfigurationLoading;
+    private bool _selectedSystemSettingsPolicyConfigurationLoaded;
+    private string _systemSettingsPolicyStatus = "Sign in to load system settings policies.";
     private string _policyLoadStatus = "Sign in to select a policy.";
     private int? _selectedPolicyRuleCount;
     private int? _selectedPolicyRuleLimit;
@@ -130,7 +144,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ValidateCommand = new RelayCommand(Validate, () => !Busy && _hasAnalyzedFile);
         UploadRuleCommand = new AsyncCommand(UploadRuleAsync, () => !Busy && _hasAnalyzedFile && !_policiesLoading && !_policyCountLoading && GraphConnected && (IsCreatingPolicy || SelectedElevationPolicy is not null));
         CreateSystemSettingsPolicyCommand = new AsyncCommand(CreateSystemSettingsPolicyAsync,
-            () => !Busy && GraphConnected && !string.IsNullOrWhiteSpace(NewSystemSettingsPolicyName));
+            () => !Busy && GraphConnected && !_systemSettingsPoliciesLoading && !_systemSettingsConfigurationLoading &&
+                (!IsEditingSystemSettingsPolicy || _selectedSystemSettingsPolicyConfigurationLoaded) &&
+                !string.IsNullOrWhiteSpace(NewSystemSettingsPolicyName));
         ToggleExplorerMenuCommand = new RelayCommand(ToggleExplorerMenu, () => !Busy && IsInstalledApplication);
         RepairExplorerMenuCommand = new RelayCommand(() => SetExplorerMenu(registered: true), () => !Busy && IsInstalledApplication && _explorerMenuRegistered);
         ValidationMessages.CollectionChanged += (_, _) =>
@@ -144,6 +160,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ConnectGraphCommand = new AsyncCommand(ConnectGraphAsync, () => !Busy && !GraphConnected);
         DisconnectGraphCommand = new AsyncCommand(DisconnectGraphAsync, () => !Busy && GraphConnected);
         ElevationPolicyOptions.Add(_newPolicyOption);
+        SystemSettingsPolicyOptions.Add(_newSystemSettingsPolicyOption);
         LoadSettings();
         _isDarkTheme = ThemeService.ResolveStartupTheme(_themeOverride);
         ThemeService.Apply(IsDarkTheme);
@@ -325,6 +342,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand DisconnectGraphCommand { get; }
     public ObservableCollection<string> ValidationMessages { get; } = [];
     public ObservableCollection<ElevationPolicyOption> ElevationPolicyOptions { get; } = [];
+    public ObservableCollection<SystemSettingsPolicyOption> SystemSettingsPolicyOptions { get; } = [];
     public ObservableCollection<EpmReusableCertificateSetting> ReusableCertificateSettings { get; } = [];
 
     public string FilePath
@@ -542,7 +560,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool RequireBusinessJustification { get => _requireBusinessJustification; set => Set(ref _requireBusinessJustification, value); }
     public bool RequireWindowsAuthentication { get => _requireWindowsAuthentication; set => Set(ref _requireWindowsAuthentication, value); }
     public ChildProcessBehavior ChildProcessBehavior { get => _childProcessBehavior; set => Set(ref _childProcessBehavior, value); }
-    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(CanChooseFile)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(AnalyzeCommand)); Raise(nameof(UploadRuleCommand)); Raise(nameof(CreateSystemSettingsPolicyCommand)); Raise(nameof(CanUseEpmCmdlets)); Raise(nameof(CanExportCertificateChain)); } }
+    public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(CanChooseFile)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(CanSelectSystemSettingsPolicy)); Raise(nameof(CanEditSystemSettingsFields)); Raise(nameof(AnalyzeCommand)); Raise(nameof(UploadRuleCommand)); Raise(nameof(CreateSystemSettingsPolicyCommand)); Raise(nameof(CanUseEpmCmdlets)); Raise(nameof(CanExportCertificateChain)); } }
     public bool CanChooseFile => !Busy;
     public string ClientId { get => _clientId; set { Set(ref _clientId, value); SaveSettings(); } }
     public string TenantId { get => _tenantId; set { Set(ref _tenantId, value); SaveSettings(); } }
@@ -553,7 +571,48 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string AccountInitials { get => _accountInitials; private set => Set(ref _accountInitials, value); }
     public bool IsAccountMenuOpen { get => _isAccountMenuOpen; set => Set(ref _isAccountMenuOpen, value); }
     public string AccountButtonLabel => GraphConnected ? "Microsoft Entra account" : "Sign in (optional)";
-    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(GraphConnectionLabel)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(AccountButtonLabel)); Raise(nameof(ReusableCertificateSelectionHint)); Raise(nameof(ReusableCertificateStatusLabel)); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); Raise(nameof(CreateSystemSettingsPolicyCommand)); } }
+    public bool GraphConnected { get => _graphConnected; private set { Set(ref _graphConnected, value); Raise(nameof(GraphConnectionLabel)); Raise(nameof(CanSelectElevationPolicy)); Raise(nameof(CanSelectSystemSettingsPolicy)); Raise(nameof(AccountButtonLabel)); Raise(nameof(ReusableCertificateSelectionHint)); Raise(nameof(ReusableCertificateStatusLabel)); Raise(nameof(ConnectGraphCommand)); Raise(nameof(DisconnectGraphCommand)); Raise(nameof(UploadRuleCommand)); Raise(nameof(CreateSystemSettingsPolicyCommand)); } }
+    public bool CanSelectSystemSettingsPolicy => GraphConnected && !Busy;
+    public string SystemSettingsPolicyStatus { get => _systemSettingsPolicyStatus; private set => Set(ref _systemSettingsPolicyStatus, value); }
+    public SystemSettingsPolicyOption? SelectedSystemSettingsPolicyOption
+    {
+        get => _selectedSystemSettingsPolicyOption;
+        set
+        {
+            if (!Set(ref _selectedSystemSettingsPolicyOption, value)) return;
+            _systemSettingsConfigurationRequest++;
+            _systemSettingsConfigurationLoading = false;
+            _selectedSystemSettingsPolicyConfigurationLoaded = value?.Policy is null;
+            if (value?.Policy is { } policy)
+            {
+                NewSystemSettingsPolicyName = policy.Name;
+                NewSystemSettingsPolicyDescription = policy.Description ?? string.Empty;
+                SystemSettingsNetworkSettings = policy.NetworkSettingsEnabled;
+                SystemSettingsAutomatic = policy.Automatic;
+                SystemSettingsBusinessJustification = policy.RequireBusinessJustification;
+                SystemSettingsWindowsAuthentication = policy.RequireWindowsAuthentication;
+            }
+            else
+            {
+                NewSystemSettingsPolicyName = string.Empty;
+                NewSystemSettingsPolicyDescription = string.Empty;
+                SystemSettingsNetworkSettings = true;
+                SystemSettingsAutomatic = false;
+                SystemSettingsBusinessJustification = false;
+                SystemSettingsWindowsAuthentication = false;
+            }
+            Raise(nameof(IsEditingSystemSettingsPolicy));
+            Raise(nameof(SystemSettingsSaveButtonText));
+            Raise(nameof(CanEditSystemSettingsFields));
+            Raise(nameof(CreateSystemSettingsPolicyCommand));
+            if (value?.Policy is { } selected && GraphConnected)
+                _ = LoadSystemSettingsPolicyConfigurationAsync(selected);
+        }
+    }
+    public bool IsEditingSystemSettingsPolicy => SelectedSystemSettingsPolicyOption?.Policy is not null;
+    public bool CanEditSystemSettingsFields => !Busy && (!IsEditingSystemSettingsPolicy ||
+        (_selectedSystemSettingsPolicyConfigurationLoaded && !_systemSettingsConfigurationLoading));
+    public string SystemSettingsSaveButtonText => IsEditingSystemSettingsPolicy ? "Save system settings policy" : "Create system settings policy";
     public string NewSystemSettingsPolicyName { get => _newSystemSettingsPolicyName; set { if (Set(ref _newSystemSettingsPolicyName, value)) Raise(nameof(CreateSystemSettingsPolicyCommand)); } }
     public string NewSystemSettingsPolicyDescription { get => _newSystemSettingsPolicyDescription; set => Set(ref _newSystemSettingsPolicyDescription, value); }
     public bool SystemSettingsNetworkSettings { get => _systemSettingsNetworkSettings; set => Set(ref _systemSettingsNetworkSettings, value); }
@@ -751,6 +810,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var profile = await _graphAuthentication.SignInAsync(ClientId, TenantId, window is null ? IntPtr.Zero : new System.Windows.Interop.WindowInteropHelper(window).Handle);
             ResetReusableCertificateSettings();
             ResetElevationPolicies();
+            ResetSystemSettingsPolicies();
             GraphConnected = true;
             GraphAccount = $"{profile.DisplayName} ({profile.UserPrincipalName})";
             var nameParts = (string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.UserPrincipalName : profile.DisplayName)
@@ -761,6 +821,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             TenantId = profile.TenantId;
             IsAccountMenuOpen = false;
             await EnsureElevationPoliciesAsync();
+            await EnsureSystemSettingsPoliciesAsync();
             await EnsureReusableCertificateSettingsAsync();
         }
         catch (Exception exception)
@@ -776,6 +837,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         await _graphAuthentication.RemoveAccountAsync();
         GraphConnected = false;
         ResetElevationPolicies();
+        ResetSystemSettingsPolicies();
         ResetReusableCertificateSettings();
         SelectedElevationPolicy = null;
         _selectedPolicyRuleCount = null;
@@ -846,6 +908,110 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _selectedPolicyRuleCount = null;
         _selectedPolicyRuleLimit = null;
         Raise(nameof(SelectedPolicySummary));
+    }
+
+    public async Task EnsureSystemSettingsPoliciesAsync(bool forceRefresh = false)
+    {
+        if (!GraphConnected || _systemSettingsPoliciesLoading) return;
+        if (_systemSettingsPoliciesLoaded && !forceRefresh) return;
+
+        var generation = _systemSettingsPoliciesGeneration;
+        var selectedId = SelectedSystemSettingsPolicyOption?.Policy?.Id;
+        var creatingNew = SelectedSystemSettingsPolicyOption?.IsNewPolicy != false;
+        _systemSettingsPoliciesLoading = true;
+        Raise(nameof(CreateSystemSettingsPolicyCommand));
+        SystemSettingsPolicyStatus = "Loading system settings policies…";
+        try
+        {
+            var policies = await _graphAuthentication.GetElevationSystemSettingsPoliciesAsync();
+            if (generation != _systemSettingsPoliciesGeneration || !GraphConnected) return;
+            SystemSettingsPolicyOptions.Clear();
+            foreach (var policy in policies.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+                SystemSettingsPolicyOptions.Add(new SystemSettingsPolicyOption(policy));
+            SystemSettingsPolicyOptions.Add(_newSystemSettingsPolicyOption);
+            _systemSettingsPoliciesLoaded = true;
+            SystemSettingsPolicyStatus = policies.Count == 0 ? "No system settings policies found. Create a new one below." : string.Empty;
+            SelectedSystemSettingsPolicyOption = creatingNew
+                ? _newSystemSettingsPolicyOption
+                : SystemSettingsPolicyOptions.FirstOrDefault(option => option.Policy?.Id == selectedId)
+                    ?? _newSystemSettingsPolicyOption;
+        }
+        catch (Exception exception)
+        {
+            if (generation == _systemSettingsPoliciesGeneration)
+                SystemSettingsPolicyStatus = $"Could not load system settings policies: {exception.Message}";
+        }
+        finally
+        {
+            if (generation == _systemSettingsPoliciesGeneration)
+                _systemSettingsPoliciesLoading = false;
+                Raise(nameof(CreateSystemSettingsPolicyCommand));
+        }
+    }
+
+    private void ResetSystemSettingsPolicies()
+    {
+        _systemSettingsPoliciesGeneration++;
+        _systemSettingsConfigurationRequest++;
+        _systemSettingsPoliciesLoading = false;
+        _systemSettingsConfigurationLoading = false;
+        _selectedSystemSettingsPolicyConfigurationLoaded = false;
+        _systemSettingsPoliciesLoaded = false;
+        SystemSettingsPolicyOptions.Clear();
+        SystemSettingsPolicyOptions.Add(_newSystemSettingsPolicyOption);
+        SelectedSystemSettingsPolicyOption = _newSystemSettingsPolicyOption;
+        SystemSettingsPolicyStatus = GraphConnected ? "Load system settings policies from Intune." : "Sign in to load system settings policies.";
+    }
+
+    private async Task LoadSystemSettingsPolicyConfigurationAsync(ElevationSystemSettingsPolicy policy)
+    {
+        var request = _systemSettingsConfigurationRequest;
+        _systemSettingsConfigurationLoading = true;
+        Raise(nameof(CreateSystemSettingsPolicyCommand));
+        Raise(nameof(CanEditSystemSettingsFields));
+        SystemSettingsPolicyStatus = $"Loading settings for '{policy.Name}'…";
+        try
+        {
+            var configuration = await _graphAuthentication.GetElevationSystemSettingsPolicyConfigurationAsync(policy);
+            if (request != _systemSettingsConfigurationRequest ||
+                SelectedSystemSettingsPolicyOption?.Policy?.Id != policy.Id || !GraphConnected)
+                return;
+
+            NewSystemSettingsPolicyName = configuration.Name;
+            NewSystemSettingsPolicyDescription = configuration.Description ?? string.Empty;
+            SystemSettingsNetworkSettings = configuration.NetworkSettingsEnabled;
+            SystemSettingsAutomatic = configuration.Automatic;
+            SystemSettingsBusinessJustification = configuration.RequireBusinessJustification;
+            SystemSettingsWindowsAuthentication = configuration.RequireWindowsAuthentication;
+            _selectedSystemSettingsPolicyConfigurationLoaded = true;
+
+            var updatedOption = new SystemSettingsPolicyOption(configuration);
+            var index = SystemSettingsPolicyOptions.ToList().FindIndex(option => option.Policy?.Id == policy.Id);
+            if (index >= 0)
+            {
+                SystemSettingsPolicyOptions[index] = updatedOption;
+                _selectedSystemSettingsPolicyOption = updatedOption;
+                Raise(nameof(SelectedSystemSettingsPolicyOption));
+            }
+            SystemSettingsPolicyStatus = $"Loaded '{configuration.Name}'. Edit the fields and save to update it.";
+        }
+        catch (Exception exception)
+        {
+            if (request == _systemSettingsConfigurationRequest)
+            {
+                _selectedSystemSettingsPolicyConfigurationLoaded = false;
+                SystemSettingsPolicyStatus = $"Could not load '{policy.Name}': {exception.Message}";
+            }
+        }
+        finally
+        {
+            if (request == _systemSettingsConfigurationRequest)
+            {
+                _systemSettingsConfigurationLoading = false;
+                Raise(nameof(CreateSystemSettingsPolicyCommand));
+                Raise(nameof(CanEditSystemSettingsFields));
+            }
+        }
     }
 
     private async Task LoadSelectedPolicyCountAsync()
@@ -1154,20 +1320,42 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Busy = true;
         try
         {
-            AddLog("Creating an Elevation System Settings policy without assignments and with the default scope tag (0).");
-            PolicyLoadStatus = $"Creating system settings policy '{name}'…";
-            var id = await _graphAuthentication.CreateElevationSystemSettingsPolicyAsync(name,
-                NewSystemSettingsPolicyDescription, SystemSettingsNetworkSettings, SystemSettingsAutomatic,
-                SystemSettingsBusinessJustification, SystemSettingsWindowsAuthentication);
-            ValidationSummary = "Elevation System Settings policy created successfully.";
-            AddLog($"Success: Elevation System Settings policy '{name}' created (ID: {id}).");
-            PolicyLoadStatus = $"Created '{name}' without assignments. Configure assignments in Intune when ready.";
+            var selectedPolicy = SelectedSystemSettingsPolicyOption?.Policy;
+            string id;
+            if (selectedPolicy is null)
+            {
+                AddLog("Creating an Elevation System Settings policy without assignments and with the default scope tag (0).");
+                SystemSettingsPolicyStatus = $"Creating system settings policy '{name}'…";
+                id = await _graphAuthentication.CreateElevationSystemSettingsPolicyAsync(name,
+                    NewSystemSettingsPolicyDescription, SystemSettingsNetworkSettings, SystemSettingsAutomatic,
+                    SystemSettingsBusinessJustification, SystemSettingsWindowsAuthentication);
+                ValidationSummary = "Elevation System Settings policy created successfully.";
+                AddLog($"Success: Elevation System Settings policy '{name}' created (ID: {id}).");
+            }
+            else
+            {
+                SystemSettingsPolicyStatus = $"Saving changes to '{selectedPolicy.Name}'…";
+                var updated = await _graphAuthentication.UpdateElevationSystemSettingsPolicyAsync(selectedPolicy,
+                    name, NewSystemSettingsPolicyDescription, SystemSettingsNetworkSettings,
+                    SystemSettingsAutomatic, SystemSettingsBusinessJustification,
+                    SystemSettingsWindowsAuthentication);
+                id = updated.Id;
+                ValidationSummary = "Elevation System Settings policy updated successfully.";
+                AddLog($"Success: Elevation System Settings policy '{updated.Name}' updated and verified.");
+            }
+
+            _systemSettingsPoliciesLoaded = false;
+            await EnsureSystemSettingsPoliciesAsync(forceRefresh: true);
+            SelectedSystemSettingsPolicyOption = SystemSettingsPolicyOptions.FirstOrDefault(option => option.Policy?.Id == id)
+                ?? _newSystemSettingsPolicyOption;
+            SystemSettingsPolicyStatus = $"'{name}' saved. Configure or review assignments in Intune.";
         }
         catch (Exception exception)
         {
-            ValidationSummary = "System settings policy creation failed.";
-            PolicyLoadStatus = $"Could not create the system settings policy: {exception.Message}";
-            AddLog($"Error: Could not create the system settings policy: {exception.Message}");
+            ValidationSummary = IsEditingSystemSettingsPolicy
+                ? "System settings policy update failed." : "System settings policy creation failed.";
+            SystemSettingsPolicyStatus = $"Could not save the system settings policy: {exception.Message}";
+            AddLog($"Error: Could not save the system settings policy: {exception.Message}");
         }
         finally { Busy = false; }
     }

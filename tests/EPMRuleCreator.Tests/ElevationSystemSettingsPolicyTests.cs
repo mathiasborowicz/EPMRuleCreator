@@ -57,6 +57,14 @@ public sealed class ElevationSystemSettingsPolicyTests
     }
 
     [Fact]
+    public void DisabledNetworkSettingsPolicy_ContainsNoSettings()
+    {
+        var body = NewElevationSystemSettingsPolicyPayload.Build("ESS Policy", null, false, false, false, false);
+
+        Assert.Empty(body["settings"]!.AsArray());
+    }
+
+    [Fact]
     public void UserConfirmedPolicy_CanRequireBothValidationOptions()
     {
         var body = NewElevationSystemSettingsPolicyPayload.Build("ESS Policy", null, true, false, true, true);

@@ -255,6 +255,48 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             networkSettingsEnabled, automatic, requireBusinessJustification, requireWindowsAuthentication, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ElevationSystemSettingsPolicy>> GetElevationSystemSettingsPoliciesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (_client is null || _account is null)
+            throw new InvalidOperationException("Sign in to Microsoft Graph before loading system settings policies.");
+
+        var token = await GetAccessTokenAsync(cancellationToken);
+        return await new ElevationSystemSettingsPolicyWriter(_httpClient).GetPoliciesAsync(token, cancellationToken);
+    }
+
+    public async Task<ElevationSystemSettingsPolicy> GetElevationSystemSettingsPolicyConfigurationAsync(
+        ElevationSystemSettingsPolicy policy,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        if (_client is null || _account is null)
+            throw new InvalidOperationException("Sign in to Microsoft Graph before loading system settings policy configuration.");
+
+        var token = await GetAccessTokenAsync(cancellationToken);
+        return await new ElevationSystemSettingsPolicyWriter(_httpClient)
+            .GetConfigurationAsync(token, policy, cancellationToken);
+    }
+
+    public async Task<ElevationSystemSettingsPolicy> UpdateElevationSystemSettingsPolicyAsync(
+        ElevationSystemSettingsPolicy policy,
+        string name,
+        string? description,
+        bool networkSettingsEnabled,
+        bool automatic,
+        bool requireBusinessJustification,
+        bool requireWindowsAuthentication,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        if (_client is null || _account is null)
+            throw new InvalidOperationException("Sign in to Microsoft Graph before updating a system settings policy.");
+
+        var token = await GetAccessTokenAsync(cancellationToken);
+        return await new ElevationSystemSettingsPolicyWriter(_httpClient).UpdateAsync(token, policy, name, description,
+            networkSettingsEnabled, automatic, requireBusinessJustification, requireWindowsAuthentication, cancellationToken);
+    }
+
     public async Task<int> AppendElevationRuleAsync(
         ElevationRulePolicy policy,
         ElevationRule rule,

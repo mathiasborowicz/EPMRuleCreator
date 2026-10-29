@@ -166,6 +166,12 @@ public partial class MainWindow : Window
             await viewModel.EnsureElevationPoliciesAsync();
     }
 
+    private async void SystemSettingsPolicies_DropDownOpened(object sender, EventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+            await viewModel.EnsureSystemSettingsPoliciesAsync();
+    }
+
     private void ChooseFile_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
