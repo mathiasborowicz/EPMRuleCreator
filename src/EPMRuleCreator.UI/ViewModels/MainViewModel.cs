@@ -102,6 +102,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private ElevationRulePolicy? _selectedElevationPolicy;
     private ElevationRuleMatch? _selectedConflictRuleToUpdate;
     private string? _selectedConflictRulePolicyId;
+    private IReadOnlyList<ElevationRuleConflictRule> _selectedPolicyRules = [];
     private readonly ElevationPolicyOption _newPolicyOption = new(null);
     private ElevationPolicyOption? _selectedPolicyOption;
     private string _newPolicyName = string.Empty;
@@ -350,11 +351,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<SystemSettingsPolicyOption> SystemSettingsPolicyOptions { get; } = [];
     public ObservableCollection<EpmReusableCertificateSetting> ReusableCertificateSettings { get; } = [];
     public ObservableCollection<ElevationRuleConflict> ElevationRuleConflicts { get; } = [];
+    public ObservableCollection<ElevationRuleConflictRule> ExistingCertificateMatches { get; } = [];
     public bool HasElevationRuleConflicts => ElevationRuleConflicts.Count > 0;
+    public bool HasExistingCertificateMatches => ExistingCertificateMatches.Count > 0;
     public string ElevationRuleConflictSummary => HasElevationRuleConflicts
         ? $"{ElevationRuleConflicts.Count} duplicate value group(s) found in '{SelectedElevationPolicy?.Name}'."
         : SelectedElevationPolicy is null ? "Select an Elevation Rules policy to check for duplicate names, hashes, and versions."
         : "No duplicate rule names, hashes, or versions found in this policy.";
+    public string ExistingCertificateMatchSummary => CurrentSignatureIdentity() is null
+        ? "Select a signing certificate in the current rule to find other rules using it."
+        : HasExistingCertificateMatches
+            ? $"The current signing certificate is already used by {ExistingCertificateMatches.Count} rule(s)."
+            : "No other rule in this policy uses the current signing certificate.";
 
     public string FilePath
     {
@@ -461,6 +469,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(PublisherCertificateChoiceText));
             Raise(nameof(CertificateSelectionLabel));
             Raise(nameof(SignatureSourceSelectionText));
+            RefreshCurrentFileConflictHighlights();
         }
     }
     public string SignatureStatus { get => _signatureStatus; set => Set(ref _signatureStatus, value); }
@@ -495,6 +504,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Raise(nameof(ReusableCertificateStatusLabel));
             if (ShowReusableCertificateSource)
                 _ = EnsureReusableCertificateSettingsAsync();
+            RefreshCurrentFileConflictHighlights();
         }
     }
     public bool ShowCertificateSelection => SignatureSource != global::EPMRuleCreator.Core.Models.SignatureSource.NotConfigured;
@@ -563,7 +573,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public EpmReusableCertificateSetting? SelectedReusableCertificateSetting
     {
         get => _selectedReusableCertificateSetting;
-        set { if (Set(ref _selectedReusableCertificateSetting, value)) Raise(nameof(SignatureSourceSelectionText)); }
+        set
+        {
+            if (!Set(ref _selectedReusableCertificateSetting, value)) return;
+            Raise(nameof(SignatureSourceSelectionText));
+            RefreshCurrentFileConflictHighlights();
+        }
     }
     public ElevationType ElevationType { get => _elevationType; set { if (Set(ref _elevationType, value)) { Raise(nameof(IsUserConfirmed)); Raise(nameof(IsCurrentUser)); } } }
     public bool IsUserConfirmed => ElevationType == global::EPMRuleCreator.Core.Models.ElevationType.UserConfirmed;
@@ -678,7 +693,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _selectedPolicyRuleLimit = null;
             _selectedConflictRuleToUpdate = null;
             _selectedConflictRulePolicyId = null;
-            SetElevationRuleConflicts([]);
+            SetElevationRuleCollectionInfo(null);
             _policyCountRequest++;
             _policyCountLoading = false;
             Raise(nameof(SelectedPolicySummary));
@@ -1048,7 +1063,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (generation != _policiesGeneration || request != _policyCountRequest) return;
             _selectedPolicyRuleCount = collection.RuleCount;
             _selectedPolicyRuleLimit = collection.MaximumRuleCount;
-            SetElevationRuleConflicts(collection.Conflicts);
+            SetElevationRuleCollectionInfo(collection);
             Raise(nameof(SelectedPolicySummary));
             PolicyLoadStatus = string.Empty;
         }
@@ -1078,14 +1093,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
             {
                 Rules = conflict.Rules.Select(rule => rule with
                 {
-                    IsCurrentFileConflict = IsCurrentFileConflict(conflict.ConflictType, conflict.Value)
+                    IsCurrentFileConflict = IsCurrentFileConflict(conflict.ConflictType, conflict.Value) ||
+                        IsSameSigningCertificate(rule)
                 }).ToArray()
             });
         Raise(nameof(HasElevationRuleConflicts));
         Raise(nameof(ElevationRuleConflictSummary));
+        RefreshExistingCertificateMatches();
     }
 
-    private void RefreshCurrentFileConflictHighlights() => SetElevationRuleConflicts(ElevationRuleConflicts.ToArray());
+    private void SetElevationRuleCollectionInfo(ElevationRuleCollectionInfo? collection)
+    {
+        _selectedPolicyRules = collection?.Rules ?? [];
+        SetElevationRuleConflicts(collection?.Conflicts ?? []);
+    }
+
+    private void RefreshCurrentFileConflictHighlights()
+    {
+        SetElevationRuleConflicts(ElevationRuleConflicts.ToArray());
+        RefreshExistingCertificateMatches();
+    }
 
     private bool IsCurrentFileConflict(string conflictType, string value) => conflictType switch
     {
@@ -1102,6 +1129,28 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ? string.Empty
         : new string(value.Where(character => !char.IsWhiteSpace(character) && character is not '-' and not ':')
             .Select(char.ToUpperInvariant).ToArray());
+
+    private void RefreshExistingCertificateMatches()
+    {
+        ExistingCertificateMatches.Clear();
+        if (CurrentSignatureIdentity() is { } identity)
+            foreach (var rule in _selectedPolicyRules.Where(rule =>
+                         string.Equals(rule.Match.Signature, identity, StringComparison.OrdinalIgnoreCase)))
+                ExistingCertificateMatches.Add(rule);
+        Raise(nameof(HasExistingCertificateMatches));
+        Raise(nameof(ExistingCertificateMatchSummary));
+    }
+
+    private string? CurrentSignatureIdentity() => SignatureSource switch
+    {
+        global::EPMRuleCreator.Core.Models.SignatureSource.CertificateFile when PublisherCertificate is { } certificate => NormalizeConflictHash(certificate.Thumbprint),
+        global::EPMRuleCreator.Core.Models.SignatureSource.ReusableSettings when SelectedReusableCertificateSetting is { } reusable => "reusable:" + reusable.Id.Trim(),
+        _ => null
+    };
+
+    private bool IsSameSigningCertificate(ElevationRuleConflictRule rule) =>
+        CurrentSignatureIdentity() is { } identity &&
+        string.Equals(rule.Match.Signature, identity, StringComparison.OrdinalIgnoreCase);
 
     public async Task LoadConflictRuleForEditingAsync(ElevationRuleConflictRule selectedRule)
     {
@@ -1361,7 +1410,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             {
                 _selectedPolicyRuleCount = collection.RuleCount;
                 _selectedPolicyRuleLimit = collection.MaximumRuleCount;
-                SetElevationRuleConflicts(collection.Conflicts);
+                SetElevationRuleCollectionInfo(collection);
                 Raise(nameof(SelectedPolicySummary));
             }
 
@@ -1395,7 +1444,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             {
                 _selectedPolicyRuleCount = updatedCollection.RuleCount;
                 _selectedPolicyRuleLimit = collection.MaximumRuleCount;
-                SetElevationRuleConflicts(updatedCollection.Conflicts);
+                SetElevationRuleCollectionInfo(updatedCollection);
                 Raise(nameof(SelectedPolicySummary));
             }
             ValidationSummary = conflictDecision?.UpdateExisting == true
@@ -1458,7 +1507,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var collection = await _graphAuthentication.GetElevationRuleCollectionInfoAsync(created);
             _selectedPolicyRuleCount = collection.RuleCount;
             _selectedPolicyRuleLimit = collection.MaximumRuleCount;
-            SetElevationRuleConflicts(collection.Conflicts);
+            SetElevationRuleCollectionInfo(collection);
             Raise(nameof(SelectedPolicySummary));
             if (collection.RuleCount != 1)
                 throw new InvalidOperationException($"Readback returned {collection.RuleCount} rules instead of 1.");

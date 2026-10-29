@@ -323,6 +323,24 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
+                            <Separator Margin="0,8"/>
+                            <TextBlock Text="Same signing certificate" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="{Binding ExistingCertificateMatchSummary}" Style="{StaticResource StatusText}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                            <ItemsControl ItemsSource="{Binding ExistingCertificateMatches}"
+                                          Visibility="{Binding HasExistingCertificateMatches, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,2">
+                                            <Button Content="Edit rule" Tag="{Binding}" Click="EditConflictRule_Click" DockPanel.Dock="Right" Padding="8,3" Margin="8,0,0,0"/>
+                                            <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
+                                                <Run Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                <Run Text=" — "/>
+                                                <Run Text="{Binding FileName}"/>
+                                            </TextBlock>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </Border>
                 </StackPanel>

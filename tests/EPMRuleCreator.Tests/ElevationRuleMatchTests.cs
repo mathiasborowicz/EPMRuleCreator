@@ -207,6 +207,34 @@ public sealed class ElevationRuleMatchTests
     }
 
     [Fact]
+    public void FindRuleEntries_PreservesSingleRuleCertificateForCertificateReuseOverview()
+    {
+        using var key = RSA.Create(2048);
+        var request = new CertificateRequest("CN=EPM reuse", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        var rule = RuleTemplate("Single signer rule");
+        rule["children"]!.AsArray().Add(new JsonObject
+        {
+            ["settingDefinitionId"] = Prefix + "signaturesource",
+            ["choiceSettingValue"] = new JsonObject
+            {
+                ["value"] = Prefix + "signaturesource_1",
+                ["children"] = new JsonArray(new JsonObject
+                {
+                    ["settingDefinitionId"] = Prefix + "certificatefileupload",
+                    ["simpleSettingValue"] = new JsonObject { ["value"] = certificate.ExportCertificatePem() }
+                })
+            }
+        });
+
+        var entry = Assert.Single(GraphAuthenticationService.FindRuleEntries(new JsonArray(rule)));
+
+        Assert.Equal(certificate.Thumbprint, entry.Match.Signature);
+        Assert.Equal(SignatureSource.CertificateFile, entry.Rule.SignatureSource);
+        Assert.Equal(certificate.Thumbprint, entry.Rule.PublisherCertificate!.Thumbprint);
+    }
+
+    [Fact]
     public void CreateRuleForUpdate_ReplacesOnlySelectedIndexAndUsesNewValues()
     {
         var rules = Rules();

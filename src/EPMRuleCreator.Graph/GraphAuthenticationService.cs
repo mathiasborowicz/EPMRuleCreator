@@ -25,7 +25,8 @@ public sealed record ElevationRuleConflictRule(int Index, string Name, string Fi
     public bool IsCurrentFileConflict { get; init; }
 }
 public sealed record ElevationRuleConflict(string ConflictType, string Value, IReadOnlyList<ElevationRuleConflictRule> Rules);
-public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount, IReadOnlyList<ElevationRuleConflict> Conflicts);
+public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount,
+    IReadOnlyList<ElevationRuleConflict> Conflicts, IReadOnlyList<ElevationRuleConflictRule> Rules);
 public sealed record ElevationRuleMatch(int Index, string Name, string FileName, string? FileVersion, string? FileHash,
     string? Signature, string MatchReason, bool VersionMatches, string VersionDisplayReason,
     string? OtherRuleWithSameName, bool IncomingNameAlreadyExists);
@@ -250,7 +251,8 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
         if (!foundElevationSetting && policy.SettingCount > 0)
             throw new InvalidOperationException("The policy has settings, but the Elevation Rules collection was not found. Its rule count cannot be safely determined.");
 
-        return new ElevationRuleCollectionInfo(ruleCount, maximumRuleCount, FindRuleConflicts(policyRules));
+        return new ElevationRuleCollectionInfo(ruleCount, maximumRuleCount,
+            FindRuleConflicts(policyRules), FindRuleEntries(policyRules));
     }
 
     public async Task<ElevationRulePolicy> CreateElevationRulePolicyAsync(
@@ -510,6 +512,14 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             }
         }
     }
+
+    internal static IReadOnlyList<ElevationRuleConflictRule> FindRuleEntries(JsonArray rules) =>
+        rules.Select((rule, index) => (rule, index))
+            .Where(item => item.rule is JsonObject)
+            .Select(item => CreateConflictCandidate((JsonObject)item.rule!, item.index))
+            .Select(entry => new ElevationRuleConflictRule(entry.Index, entry.Name ?? "(Unnamed rule)",
+                entry.FileName ?? string.Empty, entry.Hash, entry.Version, entry.Rule, entry.Match))
+            .ToArray();
 
     private static RuleConflictCandidate CreateConflictCandidate(JsonObject source, int index)
     {
