@@ -79,7 +79,7 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
         var accessToken = await GetAccessTokenAsync(cancellationToken);
         var filter = Uri.EscapeDataString("templateReference/templateFamily eq 'endpointSecurityEndpointPrivilegeManagement'");
-        var select = "id,name,description,platforms,lastModifiedDateTime,technologies,settingCount,isAssigned";
+        var select = "id,name,description,platforms,lastModifiedDateTime,technologies,settingCount,isAssigned,templateReference";
         var nextLink = $"https://graph.microsoft.com/beta/deviceManagement/configurationPolicies?$top=25&$filter={filter}&$select={Uri.EscapeDataString(select)}";
         var policies = new List<ElevationRulePolicy>();
 
@@ -100,6 +100,14 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
             {
                 foreach (var item in values.EnumerateArray())
                 {
+                    // The EPM family also contains System Settings policies, which are
+                    // shown in a separate UI and do not have an Elevation Rules collection.
+                    var templateId = item.TryGetProperty("templateReference", out var templateReference)
+                        ? GetString(templateReference, "templateId")
+                        : null;
+                    if (!IsElevationRulePolicyTemplate(templateId))
+                        continue;
+
                     policies.Add(new ElevationRulePolicy(
                         GetString(item, "id") ?? string.Empty,
                         GetString(item, "name") ?? "(Unnamed policy)",
@@ -117,6 +125,9 @@ public sealed class GraphAuthenticationService : IAsyncDisposable
 
         return policies;
     }
+
+    internal static bool IsElevationRulePolicyTemplate(string? templateId) =>
+        string.Equals(templateId, NewElevationPolicyPayload.TemplateId, StringComparison.OrdinalIgnoreCase);
 
     public async Task<IReadOnlyList<EpmReusableCertificateSetting>> GetEpmReusableCertificateSettingsAsync(CancellationToken cancellationToken = default)
     {
