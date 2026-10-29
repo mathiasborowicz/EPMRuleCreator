@@ -20,7 +20,10 @@ public sealed record ElevationRulePolicy(
     int SettingCount,
     bool IsAssigned);
 public sealed record ElevationRuleConflictRule(int Index, string Name, string FileName, string? FileHash,
-    string? FileVersion, ElevationRule Rule, ElevationRuleMatch Match);
+    string? FileVersion, ElevationRule Rule, ElevationRuleMatch Match)
+{
+    public bool IsCurrentFileConflict { get; init; }
+}
 public sealed record ElevationRuleConflict(string ConflictType, string Value, IReadOnlyList<ElevationRuleConflictRule> Rules);
 public sealed record ElevationRuleCollectionInfo(int RuleCount, int MaximumRuleCount, IReadOnlyList<ElevationRuleConflict> Conflicts);
 public sealed record ElevationRuleMatch(int Index, string Name, string FileName, string? FileVersion, string? FileHash,

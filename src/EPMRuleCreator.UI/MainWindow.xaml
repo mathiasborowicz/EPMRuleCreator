@@ -274,6 +274,7 @@
                         <StackPanel>
                             <TextBlock Text="Rule conflicts" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
                             <TextBlock Text="{Binding ElevationRuleConflictSummary}" Style="{StaticResource StatusText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <TextBlock Text="Highlighted entries match the current editor rule by name, hash, or version." Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"
                                           Visibility="{Binding HasElevationRuleConflicts, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <ItemsControl ItemsSource="{Binding ElevationRuleConflicts}">
@@ -289,14 +290,30 @@
                                                     <ItemsControl ItemsSource="{Binding Rules}" Margin="8,3,0,0">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
-                                                                <DockPanel Margin="0,2">
-                                                                    <Button Content="Edit rule" Tag="{Binding}" Click="EditConflictRule_Click" DockPanel.Dock="Right" Padding="8,3" Margin="8,0,0,0"/>
-                                                                    <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
-                                                                        <Run Text="{Binding Name}" FontWeight="SemiBold"/>
-                                                                        <Run Text=" — "/>
-                                                                        <Run Text="{Binding FileName}"/>
-                                                                    </TextBlock>
-                                                                </DockPanel>
+                                                                <Border Padding="5" CornerRadius="4" Margin="0,2">
+                                                                    <Border.Style>
+                                                                        <Style TargetType="Border">
+                                                                            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsCurrentFileConflict}" Value="True">
+                                                                                    <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                                                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                                                    <Setter Property="BorderThickness" Value="1"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Border.Style>
+                                                                    <DockPanel>
+                                                                        <Button Content="Edit rule" Tag="{Binding}" Click="EditConflictRule_Click" DockPanel.Dock="Right" Padding="8,3" Margin="8,0,0,0"/>
+                                                                        <TextBlock Text="CURRENT FILE" DockPanel.Dock="Right" Foreground="{DynamicResource AccentBrush}" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                                   Visibility="{Binding IsCurrentFileConflict, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                                        <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
+                                                                            <Run Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                                            <Run Text=" — "/>
+                                                                            <Run Text="{Binding FileName}"/>
+                                                                        </TextBlock>
+                                                                    </DockPanel>
+                                                                </Border>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>

@@ -467,13 +467,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string SignatureDetails { get => _signatureDetails; private set => Set(ref _signatureDetails, value); }
     public string AnalysisWarnings { get => _analysisWarnings; set { if (Set(ref _analysisWarnings, value)) Raise(nameof(HasAnalysisWarnings)); } }
     public bool HasAnalysisWarnings => !string.IsNullOrWhiteSpace(AnalysisWarnings);
-    public string RuleName { get => _ruleName; set => Set(ref _ruleName, value); }
+    public string RuleName { get => _ruleName; set { if (Set(ref _ruleName, value)) RefreshCurrentFileConflictHighlights(); } }
     public string RuleDescription { get => _ruleDescription; set => Set(ref _ruleDescription, value); }
     public string RuleFileName { get => _ruleFileName; set => Set(ref _ruleFileName, value); }
-    public string RuleFileVersion { get => _ruleFileVersion; set => Set(ref _ruleFileVersion, value); }
+    public string RuleFileVersion { get => _ruleFileVersion; set { if (Set(ref _ruleFileVersion, value)) RefreshCurrentFileConflictHighlights(); } }
     public void NormalizeRuleFileVersion() => RuleFileVersion =
         RuleValidationService.NormalizeMinimumFileVersionToFourParts(RuleFileVersion) ?? string.Empty;
-    public string RuleFileHash { get => _ruleFileHash; set => Set(ref _ruleFileHash, value); }
+    public string RuleFileHash { get => _ruleFileHash; set { if (Set(ref _ruleFileHash, value)) RefreshCurrentFileConflictHighlights(); } }
     public string RuleFileDescription { get => _ruleFileDescription; set => Set(ref _ruleFileDescription, value); }
     public string RuleFilePath { get => _ruleFilePath; set => Set(ref _ruleFilePath, value); }
     public string RuleProductName { get => _ruleProductName; set => Set(ref _ruleProductName, value); }
@@ -1074,10 +1074,34 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         ElevationRuleConflicts.Clear();
         foreach (var conflict in conflicts)
-            ElevationRuleConflicts.Add(conflict);
+            ElevationRuleConflicts.Add(conflict with
+            {
+                Rules = conflict.Rules.Select(rule => rule with
+                {
+                    IsCurrentFileConflict = IsCurrentFileConflict(conflict.ConflictType, conflict.Value)
+                }).ToArray()
+            });
         Raise(nameof(HasElevationRuleConflicts));
         Raise(nameof(ElevationRuleConflictSummary));
     }
+
+    private void RefreshCurrentFileConflictHighlights() => SetElevationRuleConflicts(ElevationRuleConflicts.ToArray());
+
+    private bool IsCurrentFileConflict(string conflictType, string value) => conflictType switch
+    {
+        "Name" => string.Equals(value.Trim(), RuleName.Trim(), StringComparison.OrdinalIgnoreCase),
+        "Hash" => string.Equals(NormalizeConflictHash(value), NormalizeConflictHash(RuleFileHash), StringComparison.Ordinal),
+        "Version" => string.Equals(
+            RuleValidationService.NormalizeMinimumFileVersionToFourParts(value),
+            RuleValidationService.NormalizeMinimumFileVersionToFourParts(RuleFileVersion),
+            StringComparison.Ordinal),
+        _ => false
+    };
+
+    private static string NormalizeConflictHash(string? value) => string.IsNullOrWhiteSpace(value)
+        ? string.Empty
+        : new string(value.Where(character => !char.IsWhiteSpace(character) && character is not '-' and not ':')
+            .Select(char.ToUpperInvariant).ToArray());
 
     public async Task LoadConflictRuleForEditingAsync(ElevationRuleConflictRule selectedRule)
     {
